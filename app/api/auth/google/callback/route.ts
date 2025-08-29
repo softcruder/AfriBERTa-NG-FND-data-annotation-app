@@ -63,11 +63,11 @@ export async function GET(request: NextRequest) {
         refresh_token: tokens.refresh_token,
         expires_at: Date.now() + tokens.expires_in * 1000,
       },
+      expiresAt: Date.now() + 60 * 60 * 24 * 7 * 1000, // 7 days
     }
 
-    // Set session cookie
     const response = NextResponse.redirect(new URL("/dashboard", request.url))
-    response.cookies.set("session", JSON.stringify(sessionData), {
+    response.cookies.set("auth_session", JSON.stringify(sessionData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

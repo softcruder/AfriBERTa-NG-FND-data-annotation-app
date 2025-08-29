@@ -11,6 +11,7 @@ import { AnnotatorManagement } from "@/components/annotator-management"
 import { DataConfiguration } from "@/components/data-configuration"
 import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
+import { LogoutButton } from "@/components/logout-button"
 
 interface AdminDashboardProps {
   user: User
@@ -150,6 +151,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <Download className="mr-2 h-4 w-4" />
             Export Data
           </Button>
+          <LogoutButton />
           <Avatar>
             <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>

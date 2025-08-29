@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import { LoginForm } from "@/components/login-form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -6,7 +8,35 @@ interface HomePageProps {
   searchParams: { error?: string }
 }
 
-export default function HomePage({ searchParams }: HomePageProps) {
+async function getSession() {
+  const cookieStore = await cookies()
+  const sessionCookie = cookieStore.get("auth_session")
+
+  if (!sessionCookie) {
+    return null
+  }
+
+  try {
+    const session = JSON.parse(sessionCookie.value)
+
+    // Check if session is expired
+    if (Date.now() > session.expiresAt) {
+      return null
+    }
+
+    return session
+  } catch {
+    return null
+  }
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const session = await getSession()
+
+  if (session) {
+    redirect("/dashboard")
+  }
+
   const { error } = searchParams
 
   const getErrorMessage = (error: string) => {

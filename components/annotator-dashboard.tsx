@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, FileText, CheckCircle, Play, DollarSign } from "lucide-react"
 import { AnnotationForm } from "@/components/annotation-form"
 import { PaymentDashboard } from "@/components/payment-dashboard"
+import { LogoutButton } from "@/components/logout-button"
 import { getCurrentTask, setCurrentTask, getSpreadsheetId, getCSVFileId } from "@/lib/data-store"
 import type { AnnotationTask } from "@/lib/data-store"
 
@@ -188,6 +189,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
           <p className="text-muted-foreground">Welcome back, {user.name}</p>
         </div>
         <div className="flex items-center gap-4">
+          <LogoutButton />
           <Avatar>
             <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>

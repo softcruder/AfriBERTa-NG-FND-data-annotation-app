@@ -11,13 +11,24 @@ export function LoginForm() {
   const handleGoogleLogin = async () => {
     setIsLoading(true)
     try {
-      // TODO: Implement Google OAuth login
       console.log("Google OAuth login initiated")
-      // Simulate loading
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // Build Google OAuth URL
+      const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
+      googleAuthUrl.searchParams.set("client_id", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "")
+      googleAuthUrl.searchParams.set("redirect_uri", process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "")
+      googleAuthUrl.searchParams.set("response_type", "code")
+      googleAuthUrl.searchParams.set(
+        "scope",
+        "openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets",
+      )
+      googleAuthUrl.searchParams.set("access_type", "offline")
+      googleAuthUrl.searchParams.set("prompt", "consent")
+
+      // Redirect to Google OAuth
+      window.location.href = googleAuthUrl.toString()
     } catch (error) {
       console.error("Login failed:", error)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -31,7 +42,7 @@ export function LoginForm() {
       <CardContent className="space-y-4">
         <Button onClick={handleGoogleLogin} disabled={isLoading} className="w-full h-12 text-base" size="lg">
           <Chrome className="mr-2 h-5 w-5" />
-          {isLoading ? "Signing in..." : "Continue with Google"}
+          {isLoading ? "Redirecting to Google..." : "Continue with Google"}
         </Button>
 
         <div className="text-center text-sm text-muted-foreground">

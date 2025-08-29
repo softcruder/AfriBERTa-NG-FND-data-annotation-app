@@ -58,7 +58,7 @@ export function decryptSession(encryptedData: string): string {
     
     return decrypted
   } catch (error) {
-    console.error('Decryption error:', error)
+    console.error('Decryption error occurred during session decryption')
     throw new Error('Failed to decrypt session data')
   }
 }

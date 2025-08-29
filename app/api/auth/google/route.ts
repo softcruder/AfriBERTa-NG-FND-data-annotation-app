@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
     const userInfo = await userResponse.json()
 
     // TODO: Check if user is authorized (admin list)
+    
     // For now, default to annotator role
     const user = {
       id: userInfo.id,

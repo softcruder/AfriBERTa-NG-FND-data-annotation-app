@@ -8,8 +8,15 @@ const ITERATIONS = 100000
 
 // Get encryption key from environment or generate a default for development
 function getEncryptionKey(): Buffer {
-  const secret = process.env.SESSION_SECRET || 'default-development-secret-key-change-in-production'
+  const secret = process.env.SESSION_SECRET
   const salt = process.env.SESSION_SALT || 'default-salt'
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SESSION_SECRET environment variable must be set in production')
+    }
+    // Use a fallback only in non-production environments
+    return pbkdf2Sync('default-development-secret-key-change-in-production', salt, ITERATIONS, 32, 'sha256')
+  }
   return pbkdf2Sync(secret, salt, ITERATIONS, 32, 'sha256')
 }
 

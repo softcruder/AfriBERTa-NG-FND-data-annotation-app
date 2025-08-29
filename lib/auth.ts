@@ -51,9 +51,8 @@ export function getStoredSession(): AuthSession | null {
     const stored = localStorage.getItem("auth_session")
     if (!stored) return null
 
-    // Decrypt the session data
-    const decryptedData = decryptSession(stored)
-    const session: AuthSession = JSON.parse(decryptedData)
+    // Parse the session data directly (no decryption on client side)
+    const session: AuthSession = JSON.parse(stored)
 
     // Check if session is expired
     if (Date.now() > session.expiresAt) {

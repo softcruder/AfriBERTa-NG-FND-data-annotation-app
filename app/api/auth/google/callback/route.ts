@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getUserRole } from "@/lib/admin-auth"
+import { encryptSession } from "@/lib/encryption"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         name: user.name,
         picture: user.picture,
-        role: user.email.includes("admin") ? "admin" : "annotator", // Simple role assignment
+        role: getUserRole(user.email), // Use admin authorization logic
       },
       tokens: {
         access_token: tokens.access_token,
@@ -67,7 +69,10 @@ export async function GET(request: NextRequest) {
     }
 
     const response = NextResponse.redirect(new URL("/dashboard", request.url))
-    response.cookies.set("auth_session", JSON.stringify(sessionData), {
+    
+    // Encrypt and set session cookie
+    const encryptedSession = encryptSession(JSON.stringify(sessionData))
+    response.cookies.set("auth_session", encryptedSession, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

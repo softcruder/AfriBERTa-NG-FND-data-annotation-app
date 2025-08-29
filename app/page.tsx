@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { LoginForm } from "@/components/login-form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { getSessionFromCookie } from "@/lib/auth"
 
 interface HomePageProps {
   searchParams: { error?: string }
@@ -16,18 +17,7 @@ async function getSession() {
     return null
   }
 
-  try {
-    const session = JSON.parse(sessionCookie.value)
-
-    // Check if session is expired
-    if (Date.now() > session.expiresAt) {
-      return null
-    }
-
-    return session
-  } catch {
-    return null
-  }
+  return getSessionFromCookie(sessionCookie.value)
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {

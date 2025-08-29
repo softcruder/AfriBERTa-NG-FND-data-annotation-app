@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { logAnnotation, getAnnotations, updatePaymentFormulas } from "@/lib/google-apis"
+import { getSessionFromCookie } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,9 +10,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const session = JSON.parse(sessionCookie.value)
-    if (Date.now() > session.expiresAt) {
-      return NextResponse.json({ error: "Session expired" }, { status: 401 })
+    const session = getSessionFromCookie(sessionCookie.value)
+    if (!session) {
+      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -38,9 +39,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const session = JSON.parse(sessionCookie.value)
-    if (Date.now() > session.expiresAt) {
-      return NextResponse.json({ error: "Session expired" }, { status: 401 })
+    const session = getSessionFromCookie(sessionCookie.value)
+    if (!session) {
+      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
     }
 
     const { spreadsheetId, annotation } = await request.json()

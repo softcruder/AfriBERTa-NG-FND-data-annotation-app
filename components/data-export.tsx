@@ -207,8 +207,16 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
               </div>
               {watchedValues.dateRange && (
                 <div>
-                  Date Range: {watchedValues.dateRange.from?.toLocaleDateString()} -{" "}
-                  {watchedValues.dateRange.to?.toLocaleDateString()}
+                  {(() => {
+                    const fmt = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" })
+                    const from = watchedValues.dateRange.from ? fmt.format(watchedValues.dateRange.from) : ""
+                    const to = watchedValues.dateRange.to ? fmt.format(watchedValues.dateRange.to) : ""
+                    return (
+                      <>
+                        Date Range: {from} - {to}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
               {watchedValues.annotators && watchedValues.annotators.length > 0 && (

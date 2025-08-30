@@ -127,7 +127,17 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
   }
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString()
+    // Use a fixed locale and timezone to avoid SSR/CSR hydration mismatches
+    try {
+      const dt = new Date(timeString)
+      return new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "UTC",
+      }).format(dt)
+    } catch {
+      return timeString
+    }
   }
 
   return (

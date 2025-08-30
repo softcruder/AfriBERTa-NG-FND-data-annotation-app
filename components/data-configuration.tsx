@@ -135,7 +135,12 @@ export function DataConfiguration() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
+    try {
+      const dt = new Date(dateString)
+      return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(dt)
+    } catch {
+      return dateString
+    }
   }
 
   const getFileIcon = (mimeType: string) => {

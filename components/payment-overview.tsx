@@ -121,7 +121,7 @@ export function PaymentOverview() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₦{totalPayments.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(totalPayments)}</div>
             <p className="text-xs text-muted-foreground">across all annotators</p>
           </CardContent>
         </Card>
@@ -224,11 +224,11 @@ export function PaymentOverview() {
                     </TableCell>
                     <TableCell>{payment.totalHours.toFixed(1)}h</TableCell>
                     <TableCell>{payment.avgRowsPerHour.toFixed(1)}/hr</TableCell>
-                    <TableCell>₦{payment.paymentRows.toLocaleString()}</TableCell>
-                    <TableCell>₦{payment.paymentTranslations.toLocaleString()}</TableCell>
+                    <TableCell>₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(payment.paymentRows)}</TableCell>
+                    <TableCell>₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(payment.paymentTranslations)}</TableCell>
                     <TableCell>
                       <Badge variant="default" className="bg-orange-100 text-orange-800">
-                        ₦{payment.totalPayment.toLocaleString()}
+                        ₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(payment.totalPayment)}
                       </Badge>
                     </TableCell>
                   </TableRow>

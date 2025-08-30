@@ -199,7 +199,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₦{isLoading ? "-" : stats.pendingPayments.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              ₦
+              {isLoading
+                ? "-"
+                : new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(stats.pendingPayments)}
+            </div>
             <p className="text-xs text-muted-foreground">total due</p>
           </CardContent>
         </Card>

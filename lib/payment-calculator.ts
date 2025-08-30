@@ -65,7 +65,7 @@ export function calculatePayment(
 }
 
 export function formatCurrency(amount: number, currency = "₦"): string {
-  return `${currency}${amount.toLocaleString()}`
+  return `${currency}${new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(amount)}`
 }
 
 export function calculateEfficiencyMetrics(

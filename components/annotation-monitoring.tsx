@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -127,9 +128,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
   }
 
-  const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString()
-  }
+  const formatTime = (timeString: string) => formatDate(timeString, { withTime: true })
 
   return (
     <div className="space-y-6">
@@ -194,7 +193,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                       </div>
                     </TableCell>
                     <TableCell>{formatDuration(activity.durationMinutes)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatTime(activity.startTime)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(activity.startTime, { withTime: true })}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

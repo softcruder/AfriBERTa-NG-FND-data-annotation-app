@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users, FileText, DollarSign, Download, Settings, Activity } from "lucide-react"
 import { AnnotatorManagement } from "@/components/annotator-management"
+import { formatMoney } from "@/lib/utils"
 import { DataConfiguration } from "@/components/data-configuration"
 import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
@@ -133,7 +134,11 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `annotations_export_${new Date().toISOString().split("T")[0]}.csv`
+  const today = new Date()
+  const yyyy = today.getUTCFullYear()
+  const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
+  const dd = String(today.getUTCDate()).padStart(2, "0")
+  a.download = `annotations_export_${yyyy}-${mm}-${dd}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -202,7 +207,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₦{isLoading ? "-" : stats.pendingPayments.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{isLoading ? "-" : formatMoney("₦", stats.pendingPayments)}</div>
             <p className="text-xs text-muted-foreground">total due</p>
           </CardContent>
         </Card>

@@ -1,3 +1,6 @@
+import { formatMoney } from "@/lib/utils"
+
+
 // Payment calculation utilities
 export interface PaymentRates {
   perRow: number // ₦100 per row
@@ -65,22 +68,18 @@ export function calculatePayment(
 }
 
 export function formatCurrency(amount: number, currency = "₦"): string {
-  return `${currency}${amount.toLocaleString()}`
+  return formatMoney(currency, amount)
 }
 
 export function calculateEfficiencyMetrics(
   totalRows: number,
   totalHours: number,
   targetRowsPerHour = 5,
-): {
-  efficiency: number // percentage
-  status: "excellent" | "good" | "average" | "below-average"
-  recommendation: string
-} {
+) {
   const avgRowsPerHour = totalHours > 0 ? totalRows / totalHours : 0
   const efficiency = (avgRowsPerHour / targetRowsPerHour) * 100
 
-  let status: "excellent" | "good" | "average" | "below-average"
+  let status: "excellent" | "good" | "average" | "below-average" | "not-started"
   let recommendation: string
 
   if (efficiency >= 120) {
@@ -92,9 +91,12 @@ export function calculateEfficiencyMetrics(
   } else if (efficiency >= 80) {
     status = "average"
     recommendation = "Good progress. Focus on accuracy while maintaining pace."
-  } else {
+  } else if (efficiency > 1 && efficiency < 80) {
     status = "below-average"
     recommendation = "Take your time to ensure quality. Speed will improve with practice."
+  } else {
+    status = "not-started"
+    recommendation = "Start annotating to measure performance."
   }
 
   return { efficiency, status, recommendation }

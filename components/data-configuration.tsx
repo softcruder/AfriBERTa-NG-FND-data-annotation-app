@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FileText, Database, Plus, ExternalLink, Settings } from "lucide-react"
 import { setSpreadsheetId, setCSVFileId, getSpreadsheetId, getCSVFileId } from "@/lib/data-store"
 import { useToast } from "@/hooks/use-toast"
+import { formatDate } from "@/lib/utils"
 
 interface DriveFile {
   id: string
@@ -138,9 +139,7 @@ export function DataConfiguration() {
     })
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
-  }
+  // use shared formatDate from lib/utils
 
   const getFileIcon = (mimeType: string) => {
     if (mimeType.includes("csv")) return <FileText className="h-4 w-4 text-orange-600" />

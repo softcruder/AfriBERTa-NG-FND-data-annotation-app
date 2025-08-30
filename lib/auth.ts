@@ -24,16 +24,20 @@ export const GOOGLE_OAUTH_CONFIG = {
     "openid",
     "email",
     "profile",
-    "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
   ].join(" "),
 }
 
 // Helper function to generate Google OAuth URL
 export function getGoogleAuthUrl(): string {
+  // Prefer dynamic origin on the client to avoid env drift between local and prod
+  const dynamicRedirect =
+    typeof window !== "undefined" ? `${window.location.origin}/api/auth/google/callback` : GOOGLE_OAUTH_CONFIG.redirectUri
+
   const params = new URLSearchParams({
     client_id: GOOGLE_OAUTH_CONFIG.clientId || "",
-    redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri || "",
+    redirect_uri: dynamicRedirect || "",
     response_type: "code",
     scope: GOOGLE_OAUTH_CONFIG.scopes,
     access_type: "offline",

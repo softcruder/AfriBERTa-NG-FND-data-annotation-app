@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: tokens.expires_in,
+      maxAge: 604800, // 7 days in seconds
     })
 
     return response

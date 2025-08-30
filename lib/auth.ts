@@ -1,3 +1,5 @@
+import { encryptSession, decryptSession } from './encryption'
+
 // Authentication utilities and types
 export interface User {
   id: string
@@ -49,6 +51,7 @@ export function getStoredSession(): AuthSession | null {
     const stored = localStorage.getItem("auth_session")
     if (!stored) return null
 
+    // Parse the session data directly (no decryption on client side)
     const session: AuthSession = JSON.parse(stored)
 
     // Check if session is expired
@@ -59,13 +62,24 @@ export function getStoredSession(): AuthSession | null {
 
     return session
   } catch {
+    // If decryption fails, clear the invalid session
+    localStorage.removeItem("auth_session")
     return null
   }
 }
 
 export function storeSession(session: AuthSession): void {
   if (typeof window === "undefined") return
-  localStorage.setItem("auth_session", JSON.stringify(session))
+  
+  try {
+    // Encrypt the session data before storing
+    const sessionData = JSON.stringify(session)
+    const encryptedData = encryptSession(sessionData)
+    localStorage.setItem("auth_session", encryptedData)
+  } catch (error) {
+    console.error('Failed to store encrypted session:', error)
+    throw new Error('Failed to store session')
+  }
 }
 
 export function clearSession(): void {
@@ -86,4 +100,37 @@ export async function getSession(): Promise<AuthSession | null> {
   // Server-side session validation would go here
   // This is a simplified version for the demo
   return null
+}
+
+/**
+ * Server-side function to get session from encrypted cookie
+ */
+export function getSessionFromCookie(cookieValue: string): AuthSession | null {
+  try {
+    const decryptedData = decryptSession(cookieValue)
+    const session: AuthSession = JSON.parse(decryptedData)
+
+    // Check if session is expired
+    if (Date.now() > session.expiresAt) {
+      return null
+    }
+
+    return session
+  } catch (error) {
+    console.error('Failed to decrypt session from cookie:', error)
+    return null
+  }
+}
+
+/**
+ * Extract session from request cookies
+ */
+export function getSessionFromRequest(request: Request): AuthSession | null {
+  const sessionCookie = request.headers.get('cookie')?.match(/auth_session=([^;]+)/)?.[1]
+  
+  if (!sessionCookie) {
+    return null
+  }
+
+  return getSessionFromCookie(decodeURIComponent(sessionCookie))
 }

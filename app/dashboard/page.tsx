@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { AnnotatorDashboard } from "@/components/annotator-dashboard"
 import { AdminDashboard } from "@/components/admin-dashboard"
+import { getSessionFromCookie } from "@/lib/auth"
 
 async function getSession() {
   const cookieStore = await cookies()
@@ -11,18 +12,7 @@ async function getSession() {
     return null
   }
 
-  try {
-    const session = JSON.parse(sessionCookie.value)
-
-    // Check if session is expired
-    if (Date.now() > session.expiresAt) {
-      return null
-    }
-
-    return session
-  } catch {
-    return null
-  }
+  return getSessionFromCookie(sessionCookie.value)
 }
 
 export default async function DashboardPage() {

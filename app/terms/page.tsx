@@ -18,7 +18,7 @@ export default function TermsOfService() {
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Terms of Service</h1>
           <p className="text-muted-foreground">AfriBERTa NG Data Annotation Platform</p>
-          <p className="text-sm text-muted-foreground mt-2">Last updated: {new Date().toLocaleDateString()}</p>
+          <p className="text-sm text-muted-foreground mt-2">Last updated: June 1, 2024</p>
         </div>
 
         {/* Navigation */}

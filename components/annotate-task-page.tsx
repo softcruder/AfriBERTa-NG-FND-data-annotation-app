@@ -1,0 +1,156 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { AnnotationForm } from "@/components/annotation-form"
+import type { AnnotationTask } from "@/lib/data-store"
+import type { User as LibUser } from "@/lib/auth"
+import { useAuth } from "@/custom-hooks/useAuth"
+import { useToast } from "@/hooks/use-toast"
+import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
+
+type Role = "annotator" | "admin"
+
+interface AnnotateTaskPageProps {
+  rowId: string
+  role: Role
+}
+
+// Parse a rowId of the form `${fileId}_row_${index}` => { fileId, index }
+function parseRowId(rowId: string): { fileId: string | null; index: number | null } {
+  const match = rowId.match(/^(.*)_row_(\d+)$/)
+  if (!match) return { fileId: null, index: null }
+  const [, fileId, idx] = match
+  return { fileId, index: Number.parseInt(idx, 10) }
+}
+
+export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const { user, spreadsheetId } = useAuth()
+  const [task, setTask] = useState<AnnotationTask | null>(null)
+  const [loading, setLoading] = useState(true)
+  const { create: createAnnotation } = useCreateAnnotation()
+
+  const targetAfterComplete = useMemo(() => {
+    return role === "admin" ? "/dashboard/admin" : "/dashboard/annotator/tasks"
+  }, [role])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const parsed = parseRowId(rowId)
+        if (!parsed.fileId || parsed.index == null) {
+          toast({ title: "Invalid row", description: "Could not parse row identifier", variant: "destructive" })
+          router.push(targetAfterComplete)
+          return
+        }
+
+        // Fetch CSV from API and pick the row at index (header is at 0)
+        const res = await fetch(`/api/drive/csv/${encodeURIComponent(parsed.fileId)}`)
+        if (!res.ok) throw new Error("Failed to load CSV")
+        const json = (await res.json()) as { data: string[][] }
+        const csv = json.data
+        const header = csv?.[0]
+        const row = csv?.[parsed.index]
+        if (!row || !Array.isArray(row)) throw new Error("Row not found in CSV")
+
+        // Build initial AnnotationTask consistent with dashboard starter
+        const extractedClaim = row[1] || row[0] || ""
+        const verdict = row[2] || ""
+        const sourceUrl = row[7] || ""
+        const claimLinks = row[5] || ""
+        const linksArray = [sourceUrl, ...claimLinks.split(/;\s*/)].filter(Boolean)
+
+        const newTask: AnnotationTask = {
+          id: `task_${Date.now()}`,
+          rowId,
+          csvRow: { id: rowId, originalIndex: parsed.index, data: row, header },
+          startTime: new Date(),
+          claims: [extractedClaim],
+          sourceLinks: linksArray.length ? linksArray : [""],
+          verdict,
+          status: "in-progress",
+        }
+
+        if (!cancelled) setTask(newTask)
+      } catch (e) {
+        if (!cancelled) {
+          toast({ title: "Load failed", description: "Could not load the selected row", variant: "destructive" })
+          router.push(targetAfterComplete)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [rowId, router, targetAfterComplete, toast])
+
+  if (!user) return null
+  const libUser = user as unknown as LibUser
+
+  const handleTaskComplete = async (completedTask: AnnotationTask) => {
+    try {
+      if (!spreadsheetId) {
+        toast({ title: "Missing config", description: "No spreadsheet configured", variant: "destructive" })
+        return
+      }
+
+      const duration =
+        completedTask.startTime && completedTask.endTime
+          ? Math.round((completedTask.endTime.getTime() - completedTask.startTime.getTime()) / (1000 * 60))
+          : 0
+
+      const lang = (completedTask.csvRow.data[4] || "").trim().toLowerCase()
+      const isEN = lang === "en"
+      const targetLang = (completedTask.translation ? (completedTask as any).translationLanguage : undefined) as
+        | "ha"
+        | "yo"
+        | undefined
+
+      const annotation = {
+        rowId: completedTask.rowId,
+        annotatorId: libUser.id,
+        claimText: completedTask.claims.join(" | "),
+        sourceLinks: completedTask.sourceLinks,
+        translation: completedTask.translation,
+        verdict: completedTask.verdict,
+        sourceUrl: (completedTask as any).sourceUrl || completedTask.sourceLinks[0] || "",
+        claimLinks: (completedTask as any).claimLinks ?? (completedTask.sourceLinks || []).slice(1),
+        claim_text_ha: isEN && targetLang === "ha" ? completedTask.claims.join(" | ") : undefined,
+        claim_text_yo: isEN && targetLang === "yo" ? completedTask.claims.join(" | ") : undefined,
+        article_body_ha: isEN && targetLang === "ha" ? completedTask.articleBody || "" : undefined,
+        article_body_yo: isEN && targetLang === "yo" ? completedTask.articleBody || "" : undefined,
+        translationLanguage: targetLang,
+        startTime: completedTask.startTime?.toISOString() || "",
+        endTime: completedTask.endTime?.toISOString() || "",
+        durationMinutes: duration,
+        status: "completed" as const,
+      }
+
+      await createAnnotation({ spreadsheetId, annotation })
+      toast({ title: "Task saved", description: "Annotation saved successfully" })
+      router.push(targetAfterComplete)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      toast({ title: "Save failed", description: message, variant: "destructive" })
+    }
+  }
+
+  const handleTaskCancel = () => {
+    router.push(targetAfterComplete)
+  }
+
+  if (loading) return <div className="container mx-auto p-6">Loading task…</div>
+  if (!task) return null
+
+  return (
+    <div className="min-h-screen bg-background">
+      <AnnotationForm task={task} user={libUser} onComplete={handleTaskComplete} onCancel={handleTaskCancel} />
+    </div>
+  )
+}

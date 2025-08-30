@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
 import type { User } from "@/lib/auth"
 import { calculatePayment, calculateEfficiencyMetrics, formatCurrency, DEFAULT_RATES } from "@/lib/payment-calculator"
-import { useConfig, useAnnotations } from "@/custom-hooks"
+import { useAuth, useAnnotations } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -30,7 +30,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
     hoursToday: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
-  const { spreadsheetId } = useConfig()
+  const { spreadsheetId } = useAuth()
   const { data: annotations } = useAnnotations(spreadsheetId)
 
   const loadStats = useCallback(() => {

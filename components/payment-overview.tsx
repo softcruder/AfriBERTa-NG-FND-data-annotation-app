@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DollarSign, Clock, FileText, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useConfig, usePayments } from "@/custom-hooks"
+import { useAuth, usePayments } from "@/custom-hooks"
 
 interface PaymentSummary {
   annotatorId: string
@@ -27,7 +27,7 @@ export function PaymentOverview() {
   const [payments, setPayments] = useState<PaymentSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
-  const { spreadsheetId } = useConfig()
+  const { spreadsheetId } = useAuth()
   const { data: swrPayments, isLoading: paying } = usePayments(spreadsheetId)
 
   useEffect(() => {

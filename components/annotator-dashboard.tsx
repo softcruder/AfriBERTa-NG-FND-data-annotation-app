@@ -12,7 +12,7 @@ import { PaymentDashboard } from "@/components/payment-dashboard"
 // import { LogoutButton } from "@/components/logout-button"
 import { getCurrentTask, setCurrentTask } from "@/lib/data-store"
 import type { AnnotationTask } from "@/lib/data-store"
-import { useConfig, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
+import { useAuth, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
 import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 
@@ -26,7 +26,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   const [tasksPage, setTasksPage] = useState(1)
   const pageSize = 10
   const { toast } = useToast()
-  const { spreadsheetId, csvFileId } = useConfig()
+  const { spreadsheetId, csvFileId } = useAuth()
   const { data: tasksResp } = useTasks({ page: tasksPage, pageSize, fileId: csvFileId || undefined })
   const { data: annotations, mutate: mutateAnnotations } = useAnnotations(spreadsheetId)
   const { anonymize, loading: anonymizing } = useAnonymizeSelf()

@@ -12,7 +12,7 @@ import { DataConfiguration } from "@/components/data-configuration"
 import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
 import { useToast } from "@/hooks/use-toast"
-import { useConfig, useAnnotations } from "@/custom-hooks"
+import { useAuth, useAnnotations } from "@/custom-hooks"
 
 interface AdminDashboardProps {
   user: User
@@ -21,7 +21,7 @@ interface AdminDashboardProps {
 export function AdminDashboard({ user }: AdminDashboardProps) {
   const { toast } = useToast()
 
-  const { spreadsheetId } = useConfig()
+  const { spreadsheetId } = useAuth()
   const { data: annotations, mutate } = useAnnotations(spreadsheetId)
   const stats = useMemo(() => {
     if (!annotations) {

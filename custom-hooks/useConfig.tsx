@@ -37,6 +37,6 @@ export function ConfigProvider({ children }: PropsWithChildren) {
 
 export function useConfig() {
   const ctx = useContext(ConfigContext)
-  if (!ctx) throw new Error("useConfig must be used within ConfigProvider")
+  if (!ctx) throw new Error("useConfig must be used within ConfigProvider. Prefer useAuth() in new code.")
   return ctx
 }

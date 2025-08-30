@@ -324,6 +324,23 @@ export async function findOrCreateAppConfigSpreadsheet(accessToken: string): Pro
   return configSpreadsheetId
 }
 
+/**
+ * Try to find the App Config spreadsheet without creating it. Returns undefined if not found.
+ */
+export async function findAppConfigSpreadsheet(accessToken: string): Promise<string | undefined> {
+  const { drive } = initializeGoogleAPIs(accessToken)
+  try {
+    const folderId = await findOrCreateAfriBertaFolder(accessToken)
+    const list = await drive.files.list({
+      q: `'${folderId}' in parents and name='${APP_CONFIG_SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet'`,
+      fields: "files(id,name)",
+    })
+    return list.data.files && list.data.files[0]?.id ? list.data.files[0].id : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function getAppConfig(accessToken: string): Promise<AppConfig> {
   const { sheets } = initializeGoogleAPIs(accessToken)
   const spreadsheetId = await findOrCreateAppConfigSpreadsheet(accessToken)
@@ -337,6 +354,29 @@ export async function getAppConfig(accessToken: string): Promise<AppConfig> {
     if (key) cfg[key] = val
   }
   return cfg
+}
+
+/**
+ * Safe version of getAppConfig that doesn't create the spreadsheet if missing.
+ * Returns undefined if the config store is not present.
+ */
+export async function getAppConfigSafe(accessToken: string): Promise<AppConfig | undefined> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  const spreadsheetId = await findAppConfigSpreadsheet(accessToken)
+  if (!spreadsheetId) return undefined
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:C" })
+    const values = res.data.values || []
+    const cfg: AppConfig = {}
+    for (const row of values) {
+      const key = row[0]?.trim()
+      const val = row[1]?.toString() ?? ""
+      if (key) cfg[key] = val
+    }
+    return cfg
+  } catch {
+    return undefined
+  }
 }
 
 export async function setAppConfig(accessToken: string, entries: AppConfig): Promise<void> {

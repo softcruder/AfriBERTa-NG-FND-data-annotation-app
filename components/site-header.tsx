@@ -3,7 +3,6 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
-import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -14,12 +13,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, ShieldCheck, Trash2, Settings, Home, User2 } from "lucide-react"
-import { useConfig } from "@/custom-hooks/useConfig"
+import {
+  LogOut,
+  ShieldCheck,
+  Trash2,
+  Settings as SettingsIcon,
+  Home,
+  Users,
+  DollarSign,
+  Activity,
+  FileText,
+} from "lucide-react"
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 import { useAnonymizeSelf } from "@/custom-hooks/useAnonymize"
 import { useRequest } from "@/hooks/useRequest"
-import type { AuthSession } from "@/lib/auth"
 
 type HeaderUser = {
   id: string
@@ -29,16 +36,24 @@ type HeaderUser = {
   role?: string
 } | null
 
-export function SiteHeader({ user }: { user: HeaderUser }) {
+import { useAuth } from "@/custom-hooks/useAuth"
+
+export function SiteHeader() {
   const router = useRouter()
   const pathname = usePathname()
-  const { spreadsheetId } = useConfig()
   const { anonymize } = useAnonymizeSelf()
   const { request } = useRequest<{ success: boolean }>()
+  const { user } = useAuth()
 
   const isDashboard = pathname?.startsWith("/dashboard")
+  const role = (user?.role as string) || "annotator"
+  const isAdmin = role === "admin"
+  const isAnnotator = role === "annotator"
 
-  const initial = useMemo(() => (user?.name ? user.name.charAt(0).toUpperCase() : "U"), [user?.name])
+  // Hide header on login screen or when unauthenticated
+  if (!user) return null
+
+  const initial = user?.name ? user.name.charAt(0).toUpperCase() : "U"
 
   const handleLogout = async () => {
     try {
@@ -58,12 +73,8 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
   }
 
   const goVerify = () => {
-    if (isDashboard) {
-      const el = document.getElementById("qa-section")
-      if (el) el.scrollIntoView({ behavior: "smooth" })
-    } else {
-      router.push("/dashboard")
-    }
+    if (role === "admin") router.push("/dashboard/admin/metrics")
+    else router.push("/dashboard/annotator/verify/me")
   }
 
   return (
@@ -74,10 +85,40 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
             <Image src="/logo.png" alt="Logo" width={28} height={28} className="rounded" />
             <span className="font-semibold truncate">AfriBERTa NG</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-3 text-sm text-muted-foreground">
-            <Link href="/dashboard" className={"hover:text-foreground flex items-center gap-1"}>
-              <Home className="h-4 w-4" /> Dashboard
-            </Link>
+          {/* Hide inline dashboard nav when on dashboard; sidebar handles it */}
+          <nav className={`hidden md:flex items-center gap-3 text-sm text-muted-foreground ${isDashboard ? "hidden" : ""}`}>
+            {isAnnotator && (
+              <>
+                <Link href="/dashboard/annotator" className="hover:text-foreground flex items-center gap-1">
+                  <Home className="h-4 w-4" /> Dashboard
+                </Link>
+                <Link href="/dashboard/annotator/tasks" className="hover:text-foreground flex items-center gap-1">
+                  <FileText className="h-4 w-4" /> Tasks
+                </Link>
+                <Link href="/dashboard/annotator/payments" className="hover:text-foreground flex items-center gap-1">
+                  <DollarSign className="h-4 w-4" /> Payments
+                </Link>
+              </>
+            )}
+            {isAdmin && (
+              <>
+                <Link href="/dashboard/admin" className="hover:text-foreground flex items-center gap-1">
+                  <Home className="h-4 w-4" /> Dashboard
+                </Link>
+                <Link href="/dashboard/admin/metrics" className="hover:text-foreground flex items-center gap-1">
+                  <Activity className="h-4 w-4" /> Metrics
+                </Link>
+                <Link href="/dashboard/admin/annotators" className="hover:text-foreground flex items-center gap-1">
+                  <Users className="h-4 w-4" /> Annotators
+                </Link>
+                <Link href="/dashboard/admin/payments" className="hover:text-foreground flex items-center gap-1">
+                  <DollarSign className="h-4 w-4" /> Payments
+                </Link>
+                <Link href="/dashboard/admin/config" className="hover:text-foreground flex items-center gap-1">
+                  <SettingsIcon className="h-4 w-4" /> Config
+                </Link>
+              </>
+            )}
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
             </Link>
@@ -94,7 +135,13 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="px-1">
+              {/* Avatar trigger with refined hover/focus styles */}
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="User menu"
+                className="p-0 rounded-full hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-transparent"
+              >
                 <Avatar className="size-8">
                   <AvatarImage src={user?.picture || "/placeholder.svg"} alt={user?.name || "User"} />
                   <AvatarFallback>{initial}</AvatarFallback>
@@ -105,12 +152,58 @@ export function SiteHeader({ user }: { user: HeaderUser }) {
               <DropdownMenuLabel className="max-w-[240px] truncate">{user?.email || "Signed in"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
+                <Link
+                  href={isAdmin ? "/dashboard/admin" : "/dashboard/annotator"}
+                  className="flex items-center gap-2"
+                >
                   <Home className="h-4 w-4" /> Dashboard
                 </Link>
               </DropdownMenuItem>
+              {isAnnotator && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/annotator/tasks" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Tasks
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/annotator/payments" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" /> Payments
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin/metrics" className="flex items-center gap-2">
+                      <Activity className="h-4 w-4" /> Metrics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin/annotators" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Annotators
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin/payments" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" /> Payments
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin/config" className="flex items-center gap-2">
+                      <SettingsIcon className="h-4 w-4" /> Config
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem onClick={goVerify} className="gap-2">
                 <ShieldCheck className="h-4 w-4" /> Verify others&apos; work
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/user/settings" className="flex items-center gap-2">
+                  <SettingsIcon className="h-4 w-4" /> Settings
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleAnonymize} className="gap-2">
                 <Trash2 className="h-4 w-4" /> Delete my data

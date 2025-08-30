@@ -12,7 +12,7 @@ import { setSpreadsheetId, setCSVFileId, getSpreadsheetId, getCSVFileId } from "
 import { useToast } from "@/hooks/use-toast"
 import { formatDate } from "@/lib/utils"
 import { useDriveFiles, useFactChecksCSVFileId } from "@/custom-hooks/useDrive"
-import { useConfig } from "@/custom-hooks/useConfig"
+import { useAuth } from "@/custom-hooks/useAuth"
 import { useRequest } from "@/hooks/useRequest"
 
 interface DriveFile {
@@ -31,7 +31,7 @@ export function DataConfiguration() {
   const { toast } = useToast()
   const { data: driveFilesData, mutate: refreshDrive, isLoading: driveLoading } = useDriveFiles()
   const { fileId: factChecksFileId } = useFactChecksCSVFileId()
-  const { config, mutate: mutateConfig } = useConfig()
+  const { config, refresh: refreshSession } = useAuth()
   const { request } = useRequest<any>()
 
   const loadDriveFiles = useCallback(async () => {
@@ -76,7 +76,7 @@ export function DataConfiguration() {
       setCurrentCSVFileIdState(fileId)
       // Persist to App Config
       await request.post("/config", { entries: { CSV_FILE_ID: fileId } })
-      await mutateConfig()
+      await refreshSession()
 
       toast({
         title: "Success",
@@ -113,7 +113,7 @@ export function DataConfiguration() {
       setCurrentSpreadsheetIdState(spreadsheetId)
       // Persist to App Config
       await request.post("/config", { entries: { ANNOTATION_SPREADSHEET_ID: spreadsheetId } })
-      await mutateConfig()
+      await refreshSession()
       setNewSheetTitle("")
 
       toast({
@@ -137,7 +137,7 @@ export function DataConfiguration() {
     // Persist to App Config
     try {
       await request.post("/config", { entries: { CSV_FILE_ID: fileId } })
-      await mutateConfig()
+      await refreshSession()
     } catch {}
     toast({
       title: "Success",
@@ -151,7 +151,7 @@ export function DataConfiguration() {
     // Persist to App Config
     try {
       await request.post("/config", { entries: { ANNOTATION_SPREADSHEET_ID: fileId } })
-      await mutateConfig()
+      await refreshSession()
     } catch {}
     toast({
       title: "Success",

@@ -6,6 +6,7 @@ export interface CSVRow {
   assigned?: boolean
   assignedTo?: string
   completed?: boolean
+  header?: string[]
 }
 
 export interface AnnotationTask {

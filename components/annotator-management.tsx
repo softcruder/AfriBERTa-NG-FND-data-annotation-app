@@ -19,7 +19,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Shield, Clock, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useConfig, useUsers, useAddUser, useUpdateUser } from "@/custom-hooks"
+import { useAuth, useUsers, useAddUser, useUpdateUser } from "@/custom-hooks"
 
 interface Annotator {
   id: string
@@ -39,7 +39,7 @@ export function AnnotatorManagement() {
   const [newAnnotatorEmail, setNewAnnotatorEmail] = useState("")
   const [newAnnotatorRole, setNewAnnotatorRole] = useState<"annotator" | "admin">("annotator")
   const { toast } = useToast()
-  const { spreadsheetId } = useConfig()
+  const { spreadsheetId } = useAuth()
   const { data: swrUsers, isLoading: usersLoading, mutate } = useUsers(spreadsheetId)
   const { add } = useAddUser()
   const { update } = useUpdateUser()

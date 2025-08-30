@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionFromCookie } from "@/lib/auth"
-import { getAppConfig, setAppConfig } from "@/lib/google-apis"
+import { getAppConfigSafe, setAppConfig, findOrCreateAppConfigSpreadsheet } from "@/lib/google-apis"
 
 export async function GET(request: NextRequest) {
   const cookie = request.cookies.get("auth_session")
@@ -9,8 +9,9 @@ export async function GET(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
 
   try {
-    const cfg = await getAppConfig(session.accessToken)
-    return NextResponse.json({ config: cfg })
+    // Do not create the config store for non-admins during GET
+    const cfg = await getAppConfigSafe(session.accessToken)
+    return NextResponse.json({ config: cfg || {} })
   } catch (e) {
     return NextResponse.json({ error: "Failed to load config" }, { status: 500 })
   }
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest) {
     if (!entries || typeof entries !== "object") {
       return NextResponse.json({ error: "entries object required" }, { status: 400 })
     }
+    // Ensure config sheet exists for admin save
+    await findOrCreateAppConfigSpreadsheet(session.accessToken)
     await setAppConfig(session.accessToken, entries)
     return NextResponse.json({ success: true })
   } catch (e) {

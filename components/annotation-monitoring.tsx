@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useConfig, useAnnotations, useVerifyAnnotation } from "@/custom-hooks"
+import { useAuth, useAnnotations, useVerifyAnnotation } from "@/custom-hooks"
 import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +28,7 @@ interface AnnotationActivity {
 }
 
 export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProps) {
-  const { spreadsheetId } = useConfig()
+  const { spreadsheetId } = useAuth()
   const { verify } = useVerifyAnnotation()
   const [activities, setActivities] = useState<AnnotationActivity[]>([])
   const { data: annotations, isLoading, mutate } = useAnnotations(spreadsheetId)

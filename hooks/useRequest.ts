@@ -60,8 +60,13 @@ export function buildURL(path: string, query?: Record<string, any>): string {
 export function useSWRGet<T = any>(key: Key | null, swrKeyToUrl?: (key: Key) => string, options?: SWRConfiguration<T>) {
   const getUrl = (k: Key) => (swrKeyToUrl ? swrKeyToUrl(k) : (k as string))
   const resp = useSWR<T>(key, (k: Key) => swrFetcher<T>(getUrl(k)), {
-    revalidateOnFocus: true,
-    shouldRetryOnError: true,
+    // Reduce excessive network calls to avoid hitting quotas
+    revalidateOnFocus: false,
+    revalidateIfStale: false,
+    revalidateOnReconnect: false,
+    shouldRetryOnError: false,
+    dedupingInterval: 15000,
+    keepPreviousData: true,
     ...options,
   })
   return resp

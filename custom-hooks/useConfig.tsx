@@ -2,6 +2,7 @@
 
 import { createContext, useContext, PropsWithChildren } from "react"
 import { useSWRGet } from "@/hooks/useRequest"
+import type { KeyedMutator } from "swr"
 
 export type AppConfig = {
   ANNOTATION_SPREADSHEET_ID?: string
@@ -16,10 +17,7 @@ interface ConfigContextValue {
   // Convenience helpers
   spreadsheetId?: string
   csvFileId?: string
-  mutate: (
-    data?: { config: AppConfig } | Promise<{ config: AppConfig }> | undefined,
-    shouldRevalidate?: boolean,
-  ) => Promise<{ config: AppConfig } | undefined>
+  mutate: KeyedMutator<{ config: AppConfig }>
 }
 
 const ConfigContext = createContext<ConfigContextValue | undefined>(undefined)
@@ -33,8 +31,7 @@ export function ConfigProvider({ children }: PropsWithChildren) {
     error,
     spreadsheetId: data?.config?.ANNOTATION_SPREADSHEET_ID,
     csvFileId: data?.config?.CSV_FILE_ID,
-    mutate: async (d?: { config: AppConfig } | Promise<{ config: AppConfig }> | undefined, r?: boolean) =>
-      mutate(d as any, r),
+  mutate,
   }
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
 }

@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { downloadCSVFile } from "@/lib/google-apis"
 import { getSessionFromCookie } from "@/lib/auth"
 
-export async function GET(request: NextRequest, { params }: { params: { fileId: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ fileId: string }> }
+) {
   try {
     // Get session from cookie
     const sessionCookie = request.cookies.get("auth_session")
@@ -15,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: { fileId: 
       return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
     }
 
-    const { fileId } = params
+  const { fileId } = await params
 
     if (!fileId || typeof fileId !== "string") {
       return NextResponse.json({ error: "Invalid file ID provided" }, { status: 400 })

@@ -336,7 +336,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                             value={claim}
                             onChange={e => updateClaim(index, e.target.value)}
                             className="min-h-[100px] resize-none"
-                            disabled={!canEditClaim && index === 0 && extractedClaimText}
+                            disabled={!canEditClaim && index === 0 && Boolean(extractedClaimText)}
                           />
                           {!canEditClaim && watchedValues.claims.length > 1 && (
                             <Button

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DollarSign, Clock, FileText, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useConfig, usePayments } from "@/custom-hooks"
 
 interface PaymentSummary {
   annotatorId: string
@@ -26,38 +27,21 @@ export function PaymentOverview() {
   const [payments, setPayments] = useState<PaymentSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
+  const { spreadsheetId } = useConfig()
+  const { data: swrPayments, isLoading: paying } = usePayments(spreadsheetId)
 
   useEffect(() => {
-    loadPayments()
-  }, [])
-
-  const loadPayments = async () => {
-    try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) {
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch(`/api/payments?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) throw new Error("Failed to load payments")
-
-      const { payments: paymentData } = await response.json()
-
-      // Transform data - in production, annotator names would come from user management system
-      const paymentsWithNames: PaymentSummary[] = paymentData.map((payment: any) => ({
+    if (swrPayments && Array.isArray(swrPayments)) {
+      const paymentsWithNames: PaymentSummary[] = swrPayments.map((payment: any) => ({
         ...payment,
-        // In production, this would be fetched from a user database/directory
         annotatorName: payment.annotatorName || `User ${payment.annotatorId.slice(-4)}`,
       }))
-
       setPayments(paymentsWithNames)
-    } catch (error) {
-      // console.error("Error loading payments:", error)
-    } finally {
+      setIsLoading(false)
+    } else if (!paying) {
       setIsLoading(false)
     }
-  }
+  }, [swrPayments, paying])
 
   const handleExportPayments = () => {
     if (payments.length === 0) {
@@ -101,11 +85,11 @@ export function PaymentOverview() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-  const today = new Date()
-  const yyyy = today.getUTCFullYear()
-  const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
-  const dd = String(today.getUTCDate()).padStart(2, "0")
-  a.download = `payment_summary_${yyyy}-${mm}-${dd}.csv`
+    const today = new Date()
+    const yyyy = today.getUTCFullYear()
+    const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
+    const dd = String(today.getUTCDate()).padStart(2, "0")
+    a.download = `payment_summary_${yyyy}-${mm}-${dd}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

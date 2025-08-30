@@ -19,6 +19,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Shield, Clock, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useConfig, useUsers, useAddUser, useUpdateUser } from "@/custom-hooks"
 
 interface Annotator {
   id: string
@@ -38,30 +39,19 @@ export function AnnotatorManagement() {
   const [newAnnotatorEmail, setNewAnnotatorEmail] = useState("")
   const [newAnnotatorRole, setNewAnnotatorRole] = useState<"annotator" | "admin">("annotator")
   const { toast } = useToast()
+  const { spreadsheetId } = useConfig()
+  const { data: swrUsers, isLoading: usersLoading, mutate } = useUsers(spreadsheetId)
+  const { add } = useAddUser()
+  const { update } = useUpdateUser()
 
   useEffect(() => {
-    loadAnnotators()
-  }, [])
-
-  const loadAnnotators = async () => {
-    try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) {
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch(`/api/users?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) throw new Error("Failed to load users")
-
-      const { users } = await response.json()
-      setAnnotators(users)
-    } catch (error) {
-      // console.error("Error loading annotators:", error)
-    } finally {
+    if (swrUsers && Array.isArray(swrUsers)) {
+      setAnnotators(swrUsers as Annotator[])
+      setIsLoading(false)
+    } else if (!usersLoading) {
       setIsLoading(false)
     }
-  }
+  }, [swrUsers, usersLoading])
 
   const handleInviteAnnotator = async () => {
     if (!newAnnotatorEmail.trim()) {
@@ -77,7 +67,6 @@ export function AnnotatorManagement() {
       // In real implementation, this would send an invitation email
       // console.log("Inviting annotator:", { email: newAnnotatorEmail, role: newAnnotatorRole })
 
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
       if (!spreadsheetId) {
         toast({
           title: "Configuration Error",
@@ -100,14 +89,9 @@ export function AnnotatorManagement() {
         joinedDate: new Date().toISOString(),
       }
 
-      // Add user to database
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spreadsheetId, user: newAnnotator }),
-      })
-
-      if (!response.ok) throw new Error("Failed to add user")
+      // Add user via hook
+      await add({ spreadsheetId, user: newAnnotator })
+      mutate()
 
       setAnnotators(prev => [...prev, newAnnotator])
       setNewAnnotatorEmail("")
@@ -130,7 +114,6 @@ export function AnnotatorManagement() {
 
   const handleToggleStatus = async (annotatorId: string) => {
     try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
       if (!spreadsheetId) return
 
       const annotator = annotators.find(a => a.id === annotatorId)
@@ -138,18 +121,8 @@ export function AnnotatorManagement() {
 
       const newStatus = annotator.status === "active" ? "inactive" : "active"
 
-      // Update in database
-      const response = await fetch("/api/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          spreadsheetId,
-          userId: annotatorId,
-          updates: { status: newStatus },
-        }),
-      })
-
-      if (!response.ok) throw new Error("Failed to update user status")
+      await update({ spreadsheetId, userId: annotatorId, updates: { status: newStatus } })
+      mutate()
 
       // Update local state
       setAnnotators(prev =>
@@ -162,21 +135,10 @@ export function AnnotatorManagement() {
 
   const handleRoleChange = async (annotatorId: string, newRole: "annotator" | "admin") => {
     try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
       if (!spreadsheetId) return
 
-      // Update in database
-      const response = await fetch("/api/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          spreadsheetId,
-          userId: annotatorId,
-          updates: { role: newRole },
-        }),
-      })
-
-      if (!response.ok) throw new Error("Failed to update user role")
+      await update({ spreadsheetId, userId: annotatorId, updates: { role: newRole } })
+      mutate()
 
       // Update local state
       setAnnotators(prev =>

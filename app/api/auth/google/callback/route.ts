@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUserRole } from "@/lib/admin-auth"
+import { getAppConfig, upsertUserByEmail } from "@/lib/google-apis"
 import { encryptSession } from "@/lib/encryption"
 
 export async function GET(request: NextRequest) {
@@ -18,19 +19,19 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for access token
-  // Build redirect_uri dynamically from the current request to support local/prod
-  const redirectUri = `${request.nextUrl.origin}${request.nextUrl.pathname}`
+    // Build redirect_uri dynamically from the current request to support local/prod
+    const redirectUri = `${request.nextUrl.origin}${request.nextUrl.pathname}`
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-    client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-    redirect_uri: redirectUri,
+        redirect_uri: redirectUri,
       }),
     })
 
@@ -68,6 +69,23 @@ export async function GET(request: NextRequest) {
     }
 
     const response = NextResponse.redirect(new URL("/dashboard", request.url))
+
+    // Try to upsert user into Users sheet if a spreadsheetId is configured in App Config
+    try {
+      const appCfg = await getAppConfig(tokens.access_token)
+      const spreadsheetId = appCfg["ANNOTATION_SPREADSHEET_ID"]
+      if (spreadsheetId) {
+        await upsertUserByEmail(tokens.access_token, spreadsheetId, {
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+          role: session.user.role,
+        })
+      }
+    } catch (e) {
+      // Non-blocking: failure here shouldn't prevent login
+      console.warn("User upsert skipped:", e)
+    }
 
     // Encrypt and set session cookie
     const encryptedSession = encryptSession(JSON.stringify(session))

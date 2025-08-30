@@ -16,9 +16,9 @@ export function LoginForm() {
       // Build Google OAuth URL
       const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
       googleAuthUrl.searchParams.set("client_id", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "")
-  // Derive redirect_uri from current origin to support local and production seamlessly
-  const redirectUri = `${window.location.origin}/api/auth/google/callback`
-  googleAuthUrl.searchParams.set("redirect_uri", redirectUri)
+      // Derive redirect_uri from current origin to support local and production seamlessly
+      const redirectUri = `${window.location.origin}/api/auth/google/callback`
+      googleAuthUrl.searchParams.set("redirect_uri", redirectUri)
       googleAuthUrl.searchParams.set("response_type", "code")
       googleAuthUrl.searchParams.set(
         "scope",
@@ -38,7 +38,7 @@ export function LoginForm() {
   return (
     <Card className="w-full">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
+        <CardTitle className="text-2xl">Welcome</CardTitle>
         <CardDescription>Sign in with your Google account to access the annotation platform</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

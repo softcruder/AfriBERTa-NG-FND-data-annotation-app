@@ -28,7 +28,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     redirect("/dashboard")
   }
 
-  const error = searchParams?.error
+  let error: string | undefined
+  if (typeof searchParams === "object" && searchParams !== null && "then" in searchParams) {
+    // If searchParams is a promise (dynamic API), await it
+    const awaitedParams = await searchParams
+    error = awaitedParams?.error
+  } else {
+    error = searchParams?.error
+  }
 
   const getErrorMessage = (error: string) => {
     switch (error) {

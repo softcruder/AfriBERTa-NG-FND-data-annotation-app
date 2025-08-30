@@ -14,6 +14,7 @@ import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
 import { LogoutButton } from "@/components/logout-button"
 import { useToast } from "@/hooks/use-toast"
+import { useConfig, useAnnotations } from "@/custom-hooks"
 
 interface AdminDashboardProps {
   user: User
@@ -36,89 +37,60 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
+  const { spreadsheetId } = useConfig()
+  const { data: annotations } = useAnnotations(spreadsheetId)
+
   useEffect(() => {
-    loadAdminStats()
-  }, [])
+    // Derive stats from annotations and payments
+    if (!annotations) return
+    const today = new Date().toDateString()
+    const activeToday = new Set(
+      annotations.filter((a: any) => new Date(a.startTime).toDateString() === today).map((a: any) => a.annotatorId),
+    ).size
 
-  const loadAdminStats = async () => {
-    try {
-      setIsLoading(true)
+    const completed = annotations.filter((a: any) => a.status === "completed").length
+    const total = annotations.length
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
 
-      // Load annotations data
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (spreadsheetId) {
-        const [annotationsRes, paymentsRes] = await Promise.all([
-          fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`),
-          fetch(`/api/payments?spreadsheetId=${spreadsheetId}`),
-        ])
-
-        if (annotationsRes.ok && paymentsRes.ok) {
-          const { annotations } = await annotationsRes.json()
-          const { payments } = await paymentsRes.json()
-
-          // Calculate stats
-          const today = new Date().toDateString()
-          const activeToday = new Set(
-            annotations
-              .filter((a: any) => new Date(a.startTime).toDateString() === today)
-              .map((a: any) => a.annotatorId),
-          ).size
-
-          const totalPayments = payments.reduce((sum: number, p: any) => sum + p.totalPayment, 0)
-
-          setStats({
-            activeAnnotators: activeToday,
-            totalAnnotations: annotations.length,
-            pendingPayments: totalPayments,
-            completionRate: 0, // TODO: Calculate based on CSV total rows
-          })
-        }
-      }
-    } catch (error) {
-      // console.error("Error loading admin stats:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    setStats(prev => ({
+      ...prev,
+      activeAnnotators: activeToday,
+      totalAnnotations: total,
+      // pendingPayments filled from PaymentOverview or separate hook if needed
+      completionRate,
+    }))
+    setIsLoading(false)
+  }, [annotations])
 
   const handleExportData = async () => {
     try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) {
-        toast({
-          title: "Configuration Required",
-          description: "No spreadsheet configured. Please configure a spreadsheet first.",
-          variant: "destructive",
-        })
+      if (!annotations || annotations.length === 0) {
+        toast({ description: "No annotation data to export", variant: "destructive" })
         return
       }
 
-      const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) throw new Error("Failed to fetch data")
-
-      const { annotations } = await response.json()
-
-      // Convert to CSV
+      // CSV headers
       const headers = [
-        "Row_ID",
-        "Annotator_ID",
-        "Claim_Text",
-        "Source_Links",
+        "Row ID",
+        "Annotator ID",
+        "Claim Text",
+        "Source Links",
         "Translation",
-        "Start_Time",
-        "End_Time",
-        "Duration_Minutes",
+        "Start Time",
+        "End Time",
+        "Duration (min)",
         "Status",
-        "Verified_By",
+        "Verified By",
       ]
+
       const csvContent = [
         headers.join(","),
         ...annotations.map((a: any) =>
           [
             a.rowId,
             a.annotatorId,
-            `"${a.claimText.replace(/"/g, '""')}"`,
-            `"${a.sourceLinks.join("; ")}"`,
+            `"${(a.claimText || "").replace(/"/g, '""')}"`,
+            `"${Array.isArray(a.sourceLinks) ? a.sourceLinks.join("; ") : ""}"`,
             `"${a.translation || ""}"`,
             a.startTime,
             a.endTime || "",
@@ -129,30 +101,23 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         ),
       ].join("\n")
 
-      // Download file
       const blob = new Blob([csvContent], { type: "text/csv" })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-  const today = new Date()
-  const yyyy = today.getUTCFullYear()
-  const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
-  const dd = String(today.getUTCDate()).padStart(2, "0")
-  a.download = `annotations_export_${yyyy}-${mm}-${dd}.csv`
+      const today = new Date()
+      const yyyy = today.getUTCFullYear()
+      const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
+      const dd = String(today.getUTCDate()).padStart(2, "0")
+      a.download = `annotations_export_${yyyy}-${mm}-${dd}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      toast({
-        title: "Success",
-        description: "Annotation data exported successfully",
-      })
+      toast({ title: "Success", description: "Annotation data exported successfully" })
     } catch (error) {
-      toast({
-        description: "Failed to export data. Please try again.",
-        variant: "destructive",
-      })
+      toast({ description: "Failed to export data. Please try again.", variant: "destructive" })
     }
   }
 

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { logAnnotation, getAnnotations, updatePaymentFormulas } from "@/lib/google-apis"
+import { logAnnotation, getAnnotations, updatePaymentFormulas, initializeGoogleAPIs } from "@/lib/google-apis"
 import { getSessionFromCookie } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
@@ -55,14 +55,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
+    // Preflight: verify the current user has edit access to the spreadsheet
+    try {
+      const { drive } = initializeGoogleAPIs(session.accessToken)
+      const file = await drive.files.get({ fileId: spreadsheetId, fields: "id, capabilities" })
+      const canEdit = (file.data as any)?.capabilities?.canEdit
+      if (!canEdit) {
+        return NextResponse.json(
+          {
+            error: "No edit permission on spreadsheet",
+            details:
+              "Your Google account doesn't have editor access to this sheet. Ask the owner to share it with you as an editor, or select a sheet you own in Data Configuration.",
+          },
+          { status: 403 },
+        )
+      }
+    } catch (e) {
+      // If capability check fails (e.g., file not found), surface message
+      const message = e instanceof Error ? e.message : String(e)
+      return NextResponse.json({ error: "Spreadsheet access check failed", details: message }, { status: 403 })
+    }
+
     await logAnnotation(session.accessToken, spreadsheetId, annotation)
 
-    // Update payment formulas after logging annotation
-    await updatePaymentFormulas(session.accessToken, spreadsheetId)
-
-    return NextResponse.json({ success: true })
+    // Update payment formulas after logging annotation; don't block success if this fails
+    try {
+      await updatePaymentFormulas(session.accessToken, spreadsheetId)
+      return NextResponse.json({ success: true })
+    } catch (e) {
+      console.warn("Payment formula update failed:", e)
+      return NextResponse.json({ success: true, warning: "Annotation saved, but payment formulas not updated." })
+    }
   } catch (error) {
     console.error("Error logging annotation:", error)
-    return NextResponse.json({ error: "Failed to log annotation" }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: "Failed to log annotation", details: message }, { status: 500 })
   }
 }

@@ -15,7 +15,14 @@ export async function GET(request: NextRequest, { params }: { params: { fileId: 
       return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
     }
 
-  const { fileId } = params
+    let fileId: string | undefined
+    if (typeof params === "object" && params !== null && "then" in params) {
+      // If params is a promise (dynamic API), await it
+      const awaitedParams = await params
+      fileId = awaitedParams?.fileId
+    } else {
+      fileId = params?.fileId
+    }
 
     if (!fileId || typeof fileId !== "string") {
       return NextResponse.json({ error: "Invalid file ID provided" }, { status: 400 })

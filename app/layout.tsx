@@ -6,6 +6,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
+import { ConfigProvider } from "@/custom-hooks/useConfig"
 
 export const metadata: Metadata = {
   title: "AfriBERTa NG | Data Annotation Platform",
@@ -23,12 +24,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <Suspense fallback={null}>
-          {children}
-          <Toaster />
-        </Suspense>
+        <ConfigProvider>
+          <Suspense fallback={null}>
+            {children}
+            <Toaster />
+          </Suspense>
+        </ConfigProvider>
         <Analytics />
       </body>
     </html>

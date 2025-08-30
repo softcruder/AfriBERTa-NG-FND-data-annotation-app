@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,40 +27,11 @@ export function DataConfiguration() {
   const [newSheetTitle, setNewSheetTitle] = useState("")
   const { toast } = useToast()
 
-  useEffect(() => {
-    setCurrentSpreadsheetIdState(getSpreadsheetId())
-    setCurrentCSVFileIdState(getCSVFileId())
-    loadDriveFiles()
-  }, [])
-
-  const findFactChecksCSV = async () => {
-    try {
-      const response = await fetch("/api/drive/factchecks-csv")
-      if (!response.ok) throw new Error("Failed to find factchecks.csv")
-
-      const { fileId } = await response.json()
-      setCSVFileId(fileId)
-      setCurrentCSVFileIdState(fileId)
-
-      toast({
-        title: "Success",
-        description: "Found and selected factchecks.csv from FactCheckScraper-v4.1 folder",
-        variant: "default",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not find factchecks.csv in FactCheckScraper-v4.1 folder",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const loadDriveFiles = async () => {
+  const loadDriveFiles = useCallback(async () => {
     try {
       setIsLoading(true)
       const response = await fetch("/api/drive/files")
-      
+
       if (!response.ok) {
         if (response.status === 403) {
           const errorData = await response.json()
@@ -80,7 +51,67 @@ export function DataConfiguration() {
     } finally {
       setIsLoading(false)
     }
+  }, [toast])
+
+  useEffect(() => {
+    // Load persisted config from backend, then fall back to any local values for backward compatibility
+    ;(async () => {
+      try {
+        const res = await fetch("/api/config")
+        if (res.ok) {
+          const { config } = await res.json()
+          const sheetId = config?.ANNOTATION_SPREADSHEET_ID || getSpreadsheetId()
+          const csvId = config?.CSV_FILE_ID || getCSVFileId()
+          if (sheetId) {
+            setSpreadsheetId(sheetId)
+            setCurrentSpreadsheetIdState(sheetId)
+          }
+          if (csvId) {
+            setCSVFileId(csvId)
+            setCurrentCSVFileIdState(csvId)
+          }
+        } else {
+          setCurrentSpreadsheetIdState(getSpreadsheetId())
+          setCurrentCSVFileIdState(getCSVFileId())
+        }
+      } catch {
+        setCurrentSpreadsheetIdState(getSpreadsheetId())
+        setCurrentCSVFileIdState(getCSVFileId())
+      }
+      loadDriveFiles()
+    })()
+  }, [loadDriveFiles])
+
+  const findFactChecksCSV = async () => {
+    try {
+      const response = await fetch("/api/drive/factchecks-csv")
+      if (!response.ok) throw new Error("Failed to find factchecks.csv")
+
+      const { fileId } = await response.json()
+      setCSVFileId(fileId)
+      setCurrentCSVFileIdState(fileId)
+      // Persist to App Config
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: { CSV_FILE_ID: fileId } }),
+      })
+
+      toast({
+        title: "Success",
+        description: "Found and selected factchecks.csv from FactCheckScraper-v4.1 folder",
+        variant: "default",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not find factchecks.csv in FactCheckScraper-v4.1 folder",
+        variant: "destructive",
+      })
+    }
   }
+
+  // loadDriveFiles moved above into useCallback
 
   const handleCreateAnnotationSheet = async () => {
     if (!newSheetTitle.trim()) {
@@ -104,6 +135,12 @@ export function DataConfiguration() {
       const { spreadsheetId } = await response.json()
       setSpreadsheetId(spreadsheetId)
       setCurrentSpreadsheetIdState(spreadsheetId)
+      // Persist to App Config
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: { ANNOTATION_SPREADSHEET_ID: spreadsheetId } }),
+      })
       setNewSheetTitle("")
 
       toast({
@@ -121,18 +158,34 @@ export function DataConfiguration() {
     }
   }
 
-  const handleSelectCSVFile = (fileId: string) => {
+  const handleSelectCSVFile = async (fileId: string) => {
     setCSVFileId(fileId)
     setCurrentCSVFileIdState(fileId)
+    // Persist to App Config
+    try {
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: { CSV_FILE_ID: fileId } }),
+      })
+    } catch {}
     toast({
       title: "Success",
       description: "CSV file selected successfully!",
     })
   }
 
-  const handleSelectSpreadsheet = (fileId: string) => {
+  const handleSelectSpreadsheet = async (fileId: string) => {
     setSpreadsheetId(fileId)
     setCurrentSpreadsheetIdState(fileId)
+    // Persist to App Config
+    try {
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: { ANNOTATION_SPREADSHEET_ID: fileId } }),
+      })
+    } catch {}
     toast({
       title: "Success",
       description: "Spreadsheet selected successfully!",

@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
 import type { User } from "@/lib/auth"
 import { calculatePayment, calculateEfficiencyMetrics, formatCurrency, DEFAULT_RATES } from "@/lib/payment-calculator"
+import { useConfig, useAnnotations } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -29,23 +30,12 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
     hoursToday: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
+  const { spreadsheetId } = useConfig()
+  const { data: annotations } = useAnnotations(spreadsheetId)
 
-  useEffect(() => {
-    loadStats()
-  }, [])
-
-  const loadStats = async () => {
+  const loadStats = useCallback(() => {
     try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) {
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) return
-
-      const { annotations } = await response.json()
+      if (!annotations) return
 
       // Filter annotations for current user
       const userAnnotations = annotations.filter((a: any) => a.annotatorId === user.id)
@@ -68,12 +58,14 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
         completedToday: todayAnnotations.length,
         hoursToday: todayMinutes / 60,
       })
-    } catch (error) {
-      // console.error("Error loading stats:", error)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [annotations, user.id])
+
+  useEffect(() => {
+    loadStats()
+  }, [loadStats])
 
   const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours)
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)

@@ -1,11 +1,25 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "Running Prettier..."
-npx prettier --check .
+# Collect staged .ts and .tsx files
+FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
 
-echo "Running ESLint..."
-npx eslint .
+if [ -z "$FILES" ]; then
+  echo "No staged TypeScript files to check."
+  exit 0
+fi
+
+echo "Running Prettier on staged files..."
+npx --yes prettier --write $FILES
+
+# Re-stage any files Prettier fixed
+git add $FILES
+
+echo "Running ESLint on staged files..."
+npx --yes eslint $FILES --max-warnings=0 || {
+  echo "ESLint failed. Fix errors before pushing." >&2
+  exit 1
+}
 
 echo "Running TypeScript type-check..."
-npx tsc --noEmit
+npx --yes tsc --noEmit

@@ -1,3 +1,13 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "ignorePatterns": [
+    ".next/**",
+    "node_modules/**",
+    "out/**",
+    "dist/**",
+    "build/**",
+    "**/*.d.ts",
+    "**/generated/**",
+    "**/*.min.*"
+  ]
 }

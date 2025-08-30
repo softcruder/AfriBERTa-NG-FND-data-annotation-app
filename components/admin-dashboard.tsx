@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users, FileText, DollarSign, Download, Settings, Activity } from "lucide-react"
 import { AnnotatorManagement } from "@/components/annotator-management"
+import { formatMoney } from "@/lib/utils"
 import { DataConfiguration } from "@/components/data-configuration"
 import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
@@ -199,12 +200,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ₦
-              {isLoading
-                ? "-"
-                : new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(stats.pendingPayments)}
-            </div>
+            <div className="text-2xl font-bold">{isLoading ? "-" : formatMoney("₦", stats.pendingPayments)}</div>
             <p className="text-xs text-muted-foreground">total due</p>
           </CardContent>
         </Card>

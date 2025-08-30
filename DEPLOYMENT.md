@@ -7,7 +7,7 @@ This project uses a GitOps deployment pipeline with separate development and pro
 ## Branch Strategy
 
 ### Primary Development Branch
-- **Branch**: `copilot/fix-881e929d-4a38-46d6-879c-4f899a7a4d46`
+- **Branch**: `copilot/fix-4d4f3236-5307-4aeb-bd6a-7814afa559ee`
 - **Purpose**: Primary development branch where all new features and fixes are merged
 - **Auto-deployment**: Automatically deploys to development environment on every push
 
@@ -20,7 +20,7 @@ This project uses a GitOps deployment pipeline with separate development and pro
 
 ### Development Environment
 - **Triggers**: 
-  - Push to `copilot/fix-881e929d-4a38-46d6-879c-4f899a7a4d46` branch
+  - Push to `copilot/fix-4d4f3236-5307-4aeb-bd6a-7814afa559ee` branch
   - Pull requests targeting the development branch
 - **Workflow**: `.github/workflows/deploy-dev.yml`
 - **Purpose**: Testing and validation of new features
@@ -39,7 +39,7 @@ This project uses a GitOps deployment pipeline with separate development and pro
 ### 1. Development Workflow
 ```bash
 # Create feature branch from development
-git checkout copilot/fix-881e929d-4a38-46d6-879c-4f899a7a4d46
+git checkout copilot/fix-4d4f3236-5307-4aeb-bd6a-7814afa559ee
 git checkout -b feature/new-feature
 
 # Make changes and commit
@@ -48,7 +48,7 @@ git commit -m "feat: add new feature"
 
 # Push and create PR to development branch
 git push origin feature/new-feature
-# Create PR targeting copilot/fix-881e929d-4a38-46d6-879c-4f899a7a4d46
+# Create PR targeting copilot/fix-4d4f3236-5307-4aeb-bd6a-7814afa559ee
 ```
 
 ### 2. Promotion to Production

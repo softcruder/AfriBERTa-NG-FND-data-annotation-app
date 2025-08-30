@@ -32,7 +32,7 @@ jobs:
     - name: Checkout development branch
       uses: actions/checkout@v4
       with:
-        ref: copilot/fix-881e929d-4a38-46d6-879c-4f899a7a4d46
+        ref: copilot/fix-4d4f3236-5307-4aeb-bd6a-7814afa559ee
         fetch-depth: 0
         
     - name: Setup Git
@@ -43,7 +43,7 @@ jobs:
     - name: Merge development to main
       run: |
         git checkout main
-        git merge --no-ff copilot/fix-881e929d-4a38-46d6-879c-4f899a7a4d46 -m "chore: promote development to production"
+        git merge --no-ff copilot/fix-4d4f3236-5307-4aeb-bd6a-7814afa559ee -m "chore: promote development to production"
         git push origin main
         
     - name: Create release tag

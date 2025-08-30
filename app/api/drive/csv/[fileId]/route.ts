@@ -19,12 +19,12 @@ export async function GET(request: NextRequest, { params }: { params: { fileId: 
     }
 
     let fileId: string | undefined
-    if (typeof params === "object" && params !== null && "then" in params) {
+    if (params instanceof Promise) {
       // If params is a promise (dynamic API), await it
       const awaitedParams = await params
-      fileId = awaitedParams?.fileId
+      fileId = (awaitedParams as any)?.fileId
     } else {
-      fileId = params?.fileId
+      fileId = (params as any)?.fileId
     }
 
     if (!fileId || typeof fileId !== "string") {

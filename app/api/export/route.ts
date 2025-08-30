@@ -109,12 +109,10 @@ function convertToCSV(data: any): string {
     return row
   })
 
-
   // If no annotations, add a note
   if (data.annotations.length === 0) {
     rows.push(["No data available", ...Array(headers.length - 1).fill("")])
   }
 
-  return [headers, ...rows].map((row) => row.join(",")).join("\n")
-
+  return [headers, ...rows].map(row => row.join(",")).join("\n")
 }

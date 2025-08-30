@@ -115,10 +115,7 @@ export function SiteHeader() {
               <DropdownMenuLabel className="max-w-[240px] truncate">{user?.email || "Signed in"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link
-                  href={isAdmin ? "/dashboard/admin" : "/dashboard/annotator"}
-                  className="flex items-center gap-2"
-                >
+                <Link href={isAdmin ? "/dashboard/admin" : "/dashboard/annotator"} className="flex items-center gap-2">
                   <Home className="h-4 w-4" /> Dashboard
                 </Link>
               </DropdownMenuItem>

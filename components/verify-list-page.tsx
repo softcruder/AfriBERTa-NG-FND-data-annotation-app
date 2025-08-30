@@ -40,7 +40,9 @@ export function VerifyListPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Link href={`/dashboard/annotator/verify/${encodeURIComponent(item.rowId)}`}>
-                    <Button variant="outline" size="sm">Details</Button>
+                    <Button variant="outline" size="sm">
+                      Details
+                    </Button>
                   </Link>
                   <Button
                     size="sm"

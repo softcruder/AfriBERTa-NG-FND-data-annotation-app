@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for access token
-  const redirectUri = `${request.nextUrl.origin}/api/auth/google/callback`
+    const redirectUri = `${request.nextUrl.origin}/api/auth/google/callback`
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
         code,
         grant_type: "authorization_code",
-    redirect_uri: redirectUri,
+        redirect_uri: redirectUri,
       }),
     })
 
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       role: getUserRole(userInfo.email), // Use admin authorization logic
     }
 
-  const session = {
+    const session = {
       user,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,

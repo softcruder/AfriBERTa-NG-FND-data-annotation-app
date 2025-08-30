@@ -29,7 +29,9 @@ export default function UserSettingsPage() {
           </div>
 
           <div>
-            <Button variant="outline" onClick={logout}>Log out</Button>
+            <Button variant="outline" onClick={logout}>
+              Log out
+            </Button>
           </div>
         </CardContent>
       </Card>

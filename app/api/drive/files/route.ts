@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
 
     // Only admins can access drive files for configuration
     if (session.user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized - Admin access required for drive configuration" }, { status: 403 })
+      return NextResponse.json(
+        { error: "Unauthorized - Admin access required for drive configuration" },
+        { status: 403 },
+      )
     }
 
     const searchParams = request.nextUrl.searchParams

@@ -1,9 +1,10 @@
 "use client"
 
 import { useSWRGet, buildURL } from "@/hooks/useRequest"
+import type { PaymentSummary } from "@/lib/google-apis"
 
 export function usePayments(spreadsheetId?: string) {
   const key = spreadsheetId ? buildURL("/payments", { spreadsheetId }) : null
-  const { data, error, isLoading, mutate } = useSWRGet<{ payments: any[] }>(key)
+  const { data, error, isLoading, mutate } = useSWRGet<{ payments: PaymentSummary[] }>(key)
   return { data: data?.payments ?? [], error, isLoading, mutate }
 }

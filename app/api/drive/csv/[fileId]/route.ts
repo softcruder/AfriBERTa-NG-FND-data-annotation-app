@@ -1,37 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { downloadCSVFile } from "@/lib/google-apis"
-import { getSessionFromCookie } from "@/lib/auth"
+import { requireSession } from "@/lib/server-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
-export async function GET(request: NextRequest, { params }: { params: { fileId: string } }) {
+// Route handler for fetching a CSV file from Google Drive by fileId
+export async function GET(request: NextRequest, context: { params: { fileId: string } }) {
   const limited = await enforceRateLimit(request, { route: "drive:csv:GET" })
   if (limited) return limited
   try {
-    // Get session from cookie
-    const sessionCookie = request.cookies.get("auth_session")
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
+    const { response, session } = await requireSession(request)
+    if (response) return response
 
-    const session = getSessionFromCookie(sessionCookie.value)
-    if (!session) {
-      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
-    }
-
-    let fileId: string | undefined
-    if (params instanceof Promise) {
-      // If params is a promise (dynamic API), await it
-      const awaitedParams = await params
-      fileId = (awaitedParams as any)?.fileId
-    } else {
-      fileId = (params as any)?.fileId
-    }
-
+    const fileId = context?.params?.fileId
     if (!fileId || typeof fileId !== "string") {
       return NextResponse.json({ error: "Invalid file ID provided" }, { status: 400 })
     }
 
-    const csvData = await downloadCSVFile(session.accessToken, fileId)
+    const csvData = await downloadCSVFile(session!.accessToken, fileId)
 
     if (!csvData || csvData.length === 0) {
       return NextResponse.json({ error: "CSV file is empty or invalid" }, { status: 400 })

@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { enforceRateLimit } from "@/lib/rate-limit"
-import { getSessionFromCookie } from "@/lib/auth"
+import { requireSession } from "@/lib/server-auth"
 import { getAppConfigSafe } from "@/lib/google-apis"
 
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, { route: "session:GET" })
   if (limited) return limited
-  const cookie = request.cookies.get("auth_session")
-  if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-  const session = getSessionFromCookie(cookie.value)
-  if (!session) return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
+  const { response, session } = await requireSession(request)
+  if (response) return response
 
   try {
-    const cfg = await getAppConfigSafe(session.accessToken)
+    const cfg = await getAppConfigSafe(session!.accessToken)
     return NextResponse.json({
-      user: session.user,
-      expiresAt: session.expiresAt,
+      user: session!.user,
+      expiresAt: session!.expiresAt,
       config: cfg || {},
     })
   } catch (e) {
     // Return session even if config lookup fails
-    return NextResponse.json({ user: session.user, expiresAt: session.expiresAt, config: {} })
+    return NextResponse.json({ user: session!.user, expiresAt: session!.expiresAt, config: {} })
   }
 }

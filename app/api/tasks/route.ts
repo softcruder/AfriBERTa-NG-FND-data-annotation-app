@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getSessionFromCookie } from "@/lib/auth"
+import { requireSession } from "@/lib/server-auth"
 import { downloadCSVFile, getAppConfig } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
@@ -13,10 +13,8 @@ import { enforceRateLimit } from "@/lib/rate-limit"
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, { route: "tasks:GET" })
   if (limited) return limited
-  const cookie = request.cookies.get("auth_session")
-  if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-  const session = getSessionFromCookie(cookie.value)
-  if (!session) return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
+  const { response, session } = await requireSession(request)
+  if (response) return response
 
   try {
     const { searchParams } = new URL(request.url)
@@ -26,13 +24,13 @@ export async function GET(request: NextRequest) {
 
     let fileId = overrideFileId
     if (!fileId) {
-      const cfg = await getAppConfig(session.accessToken)
+      const cfg = await getAppConfig(session!.accessToken)
       fileId = cfg["CSV_FILE_ID"]
     }
 
     if (!fileId) return NextResponse.json({ error: "CSV file not configured" }, { status: 400 })
 
-    const data = await downloadCSVFile(session.accessToken, fileId)
+    const data = await downloadCSVFile(session!.accessToken, fileId)
     if (!data || data.length <= 1) {
       return NextResponse.json({ items: [], total: 0, page, pageSize })
     }

@@ -12,11 +12,14 @@ export type AppConfig = {
 interface ConfigContextValue {
   config?: AppConfig
   isLoading: boolean
-  error?: any
+  error?: unknown
   // Convenience helpers
   spreadsheetId?: string
   csvFileId?: string
-  mutate: (data?: AppConfig | Promise<AppConfig> | undefined, shouldRevalidate?: boolean) => Promise<any>
+  mutate: (
+    data?: { config: AppConfig } | Promise<{ config: AppConfig }> | undefined,
+    shouldRevalidate?: boolean,
+  ) => Promise<{ config: AppConfig } | undefined>
 }
 
 const ConfigContext = createContext<ConfigContextValue | undefined>(undefined)
@@ -30,7 +33,8 @@ export function ConfigProvider({ children }: PropsWithChildren) {
     error,
     spreadsheetId: data?.config?.ANNOTATION_SPREADSHEET_ID,
     csvFileId: data?.config?.CSV_FILE_ID,
-    mutate: async (...args: any[]) => mutate(...args),
+    mutate: async (d?: { config: AppConfig } | Promise<{ config: AppConfig }> | undefined, r?: boolean) =>
+      mutate(d as any, r),
   }
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
 }

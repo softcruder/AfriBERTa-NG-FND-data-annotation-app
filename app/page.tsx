@@ -4,6 +4,7 @@ import { LoginForm } from "@/components/login-form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { getSessionFromCookie } from "@/lib/auth"
+import Image from "next/image"
 
 interface HomePageProps {
   searchParams: { error?: string }
@@ -44,8 +45,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Data Annotation Platform</h1>
-          <p className="text-muted-foreground">Professional fake news detection annotation system</p>
+          <div className="flex justify-center mb-6">
+            <Image src="/logo.png" alt="AfriBERTa NG Logo" width={80} height={80} className="text-primary" />
+          </div>
+          <h1 className="text-4xl font-bold text-foreground mb-3 text-balance">AfriBERTa NG</h1>
+          <h2 className="text-xl font-semibold text-primary mb-2">Data Annotation Platform</h2>
+          <p className="text-muted-foreground text-balance">Professional fake news detection annotation system</p>
         </div>
 
         {error && (

@@ -6,7 +6,7 @@ This application now includes enhanced session security with encryption and admi
 
 For production security, you should set the following environment variables:
 
-```bash
+\`\`\`bash
 # Session Encryption (REQUIRED for production)
 SESSION_SECRET=your-strong-secret-key-here-min-32-chars
 SESSION_SALT=your-salt-value-here
@@ -15,7 +15,7 @@ SESSION_SALT=your-salt-value-here
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 NEXT_PUBLIC_GOOGLE_REDIRECT_URI=your-redirect-uri
-```
+\`\`\`
 
 ## Admin Authorization
 

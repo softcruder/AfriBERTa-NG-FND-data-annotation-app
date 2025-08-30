@@ -63,8 +63,7 @@ export async function listDriveFiles(accessToken: string, query?: string): Promi
       })) || []
     )
   } catch (error) {
-    console.error("Error listing Drive files:", error)
-    throw new Error("Failed to list Drive files")
+    throw new Error(`Failed to list Drive files: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -77,14 +76,54 @@ export async function downloadCSVFile(accessToken: string, fileId: string): Prom
       alt: "media",
     })
 
-    // Parse CSV data
     const csvData = response.data as string
-    const rows = csvData.split("\n").map((row) => row.split(",").map((cell) => cell.trim().replace(/^"|"$/g, "")))
+    if (!csvData || typeof csvData !== "string") {
+      throw new Error("Invalid CSV data received from Google Drive")
+    }
 
-    return rows.filter((row) => row.some((cell) => cell.length > 0))
+    const rows: string[][] = []
+    const lines = csvData.split(/\r?\n/)
+
+    for (const line of lines) {
+      if (!line.trim()) continue // Skip empty lines
+
+      const row: string[] = []
+      let current = ""
+      let inQuotes = false
+      let i = 0
+
+      while (i < line.length) {
+        const char = line[i]
+        const nextChar = line[i + 1]
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            current += '"'
+            i += 2
+          } else {
+            inQuotes = !inQuotes
+            i++
+          }
+        } else if (char === "," && !inQuotes) {
+          row.push(current.trim())
+          current = ""
+          i++
+        } else {
+          current += char
+          i++
+        }
+      }
+
+      row.push(current.trim())
+
+      if (row.some((cell) => cell.length > 0)) {
+        rows.push(row)
+      }
+    }
+
+    return rows
   } catch (error) {
-    console.error("Error downloading CSV file:", error)
-    throw new Error("Failed to download CSV file")
+    throw new Error(`Failed to download CSV file: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -157,8 +196,7 @@ export async function createAnnotationSheet(accessToken: string, title: string):
 
     return response.data.spreadsheetId!
   } catch (error) {
-    console.error("Error creating annotation sheet:", error)
-    throw new Error("Failed to create annotation sheet")
+    throw new Error(`Failed to create annotation sheet: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -192,8 +230,7 @@ export async function logAnnotation(
       },
     })
   } catch (error) {
-    console.error("Error logging annotation:", error)
-    throw new Error("Failed to log annotation")
+    throw new Error(`Failed to log annotation: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -220,8 +257,7 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
       verifiedBy: row[9] || undefined,
     }))
   } catch (error) {
-    console.error("Error getting annotations:", error)
-    throw new Error("Failed to get annotations")
+    throw new Error(`Failed to get annotations: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -229,7 +265,6 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   try {
-    // Get unique annotator IDs from annotations
     const annotations = await getAnnotations(accessToken, spreadsheetId)
     const annotatorIds = [...new Set(annotations.map((a) => a.annotatorId))]
 
@@ -258,8 +293,7 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
       })
     }
   } catch (error) {
-    console.error("Error updating payment formulas:", error)
-    throw new Error("Failed to update payment formulas")
+    throw new Error(`Failed to update payment formulas: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -284,7 +318,6 @@ export async function getPaymentSummaries(accessToken: string, spreadsheetId: st
       totalPayment: Number.parseInt(row[7]) || 0,
     }))
   } catch (error) {
-    console.error("Error getting payment summaries:", error)
-    throw new Error("Failed to get payment summaries")
+    throw new Error(`Failed to get payment summaries: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

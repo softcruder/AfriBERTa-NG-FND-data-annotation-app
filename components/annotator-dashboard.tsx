@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 import { Clock, FileText, CheckCircle, Play, DollarSign } from "lucide-react"
 import { AnnotationForm } from "@/components/annotation-form"
 import { PaymentDashboard } from "@/components/payment-dashboard"
@@ -31,8 +32,8 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     pendingTasks: 0,
   })
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
-  // Load current task and stats on mount
   useEffect(() => {
     const task = getCurrentTask()
     setCurrentTaskState(task)
@@ -49,7 +50,6 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
 
       const { annotations } = await response.json()
 
-      // Calculate today's stats
       const today = new Date().toDateString()
       const todayAnnotations = annotations.filter(
         (a: any) =>
@@ -67,7 +67,11 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         pendingTasks: 0, // TODO: Calculate from CSV data
       })
     } catch (error) {
-      console.error("Error loading stats:", error)
+      toast({
+        title: "Error Loading Stats",
+        description: "Failed to load dashboard statistics.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -76,23 +80,28 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     try {
       const csvFileId = getCSVFileId()
       if (!csvFileId) {
-        alert("No CSV file configured. Please contact admin.")
+        toast({
+          title: "Configuration Missing",
+          description: "No CSV file configured. Please contact admin.",
+          variant: "destructive",
+        })
         return
       }
 
-      // Get CSV data
       const response = await fetch(`/api/drive/csv/${csvFileId}`)
       if (!response.ok) throw new Error("Failed to load CSV data")
 
       const { data } = await response.json()
 
-      // Find next unassigned row (simplified logic)
-      // TODO: Implement proper assignment tracking
       const nextRowIndex = Math.floor(Math.random() * (data.length - 1)) + 1 // Skip header
       const rowData = data[nextRowIndex]
 
       if (!rowData || rowData.length === 0) {
-        alert("No more tasks available")
+        toast({
+          title: "No Tasks Available",
+          description: "All annotation tasks have been completed.",
+          variant: "default",
+        })
         return
       }
 
@@ -113,8 +122,11 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
       setCurrentTask(newTask)
       setCurrentTaskState(newTask)
     } catch (error) {
-      console.error("Error starting new task:", error)
-      alert("Failed to start new task")
+      toast({
+        title: "Task Start Failed",
+        description: "Failed to start new annotation task. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -124,17 +136,19 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     try {
       const spreadsheetId = getSpreadsheetId()
       if (!spreadsheetId) {
-        alert("No spreadsheet configured. Please contact admin.")
+        toast({
+          title: "Configuration Missing",
+          description: "No spreadsheet configured. Please contact admin.",
+          variant: "destructive",
+        })
         return
       }
 
-      // Calculate duration
       const duration =
         completedTask.startTime && completedTask.endTime
           ? Math.round((completedTask.endTime.getTime() - completedTask.startTime.getTime()) / (1000 * 60))
           : 0
 
-      // Log annotation to Google Sheets
       const annotation = {
         rowId: completedTask.rowId,
         annotatorId: user.id,
@@ -155,15 +169,21 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
 
       if (!response.ok) throw new Error("Failed to save annotation")
 
-      // Clear current task and refresh stats
       setCurrentTask(null)
       setCurrentTaskState(null)
       loadStats()
 
-      alert("Task completed successfully!")
+      toast({
+        title: "Task Completed",
+        description: "Your annotation has been saved successfully!",
+        variant: "default",
+      })
     } catch (error) {
-      console.error("Error completing task:", error)
-      alert("Failed to save annotation")
+      toast({
+        title: "Save Failed",
+        description: "Failed to save annotation. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -181,92 +201,102 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Annotator Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user.name}</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="flex items-center justify-between mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="Logo" className="h-10 w-10" />
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Annotator Dashboard</h1>
+                <p className="text-slate-600 dark:text-slate-400">Welcome back, {user.name}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <LogoutButton />
+            <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700">
+              <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
+              <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <LogoutButton />
-          <Avatar>
-            <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-        </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completedToday}</div>
-            <p className="text-xs text-muted-foreground">rows annotated</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Time Worked</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.timeWorkedToday}</div>
-            <p className="text-xs text-muted-foreground">today</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingTasks || "-"}</div>
-            <p className="text-xs text-muted-foreground">rows remaining</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="annotation" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="annotation">
-            <Play className="mr-2 h-4 w-4" />
-            Annotation
-          </TabsTrigger>
-          <TabsTrigger value="payments">
-            <DollarSign className="mr-2 h-4 w-4" />
-            Payments
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="annotation">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ready to Start Annotating?</CardTitle>
-              <CardDescription>
-                Click below to begin your next annotation task. The system will automatically track your time and
-                progress.
-              </CardDescription>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Completed Today</CardTitle>
+              <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </CardHeader>
             <CardContent>
-              <Button size="lg" className="w-full md:w-auto" onClick={startNewTask} disabled={isLoading}>
-                <Play className="mr-2 h-4 w-4" />
-                {isLoading ? "Loading Task..." : "Start Next Task"}
-              </Button>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.completedToday}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">rows annotated</p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="payments">
-          <PaymentDashboard user={user} />
-        </TabsContent>
-      </Tabs>
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Time Worked</CardTitle>
+              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.timeWorkedToday}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">today</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Pending Tasks</CardTitle>
+              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.pendingTasks || "-"}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">rows remaining</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="annotation" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-100 dark:bg-slate-800">
+            <TabsTrigger value="annotation" className="gap-2">
+              <Play className="h-4 w-4" />
+              Annotation
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2">
+              <DollarSign className="h-4 w-4" />
+              Payments
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="annotation">
+            <Card className="shadow-sm border-slate-200 dark:border-slate-700">
+              <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
+                <CardTitle className="text-slate-900 dark:text-slate-100">Ready to Start Annotating?</CardTitle>
+                <CardDescription>
+                  Click below to begin your next annotation task. The system will automatically track your time and
+                  progress.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <Button
+                  size="lg"
+                  className="w-full md:w-auto h-12 gap-2 bg-primary hover:bg-primary/90"
+                  onClick={startNewTask}
+                  disabled={isLoading}
+                >
+                  <Play className="h-4 w-4" />
+                  {isLoading ? "Loading Task..." : "Start Next Task"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payments">
+            <PaymentDashboard user={user} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

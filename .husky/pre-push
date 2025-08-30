@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
 # Collect staged .ts and .tsx files
 FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
@@ -10,13 +10,13 @@ if [ -z "$FILES" ]; then
 fi
 
 echo "Running Prettier on staged files..."
-npx --yes prettier --write $FILES
+printf '%s\n' "$FILES" | xargs -r npx --yes prettier --write
 
 # Re-stage any files Prettier fixed
-git add $FILES
+printf '%s\n' "$FILES" | xargs -r git add
 
 echo "Running ESLint on staged files..."
-npx --yes eslint $FILES --max-warnings=0 || {
+printf '%s\n' "$FILES" | xargs -r npx --yes eslint --max-warnings=0 || {
   echo "ESLint failed. Fix errors before pushing." >&2
   exit 1
 }

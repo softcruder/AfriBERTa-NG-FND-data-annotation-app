@@ -206,7 +206,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Today&apos;s Progress</CardTitle>
+            <CardTitle className="text-lg">Today's Progress</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">

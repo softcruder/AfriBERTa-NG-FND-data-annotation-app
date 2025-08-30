@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +35,6 @@ interface Annotator {
 
 export function AnnotatorManagement() {
   const [annotators, setAnnotators] = useState<Annotator[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [newAnnotatorEmail, setNewAnnotatorEmail] = useState("")
   const [newAnnotatorRole, setNewAnnotatorRole] = useState<"annotator" | "admin">("annotator")
   const { toast } = useToast()
@@ -44,14 +43,9 @@ export function AnnotatorManagement() {
   const { add } = useAddUser()
   const { update } = useUpdateUser()
 
-  useEffect(() => {
-    if (swrUsers && Array.isArray(swrUsers)) {
-      setAnnotators(swrUsers as Annotator[])
-      setIsLoading(false)
-    } else if (!usersLoading) {
-      setIsLoading(false)
-    }
-  }, [swrUsers, usersLoading])
+  // Derive list directly from SWR when not locally modified by us
+  const remoteAnnotators: Annotator[] = Array.isArray(swrUsers) ? (swrUsers as Annotator[]) : []
+  const isLoading = usersLoading && annotators.length === 0
 
   const handleInviteAnnotator = async () => {
     if (!newAnnotatorEmail.trim()) {
@@ -124,10 +118,8 @@ export function AnnotatorManagement() {
       await update({ spreadsheetId, userId: annotatorId, updates: { status: newStatus } })
       mutate()
 
-      // Update local state
-      setAnnotators(prev =>
-        prev.map(annotator => (annotator.id === annotatorId ? { ...annotator, status: newStatus } : annotator)),
-      )
+      // Optimistically update local additions too
+      setAnnotators(prev => prev.map(a => (a.id === annotatorId ? { ...a, status: newStatus } : a)))
     } catch (error) {
       // console.error("Error updating annotator status:", error)
     }
@@ -140,10 +132,8 @@ export function AnnotatorManagement() {
       await update({ spreadsheetId, userId: annotatorId, updates: { role: newRole } })
       mutate()
 
-      // Update local state
-      setAnnotators(prev =>
-        prev.map(annotator => (annotator.id === annotatorId ? { ...annotator, role: newRole } : annotator)),
-      )
+      // Optimistically update local additions too
+      setAnnotators(prev => prev.map(a => (a.id === annotatorId ? { ...a, role: newRole } : a)))
     } catch (error) {
       // console.error("Error updating annotator role:", error)
     }
@@ -249,7 +239,7 @@ export function AnnotatorManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {annotators.map(annotator => (
+                {(remoteAnnotators.length ? remoteAnnotators : annotators).map(annotator => (
                   <TableRow key={annotator.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">

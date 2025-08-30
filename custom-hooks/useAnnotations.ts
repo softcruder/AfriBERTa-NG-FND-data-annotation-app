@@ -5,6 +5,8 @@ import type { AnnotationRow } from "@/lib/google-apis"
 import type { AnnotationFormData } from "@/lib/validation"
 import type { KeyedMutator } from "swr"
 
+const EMPTY_ANN_ARR: AnnotationRow[] = []
+
 export function useAnnotations(spreadsheetId?: string): {
   data: AnnotationRow[]
   error: unknown
@@ -13,7 +15,7 @@ export function useAnnotations(spreadsheetId?: string): {
 } {
   const key = spreadsheetId ? buildURL("/annotations", { spreadsheetId }) : null
   const { data, error, isLoading, mutate } = useSWRGet<{ annotations: AnnotationRow[] }>(key)
-  return { data: data?.annotations ?? [], error, isLoading, mutate }
+  return { data: data?.annotations ?? EMPTY_ANN_ARR, error, isLoading, mutate }
 }
 
 export function useCreateAnnotation() {

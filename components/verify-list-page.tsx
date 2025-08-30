@@ -58,7 +58,14 @@ export function VerifyListPage() {
                     }}
                     disabled={loading}
                   >
-                    Verify
+                    {loading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="size-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
+                        Verifying
+                      </span>
+                    ) : (
+                      "Verify"
+                    )}
                   </Button>
                 </div>
               </div>

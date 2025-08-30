@@ -67,7 +67,16 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
             </div>
           </div>
           <Button onClick={handleVerify} disabled={loading || item.status === "verified"}>
-            {item.status === "verified" ? "Already Verified" : "Mark Verified"}
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="size-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
+                Processing
+              </span>
+            ) : item.status === "verified" ? (
+              "Already Verified"
+            ) : (
+              "Mark Verified"
+            )}
           </Button>
         </CardContent>
       </Card>

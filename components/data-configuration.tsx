@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,8 +23,7 @@ interface DriveFile {
 }
 
 export function DataConfiguration() {
-  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [currentSpreadsheetId, setCurrentSpreadsheetIdState] = useState<string | null>(null)
   const [currentCSVFileId, setCurrentCSVFileIdState] = useState<string | null>(null)
   const [newSheetTitle, setNewSheetTitle] = useState("")
@@ -34,18 +33,6 @@ export function DataConfiguration() {
   const { config, refresh: refreshSession } = useAuth()
   const { request } = useRequest<any>()
 
-  const loadDriveFiles = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      if (driveFilesData && Array.isArray(driveFilesData)) setDriveFiles(driveFilesData as any)
-      else setDriveFiles([])
-    } catch {
-      toast({ description: "Failed to load Drive files", variant: "destructive" })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [toast, driveFilesData])
-
   useEffect(() => {
     // Load persisted config from backend, then fall back to any local values for backward compatibility
     ;(async () => {
@@ -53,20 +40,27 @@ export function DataConfiguration() {
         const sheetId = config?.ANNOTATION_SPREADSHEET_ID || getSpreadsheetId()
         const csvId = config?.CSV_FILE_ID || getCSVFileId()
         if (sheetId) {
-          setSpreadsheetId(sheetId)
-          setCurrentSpreadsheetIdState(sheetId)
+          // Only persist/update state if changed to avoid redundant renders
+          if (sheetId !== getSpreadsheetId()) setSpreadsheetId(sheetId)
+          setCurrentSpreadsheetIdState(prev => (prev !== sheetId ? sheetId : prev))
         }
         if (csvId) {
-          setCSVFileId(csvId)
-          setCurrentCSVFileIdState(csvId)
+          if (csvId !== getCSVFileId()) setCSVFileId(csvId)
+          setCurrentCSVFileIdState(prev => (prev !== csvId ? csvId : prev))
         }
       } catch {
-        setCurrentSpreadsheetIdState(getSpreadsheetId())
-        setCurrentCSVFileIdState(getCSVFileId())
+        const fallbackSheet = getSpreadsheetId()
+        const fallbackCsv = getCSVFileId()
+        setCurrentSpreadsheetIdState(prev => (prev !== fallbackSheet ? fallbackSheet : prev))
+        setCurrentCSVFileIdState(prev => (prev !== fallbackCsv ? fallbackCsv : prev))
       }
-      loadDriveFiles()
     })()
-  }, [loadDriveFiles, config])
+  }, [config])
+
+  const driveFiles: DriveFile[] = useMemo(() => {
+    if (!driveFilesData) return []
+    return Array.isArray(driveFilesData) ? (driveFilesData as DriveFile[]) : []
+  }, [driveFilesData])
 
   const findFactChecksCSV = async () => {
     try {
@@ -314,19 +308,23 @@ export function DataConfiguration() {
             </div>
             <Button
               variant="outline"
-              onClick={() => {
-                refreshDrive()
-                loadDriveFiles()
+              onClick={async () => {
+                try {
+                  setRefreshing(true)
+                  await refreshDrive()
+                } finally {
+                  setRefreshing(false)
+                }
               }}
-              disabled={isLoading || driveLoading}
+              disabled={refreshing || driveLoading}
             >
               <Settings className="mr-2 h-4 w-4" />
-              Refresh
+              {refreshing ? "Refreshing" : "Refresh"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {refreshing ? (
             <div className="text-center py-8 text-muted-foreground">Loading files...</div>
           ) : driveFiles.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No files found</div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -22,54 +22,38 @@ interface AnnotatorStats {
 }
 
 export function PaymentDashboard({ user }: PaymentDashboardProps) {
-  const [stats, setStats] = useState<AnnotatorStats>({
-    totalRows: 0,
-    translations: 0,
-    totalHours: 0,
-    completedToday: 0,
-    hoursToday: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
   const { spreadsheetId } = useAuth()
   const { data: annotations } = useAnnotations(spreadsheetId)
 
-  const loadStats = useCallback(() => {
-    try {
-      if (!annotations) return
+  const stats: AnnotatorStats = useMemo(() => {
+    const anns = annotations || []
+    if (!anns.length) {
+      return { totalRows: 0, translations: 0, totalHours: 0, completedToday: 0, hoursToday: 0 }
+    }
 
-      // Filter annotations for current user
-      const userAnnotations = annotations.filter((a: any) => a.annotatorId === user.id)
+    const userAnnotations = anns.filter((a: any) => a.annotatorId === user.id)
+    const today = new Date().toDateString()
+    const todayAnnotations = userAnnotations.filter(
+      (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
+    )
 
-      // Calculate stats
-      const today = new Date().toDateString()
-      const todayAnnotations = userAnnotations.filter(
-        (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
-      )
+    const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
+    const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
+    const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+    const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
 
-      const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
-      const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
-      const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-      const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-
-      setStats({
-        totalRows,
-        translations,
-        totalHours: totalMinutes / 60,
-        completedToday: todayAnnotations.length,
-        hoursToday: todayMinutes / 60,
-      })
-    } finally {
-      setIsLoading(false)
+    return {
+      totalRows,
+      translations,
+      totalHours: totalMinutes / 60,
+      completedToday: todayAnnotations.length,
+      hoursToday: todayMinutes / 60,
     }
   }, [annotations, user.id])
 
-  useEffect(() => {
-    loadStats()
-  }, [loadStats])
-
   const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours)
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
-  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday) // Simplified for today
+  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday)
 
   const getEfficiencyColor = (status: string) => {
     switch (status) {

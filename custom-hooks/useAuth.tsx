@@ -26,7 +26,25 @@ export type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const fetcher = (url: string) => fetch(url).then(r => (r.ok ? r.json() : Promise.reject(r)))
+  const fetcher = async (url: string) => {
+    let attempt = 0
+    const maxAttempts = 3
+    let lastErr: any
+    while (attempt < maxAttempts) {
+      try {
+        const r = await fetch(url)
+        if (!r.ok) throw r
+        return await r.json()
+      } catch (e) {
+        lastErr = e
+        attempt += 1
+        if (attempt >= maxAttempts) break
+        // simple backoff: 200ms, 400ms
+        await new Promise(res => setTimeout(res, attempt * 200))
+      }
+    }
+    throw lastErr
+  }
   const { data, isLoading, mutate } = useSWR<{ user: SessionUser; expiresAt: number; config: Record<string, string> }>(
     "/api/session",
     fetcher,

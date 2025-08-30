@@ -3,6 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, usePathname } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -45,6 +46,7 @@ export function SiteHeader() {
   const { anonymize } = useAnonymizeSelf()
   const { request } = useRequest<{ success: boolean }>()
   const { user } = useAuth()
+  const [navLoading, setNavLoading] = useState(false)
 
   const isDashboard = pathname?.startsWith("/dashboard")
   const role = (user?.role as string) || "annotator"
@@ -74,8 +76,11 @@ export function SiteHeader() {
   }
 
   const goVerify = () => {
-    if (role === "admin") router.push("/dashboard/admin/metrics")
-    else router.push("/dashboard/annotator/verify")
+    setNavLoading(true)
+    const target = role === "admin" ? "/dashboard/admin/metrics" : "/dashboard/annotator/verify"
+    router.push(target)
+    // give a brief grace period for transition; Next will reset when page renders
+    setTimeout(() => setNavLoading(false), 1200)
   }
 
   return (
@@ -86,14 +91,22 @@ export function SiteHeader() {
           {isDashboard && <MobileSidebar />}
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Logo" width={28} height={28} className="rounded" />
-            <span className="font-semibold truncate">AfriBERTa NG</span>
           </Link>
           {/* Inline nav removed to avoid duplication and extra requests; sidebar handles navigation */}
         </div>
         <div className="flex items-center gap-2">
           {isDashboard && (
-            <Button variant="outline" size="sm" onClick={goVerify}>
-              <ShieldCheck className="h-4 w-4" /> Verify
+            <Button variant="outline" size="sm" onClick={goVerify} disabled={navLoading}>
+              {navLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="size-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
+                  Loading
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <ShieldCheck className="h-4 w-4" /> Verify
+                </span>
+              )}
             </Button>
           )}
           <DropdownMenu>
@@ -112,7 +125,15 @@ export function SiteHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="max-w-[240px] truncate">{user?.email || "Signed in"}</DropdownMenuLabel>
+              <DropdownMenuLabel className="max-w-[240px] truncate flex items-center justify-between gap-2">
+                <span>{user?.email || "Signed in"}</span>
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded border bg-muted text-muted-foreground uppercase tracking-wide"
+                  aria-label={`Role: ${role}`}
+                >
+                  {role}
+                </span>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href={isAdmin ? "/dashboard/admin" : "/dashboard/annotator"} className="flex items-center gap-2">

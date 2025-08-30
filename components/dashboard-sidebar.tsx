@@ -29,7 +29,7 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
   )
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 pt-2">
       {role === "annotator" && (
         <>
           {link("/dashboard/annotator", "Dashboard", Home)}
@@ -56,7 +56,10 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
 export function DashboardSidebar() {
   return (
     <aside className="hidden md:flex md:w-64 shrink-0 border-r bg-background/50">
-      <div className="flex h-[calc(100vh-56px)] flex-col gap-2 p-3 sticky top-14">
+      <div className="flex h-[calc(100vh-56px)] flex-col gap-3 p-4 sticky top-14">
+        <div className="px-2 pb-2">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">AfriBERTa NG</div>
+        </div>
         <SidebarLinks />
       </div>
     </aside>

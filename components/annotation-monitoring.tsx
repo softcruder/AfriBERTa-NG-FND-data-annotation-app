@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useAuth, useAnnotations, useVerifyAnnotation } from "@/custom-hooks"
 import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,12 +30,10 @@ interface AnnotationActivity {
 export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProps) {
   const { spreadsheetId } = useAuth()
   const { verify } = useVerifyAnnotation()
-  const [activities, setActivities] = useState<AnnotationActivity[]>([])
   const { data: annotations, isLoading, mutate } = useAnnotations(spreadsheetId)
-
-  useEffect(() => {
-    if (!annotations) return
-    const activitiesData: AnnotationActivity[] = annotations.map((annotation: any) => ({
+  const activities: AnnotationActivity[] = useMemo(() => {
+    if (!Array.isArray(annotations)) return []
+    const items = annotations.map((annotation: any) => ({
       id: `${annotation.rowId}_${annotation.startTime}`,
       annotatorId: annotation.annotatorId,
       annotatorName: annotation.annotatorName || `User ${annotation.annotatorId.slice(-4)}`,
@@ -46,23 +44,24 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
       startTime: annotation.startTime,
       endTime: annotation.endTime,
       durationMinutes: annotation.durationMinutes,
-    }))
-    activitiesData.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-    setActivities(activitiesData)
+    })) as AnnotationActivity[]
+    return items.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+  }, [annotations])
 
-    if (onStatsUpdate) {
-      const today = new Date().toDateString()
-      const activeToday = new Set(
-        activitiesData.filter(a => new Date(a.startTime).toDateString() === today).map(a => a.annotatorId),
-      ).size
-      onStatsUpdate({
-        activeAnnotators: activeToday,
-        totalAnnotations: activitiesData.filter(a => a.status === "completed").length,
-        pendingPayments: 0,
-        completionRate: 0,
-      })
-    }
-  }, [annotations, onStatsUpdate])
+  // Emit stats only when activities change to avoid loops
+  useEffect(() => {
+    if (!onStatsUpdate || activities.length === 0) return
+    const today = new Date().toDateString()
+    const activeToday = new Set(
+      activities.filter(a => new Date(a.startTime).toDateString() === today).map(a => a.annotatorId),
+    ).size
+    onStatsUpdate({
+      activeAnnotators: activeToday,
+      totalAnnotations: activities.filter(a => a.status === "completed").length,
+      pendingPayments: 0,
+      completionRate: 0,
+    })
+  }, [activities, onStatsUpdate])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -176,9 +175,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                                 if (!spreadsheetId) return
                                 const res = await verify({ spreadsheetId, rowId: activity.rowId })
                                 if (res?.success) {
-                                  setActivities(prev =>
-                                    prev.map(a => (a.id === activity.id ? { ...a, status: "verified" } : a)),
-                                  )
+                                  mutate()
                                 }
                               } catch {}
                             }}

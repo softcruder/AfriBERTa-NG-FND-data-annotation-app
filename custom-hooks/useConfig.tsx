@@ -31,7 +31,7 @@ export function ConfigProvider({ children }: PropsWithChildren) {
     error,
     spreadsheetId: data?.config?.ANNOTATION_SPREADSHEET_ID,
     csvFileId: data?.config?.CSV_FILE_ID,
-  mutate,
+    mutate,
   }
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
 }

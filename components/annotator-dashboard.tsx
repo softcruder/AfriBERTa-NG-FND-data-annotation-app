@@ -38,13 +38,13 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     setCurrentTaskState(task)
   }, [])
 
-  // Derive tasks and totals directly from hook data
-  const tasks = useMemo(() => tasksResp?.items ?? [], [tasksResp])
+  // Derive tasks and totals directly from hook data (no local mirrors)
+  const tasks = tasksResp?.items ?? []
   const tasksTotal = tasksResp?.total ?? 0
 
   // Derive QA items from annotations
   const qaItems = useMemo(() => {
-    if (!annotations) return []
+    if (!Array.isArray(annotations)) return []
     const unverified = annotations.filter((a: any) => !a.verifiedBy && a.status !== "verified")
     return unverified.slice(0, 10)
   }, [annotations])

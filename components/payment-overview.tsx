@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { formatMoney } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,24 +23,17 @@ interface PaymentSummary {
 }
 
 export function PaymentOverview() {
-  const [payments, setPayments] = useState<PaymentSummary[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
   const { spreadsheetId } = useAuth()
   const { data: swrPayments, isLoading: paying } = usePayments(spreadsheetId)
 
-  useEffect(() => {
-    if (swrPayments && Array.isArray(swrPayments)) {
-      const paymentsWithNames: PaymentSummary[] = swrPayments.map((payment: any) => ({
+  // Derive payments directly from SWR data
+  const payments: PaymentSummary[] = Array.isArray(swrPayments)
+    ? (swrPayments as any[]).map((payment: any) => ({
         ...payment,
         annotatorName: payment.annotatorName || `User ${payment.annotatorId.slice(-4)}`,
       }))
-      setPayments(paymentsWithNames)
-      setIsLoading(false)
-    } else if (!paying) {
-      setIsLoading(false)
-    }
-  }, [swrPayments, paying])
+    : []
 
   const handleExportPayments = () => {
     if (payments.length === 0) {
@@ -168,7 +160,7 @@ export function PaymentOverview() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {paying ? (
             <div className="text-center py-8 text-muted-foreground">Loading payment data...</div>
           ) : payments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No payment data available</div>

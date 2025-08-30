@@ -80,7 +80,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 text-orange-600" />
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Quality Score</p>
                 <p className="text-2xl font-bold">{averageQuality.toFixed(1)}/10</p>
@@ -189,7 +189,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
             <CardContent>
               {metrics.flaggedAnnotations.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                  <CheckCircle className="h-12 w-12 text-orange-600 mx-auto mb-4" />
                   <p className="text-lg font-medium">No Quality Issues Found</p>
                   <p className="text-muted-foreground">All annotations meet quality standards</p>
                 </div>

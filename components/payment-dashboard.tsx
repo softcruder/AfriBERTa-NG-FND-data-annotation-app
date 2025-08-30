@@ -82,7 +82,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
   const getEfficiencyColor = (status: string) => {
     switch (status) {
       case "excellent":
-        return "text-green-600"
+        return "text-orange-600"
       case "good":
         return "text-blue-600"
       case "average":
@@ -94,7 +94,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
   const getEfficiencyBadge = (status: string) => {
     const colors = {
-      excellent: "bg-green-100 text-green-800",
+      excellent: "bg-orange-100 text-orange-800",
       good: "bg-blue-100 text-blue-800",
       average: "bg-yellow-100 text-yellow-800",
       "below-average": "bg-red-100 text-red-800",
@@ -180,7 +180,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
             {payment.breakdown.bonus > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Performance Bonus</span>
-                <span className="font-medium text-green-600">{formatCurrency(payment.breakdown.bonus)}</span>
+                <span className="font-medium text-orange-600">{formatCurrency(payment.breakdown.bonus)}</span>
               </div>
             )}
             <div className="border-t pt-2">
@@ -216,7 +216,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
               </div>
               <Progress value={(stats.totalRows / (DEFAULT_RATES.bonusThreshold || 50)) * 100} className="h-2" />
               {stats.totalRows >= (DEFAULT_RATES.bonusThreshold || 50) && (
-                <div className="flex items-center gap-1 text-green-600">
+                <div className="flex items-center gap-1 text-orange-600">
                   <Award className="h-4 w-4" />
                   <span className="text-xs font-medium">Bonus Unlocked!</span>
                 </div>

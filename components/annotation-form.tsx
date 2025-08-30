@@ -11,9 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
-import { Clock, Plus, X, Save, ArrowLeft, ExternalLink, Pause, Play, AlertTriangle, Edit3 } from "lucide-react"
+import { Clock, Plus, X, Save, ArrowLeft, ExternalLink, Pause, Play, Edit3 } from "lucide-react"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
 import { setCurrentTask } from "@/lib/data-store"
@@ -28,7 +27,6 @@ interface AnnotationFormProps {
 }
 
 export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationFormProps) {
-  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
   const [canEditClaim, setCanEditClaim] = useState(false)
   const [extractedClaimText, setExtractedClaimText] = useState("")
   const { toast } = useToast()
@@ -58,21 +56,32 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
     const ratingStatus = csvData[2] || ""
     const claimText = csvData[0] || ""
 
-    setCanEditClaim(ratingStatus.toLowerCase() === "unrated" || ratingStatus === "")
+    const isEditable = ratingStatus.toLowerCase() === "unrated" || ratingStatus === ""
+    setCanEditClaim(isEditable)
     setExtractedClaimText(claimText)
 
-    if (canEditClaim && claimText) {
+    if (isEditable && claimText) {
       setValue("claims", [claimText])
+      // Show informational toast about claim editability
+      toast({
+        title: "Claim Editable",
+        description: "This claim is unrated and can be edited. Make corrections as needed before proceeding.",
+        variant: "default",
+      })
     }
-  }, [task.csvRow.data, setValue])
+  }, [task.csvRow.data, setValue, toast])
 
   const timeTracking = useTimeTracking({
     idleThreshold: 15 * 60 * 1000, // 15 minutes
     onIdle: () => {
-      setShowTimeoutWarning(true)
+      toast({
+        title: "Session Timeout Warning",
+        description: "You've been inactive for a while. Your session will timeout soon. Move your mouse or click anywhere to continue working.",
+        variant: "destructive",
+      })
     },
     onResume: () => {
-      setShowTimeoutWarning(false)
+      // User resumed activity, no need for toast dismissal as they auto-dismiss
     },
     onTimeout: () => {
       handleAutoSave()
@@ -247,16 +256,6 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
           </div>
         </div>
 
-        {showTimeoutWarning && (
-          <Alert className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertDescription className="text-amber-800 dark:text-amber-200">
-              You've been inactive for a while. Your session will timeout soon. Move your mouse or click anywhere to
-              continue working.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
@@ -325,15 +324,6 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                         </Button>
                       )}
                     </div>
-
-                    {canEditClaim && (
-                      <Alert className="mb-4 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-                        <Edit3 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <AlertDescription className="text-blue-800 dark:text-blue-200">
-                          This claim is unrated and can be edited. Make corrections as needed before proceeding.
-                        </AlertDescription>
-                      </Alert>
-                    )}
 
                     <div className="space-y-3">
                       {watchedValues.claims.map((claim, index) => (

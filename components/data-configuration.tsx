@@ -90,7 +90,7 @@ export function DataConfiguration() {
   }
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.includes("csv")) return <FileText className="h-4 w-4 text-green-600" />
+    if (mimeType.includes("csv")) return <FileText className="h-4 w-4 text-orange-600" />
     if (mimeType.includes("spreadsheet")) return <Database className="h-4 w-4 text-blue-600" />
     return <FileText className="h-4 w-4 text-gray-600" />
   }
@@ -98,7 +98,7 @@ export function DataConfiguration() {
   const getFileTypeBadge = (mimeType: string) => {
     if (mimeType.includes("csv"))
       return (
-        <Badge variant="default" className="bg-green-100 text-green-800">
+        <Badge variant="default" className="bg-orange-100 text-orange-800">
           CSV
         </Badge>
       )
@@ -126,7 +126,7 @@ export function DataConfiguration() {
           <CardContent>
             {currentCSVFileId ? (
               <div className="space-y-2">
-                <Badge variant="default" className="bg-green-100 text-green-800">
+                <Badge variant="default" className="bg-orange-100 text-orange-800">
                   Configured
                 </Badge>
                 <p className="text-sm text-muted-foreground">File ID: {currentCSVFileId}</p>

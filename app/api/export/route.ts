@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Export error:", error)
+    // console.error("Export error:", error)
     return NextResponse.json({ error: "Export failed" }, { status: 500 })
   }
 }
@@ -116,5 +116,5 @@ function convertToCSV(data: any): string {
     return row
   })
 
-  return [headers, ...rows].map((row) => row.join(",")).join("\n")
+  return [headers, ...rows].map(row => row.join(",")).join("\n")
 }

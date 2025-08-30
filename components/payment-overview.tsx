@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DollarSign, Clock, FileText, Download } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface PaymentSummary {
   annotatorId: string
@@ -23,6 +24,7 @@ interface PaymentSummary {
 export function PaymentOverview() {
   const [payments, setPayments] = useState<PaymentSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadPayments()
@@ -49,7 +51,7 @@ export function PaymentOverview() {
 
       setPayments(paymentsWithNames)
     } catch (error) {
-      console.error("Error loading payments:", error)
+      // console.error("Error loading payments:", error)
     } finally {
       setIsLoading(false)
     }
@@ -57,7 +59,11 @@ export function PaymentOverview() {
 
   const handleExportPayments = () => {
     if (payments.length === 0) {
-      alert("No payment data to export")
+      toast({
+        title: "Export Error",
+        description: "No payment data to export",
+        variant: "destructive",
+      })
       return
     }
 
@@ -75,7 +81,7 @@ export function PaymentOverview() {
 
     const csvContent = [
       headers.join(","),
-      ...payments.map((p) =>
+      ...payments.map(p =>
         [
           p.annotatorId,
           p.annotatorName,
@@ -192,7 +198,7 @@ export function PaymentOverview() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment) => (
+                {payments.map(payment => (
                   <TableRow key={payment.annotatorId}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -200,7 +206,7 @@ export function PaymentOverview() {
                           <AvatarFallback className="text-xs">
                             {payment.annotatorName
                               .split(" ")
-                              .map((n) => n[0])
+                              .map(n => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>

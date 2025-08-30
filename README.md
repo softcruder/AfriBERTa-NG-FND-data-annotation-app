@@ -4,7 +4,6 @@
 
 ## Overview
 
-
 ## Deployment
 
 Your project is live at:
@@ -12,6 +11,5 @@ Your project is live at:
 **[https://vercel.com/softcruders-projects/v0-data-annotation-app](https://vercel.com/softcruders-projects/v0-data-annotation-app)**
 
 ## Build your app
-
 
 ## How It Works

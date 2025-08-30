@@ -7,7 +7,7 @@ import { getSessionFromCookie } from "@/lib/auth"
 import Image from "next/image"
 
 interface HomePageProps {
-  searchParams: { error?: string }
+  searchParams: Promise<{ error?: string }>
 }
 
 async function getSession() {
@@ -28,7 +28,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     redirect("/dashboard")
   }
 
-  const { error } = searchParams
+  const { error } = await searchParams
 
   const getErrorMessage = (error: string) => {
     switch (error) {

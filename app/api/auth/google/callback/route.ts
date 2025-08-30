@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response = NextResponse.redirect(new URL("/dashboard", request.url))
-    
+
     // Encrypt and set session cookie
     const encryptedSession = encryptSession(JSON.stringify(sessionData))
     response.cookies.set("auth_session", encryptedSession, {

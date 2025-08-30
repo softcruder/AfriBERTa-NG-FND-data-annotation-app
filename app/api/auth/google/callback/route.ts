@@ -2,8 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getUserRole } from "@/lib/admin-auth"
 import { getAppConfig, upsertUserByEmail } from "@/lib/google-apis"
 import { encryptSession } from "@/lib/encryption"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "auth:google:callback:GET", limit: 10, windowMs: 3000 })
+  if (limited) return limited
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")
   const error = searchParams.get("error")

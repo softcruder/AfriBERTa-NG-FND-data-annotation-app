@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
 import { exportConfigSchema } from "@/lib/validation"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "export:POST", limit: 2, windowMs: 3000 })
+  if (limited) return limited
   try {
     const session = await getSession()
     if (!session || session.user.role !== "admin") {

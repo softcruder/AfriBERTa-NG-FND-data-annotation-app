@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { enforceRateLimit } from "@/lib/rate-limit"
 import { getSessionFromCookie } from "@/lib/auth"
 import { getAppConfigSafe } from "@/lib/google-apis"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "session:GET" })
+  if (limited) return limited
   const cookie = request.cookies.get("auth_session")
   if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   const session = getSessionFromCookie(cookie.value)

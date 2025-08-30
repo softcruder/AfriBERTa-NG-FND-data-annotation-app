@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionFromCookie } from "@/lib/auth"
 import { getAppConfigSafe, setAppConfig, findOrCreateAppConfigSpreadsheet } from "@/lib/google-apis"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "config:GET" })
+  if (limited) return limited
   const cookie = request.cookies.get("auth_session")
   if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   const session = getSessionFromCookie(cookie.value)
@@ -18,6 +21,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "config:POST" })
+  if (limited) return limited
   const cookie = request.cookies.get("auth_session")
   if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   const session = getSessionFromCookie(cookie.value)

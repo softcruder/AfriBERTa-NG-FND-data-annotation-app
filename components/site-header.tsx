@@ -27,6 +27,7 @@ import {
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 import { useAnonymizeSelf } from "@/custom-hooks/useAnonymize"
 import { useRequest } from "@/hooks/useRequest"
+import { MobileSidebar } from "@/components/mobile-sidebar"
 
 type HeaderUser = {
   id: string
@@ -74,58 +75,20 @@ export function SiteHeader() {
 
   const goVerify = () => {
     if (role === "admin") router.push("/dashboard/admin/metrics")
-    else router.push("/dashboard/annotator/verify/me")
+    else router.push("/dashboard/annotator/verify")
   }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-slate-900/70">
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-3 min-w-0">
+          {/* Mobile sidebar trigger */}
+          {isDashboard && <MobileSidebar />}
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Logo" width={28} height={28} className="rounded" />
             <span className="font-semibold truncate">AfriBERTa NG</span>
           </Link>
-          {/* Hide inline dashboard nav when on dashboard; sidebar handles it */}
-          <nav className={`hidden md:flex items-center gap-3 text-sm text-muted-foreground ${isDashboard ? "hidden" : ""}`}>
-            {isAnnotator && (
-              <>
-                <Link href="/dashboard/annotator" className="hover:text-foreground flex items-center gap-1">
-                  <Home className="h-4 w-4" /> Dashboard
-                </Link>
-                <Link href="/dashboard/annotator/tasks" className="hover:text-foreground flex items-center gap-1">
-                  <FileText className="h-4 w-4" /> Tasks
-                </Link>
-                <Link href="/dashboard/annotator/payments" className="hover:text-foreground flex items-center gap-1">
-                  <DollarSign className="h-4 w-4" /> Payments
-                </Link>
-              </>
-            )}
-            {isAdmin && (
-              <>
-                <Link href="/dashboard/admin" className="hover:text-foreground flex items-center gap-1">
-                  <Home className="h-4 w-4" /> Dashboard
-                </Link>
-                <Link href="/dashboard/admin/metrics" className="hover:text-foreground flex items-center gap-1">
-                  <Activity className="h-4 w-4" /> Metrics
-                </Link>
-                <Link href="/dashboard/admin/annotators" className="hover:text-foreground flex items-center gap-1">
-                  <Users className="h-4 w-4" /> Annotators
-                </Link>
-                <Link href="/dashboard/admin/payments" className="hover:text-foreground flex items-center gap-1">
-                  <DollarSign className="h-4 w-4" /> Payments
-                </Link>
-                <Link href="/dashboard/admin/config" className="hover:text-foreground flex items-center gap-1">
-                  <SettingsIcon className="h-4 w-4" /> Config
-                </Link>
-              </>
-            )}
-            <Link href="/privacy" className="hover:text-foreground">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-foreground">
-              Terms
-            </Link>
-          </nav>
+          {/* Inline nav removed to avoid duplication and extra requests; sidebar handles navigation */}
         </div>
         <div className="flex items-center gap-2">
           {isDashboard && (

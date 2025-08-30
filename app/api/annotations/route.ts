@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { logAnnotation, getAnnotations, updatePaymentFormulas, initializeGoogleAPIs } from "@/lib/google-apis"
 import { getSessionFromCookie } from "@/lib/auth"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "annotations:GET" })
+  if (limited) return limited
   try {
     // Get session from cookie
     const sessionCookie = request.cookies.get("auth_session")
@@ -32,6 +35,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "annotations:POST" })
+  if (limited) return limited
   try {
     // Get session from cookie
     const sessionCookie = request.cookies.get("auth_session")

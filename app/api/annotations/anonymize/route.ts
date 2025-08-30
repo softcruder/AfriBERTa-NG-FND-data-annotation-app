@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionFromCookie } from "@/lib/auth"
 import { anonymizeAnnotationsByAnnotator, getAppConfig } from "@/lib/google-apis"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "annotations:anonymize:POST", limit: 2, windowMs: 3000 })
+  if (limited) return limited
   const cookie = request.cookies.get("auth_session")
   if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   const session = getSessionFromCookie(cookie.value)

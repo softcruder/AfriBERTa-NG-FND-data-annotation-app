@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSessionFromCookie } from "@/lib/auth"
 import { downloadCSVFile, getAppConfig } from "@/lib/google-apis"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 /**
  * List available tasks (rows) from the configured source CSV with pagination.
@@ -10,6 +11,8 @@ import { downloadCSVFile, getAppConfig } from "@/lib/google-apis"
  * - fileId: optional override the CSV file id; if missing, use config[CSV_FILE_ID]
  */
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "tasks:GET" })
+  if (limited) return limited
   const cookie = request.cookies.get("auth_session")
   if (!cookie) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   const session = getSessionFromCookie(cookie.value)

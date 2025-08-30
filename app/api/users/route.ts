@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUsers, addUser, updateUser, type User } from "@/lib/google-apis"
 import { getSessionFromCookie } from "@/lib/auth"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "users:GET" })
+  if (limited) return limited
   try {
     // Get session from cookie
     const sessionCookie = request.cookies.get("auth_session")
@@ -32,6 +35,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "users:POST" })
+  if (limited) return limited
   try {
     // Get session from cookie
     const sessionCookie = request.cookies.get("auth_session")
@@ -60,6 +65,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "users:PATCH" })
+  if (limited) return limited
   try {
     // Get session from cookie
     const sessionCookie = request.cookies.get("auth_session")

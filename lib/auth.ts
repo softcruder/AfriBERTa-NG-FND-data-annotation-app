@@ -1,4 +1,4 @@
-import { encryptSession, decryptSession } from './encryption'
+import { encryptSession, decryptSession } from "./encryption"
 
 // Authentication utilities and types
 export interface User {
@@ -70,15 +70,15 @@ export function getStoredSession(): AuthSession | null {
 
 export function storeSession(session: AuthSession): void {
   if (typeof window === "undefined") return
-  
+
   try {
     // Encrypt the session data before storing
     const sessionData = JSON.stringify(session)
     const encryptedData = encryptSession(sessionData)
     localStorage.setItem("auth_session", encryptedData)
   } catch (error) {
-    console.error('Failed to store encrypted session:', error)
-    throw new Error('Failed to store session')
+    // console.error('Failed to store encrypted session:', error)
+    throw new Error("Failed to store session")
   }
 }
 
@@ -117,7 +117,7 @@ export function getSessionFromCookie(cookieValue: string): AuthSession | null {
 
     return session
   } catch (error) {
-    console.error('Failed to decrypt session from cookie:', error)
+    // console.error('Failed to decrypt session from cookie:', error)
     return null
   }
 }
@@ -126,8 +126,8 @@ export function getSessionFromCookie(cookieValue: string): AuthSession | null {
  * Extract session from request cookies
  */
 export function getSessionFromRequest(request: Request): AuthSession | null {
-  const sessionCookie = request.headers.get('cookie')?.match(/auth_session=([^;]+)/)?.[1]
-  
+  const sessionCookie = request.headers.get("cookie")?.match(/auth_session=([^;]+)/)?.[1]
+
   if (!sessionCookie) {
     return null
   }

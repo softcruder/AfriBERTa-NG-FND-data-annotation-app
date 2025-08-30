@@ -9,7 +9,7 @@ export const annotationFormSchema = z
     canEditSourceLinks: z.boolean(),
   })
   .refine(
-    data => {
+    (data) => {
       if (data.needsTranslation && (!data.translation || data.translation.trim().length === 0)) {
         return false
       }

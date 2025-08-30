@@ -69,7 +69,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
         hoursToday: todayMinutes / 60,
       })
     } catch (error) {
-      // console.error("Error loading stats:", error)
+      console.error("Error loading stats:", error)
     } finally {
       setIsLoading(false)
     }
@@ -125,7 +125,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium">Today's Earnings</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

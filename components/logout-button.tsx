@@ -26,7 +26,7 @@ export function LogoutButton({ variant = "outline", size = "default" }: LogoutBu
         router.refresh()
       }
     } catch (error) {
-      // console.error("Logout failed:", error)
+      console.error("Logout failed:", error)
     } finally {
       setIsLoading(false)
     }

@@ -44,191 +44,6 @@ export function initializeGoogleAPIs(accessToken: string) {
 }
 
 // Google Drive functions
-
-// Constants for the specific folder structure
-const AFRIBERTA_FND_FOLDER = "AfriBERTa-NG-FND"
-const FACTCHECK_SCRAPER_FOLDER = "FactCheckScraper-v4.1"
-const FACTCHECKS_CSV_FILE = "factchecks.csv"
-
-// Helper function to find or create the AfriBERTa-NG-FND folder
-export async function findOrCreateAfriBertaFolder(accessToken: string): Promise<string> {
-  const { drive } = initializeGoogleAPIs(accessToken)
-
-  try {
-    // First, try to find existing folder
-    const searchResponse = await drive.files.list({
-      q: `name='${AFRIBERTA_FND_FOLDER}' and mimeType='application/vnd.google-apps.folder'`,
-      fields: "files(id,name)",
-    })
-
-    if (searchResponse.data.files && searchResponse.data.files.length > 0) {
-      return searchResponse.data.files[0].id!
-    }
-
-    // If not found, create the folder
-    const createResponse = await drive.files.create({
-      requestBody: {
-        name: AFRIBERTA_FND_FOLDER,
-        mimeType: "application/vnd.google-apps.folder",
-      },
-      fields: "id",
-    })
-
-    return createResponse.data.id!
-  } catch (error) {
-    throw new Error(
-      `Failed to find or create AfriBERTa-NG-FND folder: ${error instanceof Error ? error.message : "Unknown error"}`,
-    )
-  }
-}
-
-// Helper function to find the FactCheckScraper-v4.1 folder and factchecks.csv file
-export async function findFactChecksCSV(accessToken: string): Promise<string> {
-  const { drive } = initializeGoogleAPIs(accessToken)
-
-  try {
-    // First, find the FactCheckScraper-v4.1 folder
-    const folderResponse = await drive.files.list({
-      q: `name='${FACTCHECK_SCRAPER_FOLDER}' and mimeType='application/vnd.google-apps.folder'`,
-      fields: "files(id,name)",
-    })
-
-    if (!folderResponse.data.files || folderResponse.data.files.length === 0) {
-      throw new Error(`${FACTCHECK_SCRAPER_FOLDER} folder not found`)
-    }
-
-    const folderId = folderResponse.data.files[0].id!
-
-    // Then, find the factchecks.csv file in that folder
-    const csvResponse = await drive.files.list({
-      q: `name='${FACTCHECKS_CSV_FILE}' and '${folderId}' in parents`,
-      fields: "files(id,name)",
-    })
-
-    if (!csvResponse.data.files || csvResponse.data.files.length === 0) {
-      throw new Error(`${FACTCHECKS_CSV_FILE} not found in ${FACTCHECK_SCRAPER_FOLDER} folder`)
-    }
-
-    return csvResponse.data.files[0].id!
-  } catch (error) {
-    throw new Error(`Failed to find factchecks.csv: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-// Helper function to create spreadsheets in the AfriBERTa-NG-FND folder
-export async function createSpreadsheetInAfriBertaFolder(accessToken: string, title: string): Promise<string> {
-  const { drive, sheets } = initializeGoogleAPIs(accessToken)
-
-  try {
-    // Get the AfriBERTa-NG-FND folder ID
-    const folderId = await findOrCreateAfriBertaFolder(accessToken)
-
-    // Create the spreadsheet
-    const createResponse = await sheets.spreadsheets.create({
-      requestBody: {
-        properties: {
-          title,
-        },
-        sheets: [
-          {
-            properties: {
-              title: "Users",
-            },
-            data: [
-              {
-                startRow: 0,
-                startColumn: 0,
-                rowData: [
-                  {
-                    values: [
-                      { userEnteredValue: { stringValue: "User_ID" } },
-                      { userEnteredValue: { stringValue: "Name" } },
-                      { userEnteredValue: { stringValue: "Email" } },
-                      { userEnteredValue: { stringValue: "Role" } },
-                      { userEnteredValue: { stringValue: "Status" } },
-                      { userEnteredValue: { stringValue: "Total_Annotations" } },
-                      { userEnteredValue: { stringValue: "Avg_Time_Per_Row" } },
-                      { userEnteredValue: { stringValue: "Last_Active" } },
-                      { userEnteredValue: { stringValue: "Joined_Date" } },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            properties: {
-              title: "Payments",
-            },
-            data: [
-              {
-                startRow: 0,
-                startColumn: 0,
-                rowData: [
-                  {
-                    values: [
-                      { userEnteredValue: { stringValue: "Annotator_ID" } },
-                      { userEnteredValue: { stringValue: "Total_Rows" } },
-                      { userEnteredValue: { stringValue: "Translations" } },
-                      { userEnteredValue: { stringValue: "Avg_Rows_Per_Hour" } },
-                      { userEnteredValue: { stringValue: "Total_Hours" } },
-                      { userEnteredValue: { stringValue: "Payment_Rows" } },
-                      { userEnteredValue: { stringValue: "Payment_Translations" } },
-                      { userEnteredValue: { stringValue: "Total_Payment" } },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            properties: {
-              title: "Annotations_Log",
-            },
-            data: [
-              {
-                startRow: 0,
-                startColumn: 0,
-                rowData: [
-                  {
-                    values: [
-                      { userEnteredValue: { stringValue: "Row_ID" } },
-                      { userEnteredValue: { stringValue: "Annotator_ID" } },
-                      { userEnteredValue: { stringValue: "Claim_Text" } },
-                      { userEnteredValue: { stringValue: "Source_Links" } },
-                      { userEnteredValue: { stringValue: "Translation" } },
-                      { userEnteredValue: { stringValue: "Start_Time" } },
-                      { userEnteredValue: { stringValue: "End_Time" } },
-                      { userEnteredValue: { stringValue: "Duration_Minutes" } },
-                      { userEnteredValue: { stringValue: "Status" } },
-                      { userEnteredValue: { stringValue: "Verified_By" } },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    })
-
-    const spreadsheetId = createResponse.data.spreadsheetId!
-
-    // Move the spreadsheet to the AfriBERTa-NG-FND folder
-    await drive.files.update({
-      fileId: spreadsheetId,
-      addParents: folderId,
-      fields: "id,parents",
-    })
-
-    return spreadsheetId
-  } catch (error) {
-    throw new Error(
-      `Failed to create spreadsheet in AfriBERTa-NG-FND folder: ${error instanceof Error ? error.message : "Unknown error"}`,
-    )
-  }
-}
-
 export async function listDriveFiles(accessToken: string, query?: string): Promise<DriveFile[]> {
   const { drive } = initializeGoogleAPIs(accessToken)
 
@@ -240,7 +55,7 @@ export async function listDriveFiles(accessToken: string, query?: string): Promi
     })
 
     return (
-      response.data.files?.map(file => ({
+      response.data.files?.map((file) => ({
         id: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
@@ -301,7 +116,7 @@ export async function downloadCSVFile(accessToken: string, fileId: string): Prom
 
       row.push(current.trim())
 
-      if (row.some(cell => cell.length > 0)) {
+      if (row.some((cell) => cell.length > 0)) {
         rows.push(row)
       }
     }
@@ -314,8 +129,75 @@ export async function downloadCSVFile(accessToken: string, fileId: string): Prom
 
 // Google Sheets functions
 export async function createAnnotationSheet(accessToken: string, title: string): Promise<string> {
-  // Use the new function that creates spreadsheet in the correct folder
-  return await createSpreadsheetInAfriBertaFolder(accessToken, title)
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  try {
+    const response = await sheets.spreadsheets.create({
+      requestBody: {
+        properties: {
+          title,
+        },
+        sheets: [
+          {
+            properties: {
+              title: "Annotations_Log",
+            },
+            data: [
+              {
+                startRow: 0,
+                startColumn: 0,
+                rowData: [
+                  {
+                    values: [
+                      { userEnteredValue: { stringValue: "Row_ID" } },
+                      { userEnteredValue: { stringValue: "Annotator_ID" } },
+                      { userEnteredValue: { stringValue: "Claim_Text" } },
+                      { userEnteredValue: { stringValue: "Source_Links" } },
+                      { userEnteredValue: { stringValue: "Translation" } },
+                      { userEnteredValue: { stringValue: "Start_Time" } },
+                      { userEnteredValue: { stringValue: "End_Time" } },
+                      { userEnteredValue: { stringValue: "Duration_Minutes" } },
+                      { userEnteredValue: { stringValue: "Status" } },
+                      { userEnteredValue: { stringValue: "Verified_By" } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            properties: {
+              title: "Payments",
+            },
+            data: [
+              {
+                startRow: 0,
+                startColumn: 0,
+                rowData: [
+                  {
+                    values: [
+                      { userEnteredValue: { stringValue: "Annotator_ID" } },
+                      { userEnteredValue: { stringValue: "Total_Rows" } },
+                      { userEnteredValue: { stringValue: "Translations" } },
+                      { userEnteredValue: { stringValue: "Avg_Rows_Per_Hour" } },
+                      { userEnteredValue: { stringValue: "Total_Hours" } },
+                      { userEnteredValue: { stringValue: "Payment_Rows" } },
+                      { userEnteredValue: { stringValue: "Payment_Translations" } },
+                      { userEnteredValue: { stringValue: "Total_Payment" } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    return response.data.spreadsheetId!
+  } catch (error) {
+    throw new Error(`Failed to create annotation sheet: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
 }
 
 export async function logAnnotation(
@@ -362,7 +244,7 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
     })
 
     const rows = response.data.values || []
-    return rows.map(row => ({
+    return rows.map((row) => ({
       rowId: row[0] || "",
       annotatorId: row[1] || "",
       claimText: row[2] || "",
@@ -384,7 +266,7 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
 
   try {
     const annotations = await getAnnotations(accessToken, spreadsheetId)
-    const annotatorIds = [...new Set(annotations.map(a => a.annotatorId))]
+    const annotatorIds = [...new Set(annotations.map((a) => a.annotatorId))]
 
     const paymentRows = annotatorIds.map((annotatorId, index) => {
       const rowNum = index + 2 // Starting from row 2 (after header)
@@ -425,7 +307,7 @@ export async function getPaymentSummaries(accessToken: string, spreadsheetId: st
     })
 
     const rows = response.data.values || []
-    return rows.map(row => ({
+    return rows.map((row) => ({
       annotatorId: row[0] || "",
       totalRows: Number.parseInt(row[1]) || 0,
       translations: Number.parseInt(row[2]) || 0,
@@ -437,119 +319,5 @@ export async function getPaymentSummaries(accessToken: string, spreadsheetId: st
     }))
   } catch (error) {
     throw new Error(`Failed to get payment summaries: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-// User management functions for the Google Sheets database
-export interface User {
-  id: string
-  name: string
-  email: string
-  role: "annotator" | "admin"
-  status: "active" | "inactive"
-  totalAnnotations: number
-  avgTimePerRow: number
-  lastActive: string
-  joinedDate: string
-}
-
-export async function getUsers(accessToken: string, spreadsheetId: string): Promise<User[]> {
-  const { sheets } = initializeGoogleAPIs(accessToken)
-
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: "Users!A2:I", // Skip header row
-    })
-
-    const rows = response.data.values || []
-    return rows.map(row => ({
-      id: row[0] || "",
-      name: row[1] || "",
-      email: row[2] || "",
-      role: (row[3] as "annotator" | "admin") || "annotator",
-      status: (row[4] as "active" | "inactive") || "active",
-      totalAnnotations: Number.parseInt(row[5]) || 0,
-      avgTimePerRow: Number.parseFloat(row[6]) || 0,
-      lastActive: row[7] || new Date().toISOString(),
-      joinedDate: row[8] || new Date().toISOString(),
-    }))
-  } catch (error) {
-    throw new Error(`Failed to get users: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-export async function addUser(accessToken: string, spreadsheetId: string, user: User): Promise<void> {
-  const { sheets } = initializeGoogleAPIs(accessToken)
-
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: "Users!A:I",
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [
-          [
-            user.id,
-            user.name,
-            user.email,
-            user.role,
-            user.status,
-            user.totalAnnotations,
-            user.avgTimePerRow,
-            user.lastActive,
-            user.joinedDate,
-          ],
-        ],
-      },
-    })
-  } catch (error) {
-    throw new Error(`Failed to add user: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-}
-
-export async function updateUser(
-  accessToken: string,
-  spreadsheetId: string,
-  userId: string,
-  updates: Partial<User>,
-): Promise<void> {
-  const { sheets } = initializeGoogleAPIs(accessToken)
-
-  try {
-    // First, find the user's row
-    const users = await getUsers(accessToken, spreadsheetId)
-    const userIndex = users.findIndex(u => u.id === userId)
-
-    if (userIndex === -1) {
-      throw new Error(`User with ID ${userId} not found`)
-    }
-
-    // Update the user data
-    const updatedUser = { ...users[userIndex], ...updates }
-    const rowNumber = userIndex + 2 // +2 because array is 0-indexed and we skip header row
-
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `Users!A${rowNumber}:I${rowNumber}`,
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [
-          [
-            updatedUser.id,
-            updatedUser.name,
-            updatedUser.email,
-            updatedUser.role,
-            updatedUser.status,
-            updatedUser.totalAnnotations,
-            updatedUser.avgTimePerRow,
-            updatedUser.lastActive,
-            updatedUser.joinedDate,
-          ],
-        ],
-      },
-    })
-  } catch (error) {
-    throw new Error(`Failed to update user: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

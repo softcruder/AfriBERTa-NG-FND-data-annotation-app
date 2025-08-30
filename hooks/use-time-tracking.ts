@@ -43,7 +43,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
 
   // Update activity timestamp
   const updateActivity = useCallback(() => {
-    setState(prev => {
+    setState((prev) => {
       if (prev.isIdle) {
         // Resume from idle
         onResume?.()
@@ -64,7 +64,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
       clearTimeout(idleTimeoutRef.current)
     }
     idleTimeoutRef.current = setTimeout(() => {
-      setState(prev => {
+      setState((prev) => {
         if (prev.isActive && !prev.isIdle) {
           onIdle?.()
           return { ...prev, isIdle: true }
@@ -80,13 +80,13 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
 
     const handleActivity = () => updateActivity()
 
-    events.forEach(event => {
+    events.forEach((event) => {
       document.addEventListener(event, handleActivity, true)
       activityListeners.current.push(() => document.removeEventListener(event, handleActivity, true))
     })
 
     return () => {
-      activityListeners.current.forEach(cleanup => cleanup())
+      activityListeners.current.forEach((cleanup) => cleanup())
       activityListeners.current = []
     }
   }, [updateActivity])
@@ -95,7 +95,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
   useEffect(() => {
     if (state.isActive && !state.isIdle) {
       intervalRef.current = setInterval(() => {
-        setState(prev => {
+        setState((prev) => {
           if (prev.startTime) {
             const elapsed = Math.floor((Date.now() - prev.startTime.getTime()) / 1000)
             return { ...prev, elapsedTime: elapsed }
@@ -127,7 +127,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
 
   const start = useCallback(() => {
     const now = new Date()
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isActive: true,
       startTime: now,
@@ -139,7 +139,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
   }, [updateActivity])
 
   const pause = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isActive: false,
       totalTime: prev.totalTime + prev.elapsedTime,
@@ -152,7 +152,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
 
   const resume = useCallback(() => {
     const now = new Date()
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isActive: true,
       startTime: now,
@@ -164,7 +164,7 @@ export function useTimeTracking(options: UseTimeTrackingOptions = {}) {
   }, [updateActivity])
 
   const stop = useCallback(() => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isActive: false,
       totalTime: prev.totalTime + prev.elapsedTime,

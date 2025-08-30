@@ -59,14 +59,20 @@ export function DataConfiguration() {
     try {
       setIsLoading(true)
       const response = await fetch("/api/drive/files")
-      if (!response.ok) throw new Error("Failed to load Drive files")
+      
+      if (!response.ok) {
+        if (response.status === 403) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Admin access required for drive configuration")
+        }
+        throw new Error("Failed to load Drive files")
+      }
 
       const { files } = await response.json()
       setDriveFiles(files)
     } catch (error) {
       // console.error("Error loading Drive files:", error)
       toast({
-        title: "Error",
         description: "Failed to load Drive files",
         variant: "destructive",
       })
@@ -120,7 +126,6 @@ export function DataConfiguration() {
     toast({
       title: "Success",
       description: "CSV file selected successfully!",
-      variant: "default",
     })
   }
 
@@ -130,7 +135,6 @@ export function DataConfiguration() {
     toast({
       title: "Success",
       description: "Spreadsheet selected successfully!",
-      variant: "default",
     })
   }
 

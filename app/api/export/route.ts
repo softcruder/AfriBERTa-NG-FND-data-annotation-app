@@ -12,33 +12,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const config = exportConfigSchema.parse(body)
 
-    // Mock export logic - in real implementation, this would:
+    // In production, this would:
     // 1. Query the Google Sheets for annotation data
     // 2. Filter by date range and annotators if specified
     // 3. Include payment and time tracking data if requested
     // 4. Format data according to the specified format
     // 5. Return the formatted data
 
-    const mockData = {
-      annotations: [
-        {
-          id: "1",
-          annotator: "john@example.com",
-          rowId: "row_1",
-          claims: ["Sample claim 1", "Sample claim 2"],
-          sourceLinks: ["https://example.com/source1"],
-          translation: "Sample translation",
-          startTime: "2024-01-15T10:00:00Z",
-          endTime: "2024-01-15T10:15:00Z",
-          timeSpent: 15,
-          payment: config.includePayments ? 5.0 : undefined,
-        },
-      ],
+    // For now, return a basic structure for frontend compatibility
+    // This should be implemented to fetch real data from Google Sheets
+    const exportData = {
+      annotations: [],
       summary: {
-        totalAnnotations: 1,
-        totalTimeSpent: 15,
-        totalPayment: config.includePayments ? 5.0 : undefined,
+        totalAnnotations: 0,
+        totalTimeSpent: 0,
+        totalPayment: config.includePayments ? 0 : undefined,
       },
+      message: "Export functionality requires Google Sheets integration to be fully implemented",
     }
 
     // Format data based on requested format
@@ -48,18 +38,18 @@ export async function POST(request: NextRequest) {
 
     switch (config.format) {
       case "csv":
-        responseData = convertToCSV(mockData)
+        responseData = convertToCSV(exportData)
         contentType = "text/csv"
         filename = "annotations.csv"
         break
       case "json":
-        responseData = JSON.stringify(mockData, null, 2)
+        responseData = JSON.stringify(exportData, null, 2)
         contentType = "application/json"
         filename = "annotations.json"
         break
       case "xlsx":
-        // In real implementation, use a library like xlsx to create Excel files
-        responseData = JSON.stringify(mockData, null, 2)
+        // In production, use a library like xlsx to create Excel files
+        responseData = JSON.stringify(exportData, null, 2)
         contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         filename = "annotations.xlsx"
         break
@@ -98,15 +88,15 @@ function convertToCSV(data: any): string {
 
   const rows = data.annotations.map((annotation: any) => {
     const row = [
-      annotation.id,
-      annotation.annotator,
-      annotation.rowId,
-      `"${annotation.claims.join("; ")}"`,
-      `"${annotation.sourceLinks.join("; ")}"`,
+      annotation.id || "",
+      annotation.annotator || "",
+      annotation.rowId || "",
+      `"${(annotation.claims || []).join("; ")}"`,
+      `"${(annotation.sourceLinks || []).join("; ")}"`,
       `"${annotation.translation || ""}"`,
-      annotation.startTime,
-      annotation.endTime,
-      annotation.timeSpent,
+      annotation.startTime || "",
+      annotation.endTime || "",
+      annotation.timeSpent || "",
     ]
 
     if (annotation.payment !== undefined) {
@@ -116,5 +106,12 @@ function convertToCSV(data: any): string {
     return row
   })
 
-  return [headers, ...rows].map(row => row.join(",")).join("\n")
+
+  // If no annotations, add a note
+  if (data.annotations.length === 0) {
+    rows.push(["No data available", ...Array(headers.length - 1).fill("")])
+  }
+
+  return [headers, ...rows].map((row) => row.join(",")).join("\n")
+
 }

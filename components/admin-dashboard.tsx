@@ -85,8 +85,8 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
       if (!spreadsheetId) {
         toast({
-          title: "Configuration Error",
-          description: "No spreadsheet configured",
+          title: "Configuration Required",
+          description: "No spreadsheet configured. Please configure a spreadsheet first.",
           variant: "destructive",
         })
         return
@@ -138,11 +138,14 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch (error) {
-      // console.error("Error exporting data:", error)
+
       toast({
-        title: "Export Error",
-        description: "Failed to export data",
+        title: "Success",
+        description: "Annotation data exported successfully",
+      })
+    } catch (error) {
+      toast({
+        description: "Failed to export data. Please try again.",
         variant: "destructive",
       })
     }

@@ -43,10 +43,11 @@ export function PaymentOverview() {
 
       const { payments: paymentData } = await response.json()
 
-      // Transform data and add mock names
+      // Transform data - in production, annotator names would come from user management system
       const paymentsWithNames: PaymentSummary[] = paymentData.map((payment: any) => ({
         ...payment,
-        annotatorName: `Annotator ${payment.annotatorId.slice(-4)}`, // Mock name
+        // In production, this would be fetched from a user database/directory
+        annotatorName: payment.annotatorName || `User ${payment.annotatorId.slice(-4)}`,
       }))
 
       setPayments(paymentsWithNames)
@@ -60,7 +61,6 @@ export function PaymentOverview() {
   const handleExportPayments = () => {
     if (payments.length === 0) {
       toast({
-        title: "Export Error",
         description: "No payment data to export",
         variant: "destructive",
       })

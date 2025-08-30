@@ -68,18 +68,18 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
       if (onStatsUpdate) {
         const today = new Date().toDateString()
         const activeToday = new Set(
-          activitiesData.filter(a => new Date(a.startTime).toDateString() === today).map(a => a.annotatorId),
+          activitiesData.filter((a) => new Date(a.startTime).toDateString() === today).map((a) => a.annotatorId),
         ).size
 
         onStatsUpdate({
           activeAnnotators: activeToday,
-          totalAnnotations: activitiesData.filter(a => a.status === "completed").length,
+          totalAnnotations: activitiesData.filter((a) => a.status === "completed").length,
           pendingPayments: 0, // Will be calculated in payment component
           completionRate: 0,
         })
       }
     } catch (error) {
-      // console.error("Error loading activities:", error)
+      console.error("Error loading activities:", error)
     } finally {
       setIsLoading(false)
     }
@@ -164,7 +164,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activities.slice(0, 20).map(activity => (
+                {activities.slice(0, 20).map((activity) => (
                   <TableRow key={activity.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -172,7 +172,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                           <AvatarFallback className="text-xs">
                             {activity.annotatorName
                               .split(" ")
-                              .map(n => n[0])
+                              .map((n) => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>
@@ -206,7 +206,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Today&apos;s Progress</CardTitle>
+            <CardTitle className="text-lg">Today's Progress</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -215,7 +215,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {
                     activities.filter(
-                      a =>
+                      (a) =>
                         a.status === "completed" && new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
                   }
@@ -226,7 +226,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {
                     activities.filter(
-                      a =>
+                      (a) =>
                         a.status === "in-progress" &&
                         new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
@@ -238,7 +238,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {
                     activities.filter(
-                      a =>
+                      (a) =>
                         a.status === "verified" && new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
                   }
@@ -258,8 +258,8 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="text-sm text-muted-foreground">Per Row</span>
                 <span className="font-medium">
                   {formatDuration(
-                    activities.filter(a => a.durationMinutes).reduce((sum, a) => sum + (a.durationMinutes || 0), 0) /
-                      Math.max(1, activities.filter(a => a.durationMinutes).length),
+                    activities.filter((a) => a.durationMinutes).reduce((sum, a) => sum + (a.durationMinutes || 0), 0) /
+                      Math.max(1, activities.filter((a) => a.durationMinutes).length),
                   )}
                 </span>
               </div>
@@ -269,13 +269,14 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                   {formatDuration(
                     activities
                       .filter(
-                        a => a.durationMinutes && new Date(a.startTime).toDateString() === new Date().toDateString(),
+                        (a) => a.durationMinutes && new Date(a.startTime).toDateString() === new Date().toDateString(),
                       )
                       .reduce((sum, a) => sum + (a.durationMinutes || 0), 0) /
                       Math.max(
                         1,
                         activities.filter(
-                          a => a.durationMinutes && new Date(a.startTime).toDateString() === new Date().toDateString(),
+                          (a) =>
+                            a.durationMinutes && new Date(a.startTime).toDateString() === new Date().toDateString(),
                         ).length,
                       ),
                   )}
@@ -295,7 +296,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="text-sm text-muted-foreground">Verification Rate</span>
                 <span className="font-medium">
                   {activities.length > 0
-                    ? Math.round((activities.filter(a => a.status === "verified").length / activities.length) * 100)
+                    ? Math.round((activities.filter((a) => a.status === "verified").length / activities.length) * 100)
                     : 0}
                   %
                 </span>
@@ -305,7 +306,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {activities.length > 0
                     ? Math.round(
-                        (activities.filter(a => a.status === "completed" || a.status === "verified").length /
+                        (activities.filter((a) => a.status === "completed" || a.status === "verified").length /
                           activities.length) *
                           100,
                       )

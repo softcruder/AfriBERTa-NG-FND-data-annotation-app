@@ -51,7 +51,7 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
         variant: "success",
       })
     } catch (error) {
-      // console.error("Export failed:", error)
+      console.error("Export failed:", error)
       toast({
         title: "Export Failed",
         description: "Failed to export data. Please try again.",
@@ -78,7 +78,7 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
             <Label className="text-base font-medium">Export Format</Label>
             <Select
               value={watchedValues.format}
-              onValueChange={value => setValue("format", value as "csv" | "json" | "xlsx")}
+              onValueChange={(value) => setValue("format", value as "csv" | "json" | "xlsx")}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select format" />
@@ -120,14 +120,14 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
                 <Input
                   id="from-date"
                   type="date"
-                  onChange={e => setValue("dateRange.from", new Date(e.target.value))}
+                  onChange={(e) => setValue("dateRange.from", new Date(e.target.value))}
                 />
               </div>
               <div>
                 <Label htmlFor="to-date" className="text-sm">
                   To
                 </Label>
-                <Input id="to-date" type="date" onChange={e => setValue("dateRange.to", new Date(e.target.value))} />
+                <Input id="to-date" type="date" onChange={(e) => setValue("dateRange.to", new Date(e.target.value))} />
               </div>
             </div>
           </div>
@@ -139,19 +139,19 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
               Annotators (Optional)
             </Label>
             <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-              {annotators.map(annotator => (
+              {annotators.map((annotator) => (
                 <div key={annotator.id} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id={`annotator-${annotator.id}`}
-                    onChange={e => {
+                    onChange={(e) => {
                       const currentAnnotators = watchedValues.annotators || []
                       if (e.target.checked) {
                         setValue("annotators", [...currentAnnotators, annotator.id])
                       } else {
                         setValue(
                           "annotators",
-                          currentAnnotators.filter(id => id !== annotator.id),
+                          currentAnnotators.filter((id) => id !== annotator.id),
                         )
                       }
                     }}
@@ -179,7 +179,7 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
               <Switch
                 id="include-payments"
                 checked={watchedValues.includePayments}
-                onCheckedChange={checked => setValue("includePayments", checked)}
+                onCheckedChange={(checked) => setValue("includePayments", checked)}
               />
             </div>
 
@@ -193,7 +193,7 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
               <Switch
                 id="include-time"
                 checked={watchedValues.includeTimeTracking}
-                onCheckedChange={checked => setValue("includeTimeTracking", checked)}
+                onCheckedChange={(checked) => setValue("includeTimeTracking", checked)}
               />
             </div>
           </div>

@@ -17,8 +17,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for access token
-  // Use the exact URL that handled the callback as redirect_uri to match Google's requirements
-  const redirectUri = `${request.nextUrl.origin}${request.nextUrl.pathname}`
+  const redirectUri = `${request.nextUrl.origin}/api/auth/google/callback`
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {

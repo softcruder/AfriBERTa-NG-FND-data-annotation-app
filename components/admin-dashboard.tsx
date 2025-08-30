@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import type { User } from "@/lib/auth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users, FileText, DollarSign, Download, Settings, Activity } from "lucide-react"
 import { AnnotatorManagement } from "@/components/annotator-management"
@@ -12,7 +11,6 @@ import { formatMoney } from "@/lib/utils"
 import { DataConfiguration } from "@/components/data-configuration"
 import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
-import { LogoutButton } from "@/components/logout-button"
 import { useToast } from "@/hooks/use-toast"
 import { useConfig, useAnnotations } from "@/custom-hooks"
 
@@ -20,46 +18,23 @@ interface AdminDashboardProps {
   user: User
 }
 
-interface AdminStats {
-  activeAnnotators: number
-  totalAnnotations: number
-  pendingPayments: number
-  completionRate: number
-}
-
 export function AdminDashboard({ user }: AdminDashboardProps) {
-  const [stats, setStats] = useState<AdminStats>({
-    activeAnnotators: 0,
-    totalAnnotations: 0,
-    pendingPayments: 0,
-    completionRate: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
   const { spreadsheetId } = useConfig()
-  const { data: annotations } = useAnnotations(spreadsheetId)
-
-  useEffect(() => {
-    // Derive stats from annotations and payments
-    if (!annotations) return
+  const { data: annotations, mutate } = useAnnotations(spreadsheetId)
+  const stats = useMemo(() => {
+    if (!annotations) {
+      return { activeAnnotators: 0, totalAnnotations: 0, pendingPayments: 0, completionRate: 0 }
+    }
     const today = new Date().toDateString()
-    const activeToday = new Set(
+    const activeAnnotators = new Set(
       annotations.filter((a: any) => new Date(a.startTime).toDateString() === today).map((a: any) => a.annotatorId),
     ).size
-
     const completed = annotations.filter((a: any) => a.status === "completed").length
-    const total = annotations.length
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
-
-    setStats(prev => ({
-      ...prev,
-      activeAnnotators: activeToday,
-      totalAnnotations: total,
-      // pendingPayments filled from PaymentOverview or separate hook if needed
-      completionRate,
-    }))
-    setIsLoading(false)
+    const totalAnnotations = annotations.length
+    const completionRate = totalAnnotations > 0 ? Math.round((completed / totalAnnotations) * 100) : 0
+    return { activeAnnotators, totalAnnotations, pendingPayments: 0, completionRate }
   }, [annotations])
 
   const handleExportData = async () => {
@@ -123,23 +98,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
   return (
     <div className="container mx-auto p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage annotators and monitor progress</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={handleExportData}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Data
-          </Button>
-          <LogoutButton />
-          <Avatar>
-            <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-        </div>
+      {/* Removed page-level header to avoid duplicate headers on dashboard; actions are in global header */}
+      <div className="flex items-center justify-end mb-6">
+        <Button variant="outline" onClick={handleExportData}>
+          <Download className="mr-2 h-4 w-4" />
+          Export Data
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -150,7 +114,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "-" : stats.activeAnnotators}</div>
+            <div className="text-2xl font-bold">{stats.activeAnnotators}</div>
             <p className="text-xs text-muted-foreground">working today</p>
           </CardContent>
         </Card>
@@ -161,7 +125,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "-" : stats.totalAnnotations}</div>
+            <div className="text-2xl font-bold">{stats.totalAnnotations}</div>
             <p className="text-xs text-muted-foreground">completed rows</p>
           </CardContent>
         </Card>
@@ -172,7 +136,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "-" : formatMoney("₦", stats.pendingPayments)}</div>
+            <div className="text-2xl font-bold">{formatMoney("₦", stats.pendingPayments)}</div>
             <p className="text-xs text-muted-foreground">total due</p>
           </CardContent>
         </Card>
@@ -183,7 +147,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "-" : stats.completionRate}%</div>
+            <div className="text-2xl font-bold">{stats.completionRate}%</div>
             <p className="text-xs text-muted-foreground">of dataset</p>
           </CardContent>
         </Card>
@@ -211,7 +175,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         </TabsList>
 
         <TabsContent value="monitoring">
-          <AnnotationMonitoring onStatsUpdate={setStats} />
+          <AnnotationMonitoring onStatsUpdate={mutate} />
         </TabsContent>
 
         <TabsContent value="annotators">

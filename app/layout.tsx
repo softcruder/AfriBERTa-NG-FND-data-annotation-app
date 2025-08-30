@@ -7,6 +7,9 @@ import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { ConfigProvider } from "@/custom-hooks/useConfig"
+import { cookies } from "next/headers"
+import { getSessionFromCookie } from "@/lib/auth"
+import { SiteHeader } from "@/components/site-header"
 
 export const metadata: Metadata = {
   title: "AfriBERTa NG | Data Annotation Platform",
@@ -18,16 +21,30 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+async function getUser() {
+  try {
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get("auth_session")
+    if (!sessionCookie) return null
+    const session = getSessionFromCookie(sessionCookie.value)
+    return session?.user ?? null
+  } catch {
+    return null
+  }
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const user = await getUser()
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <ConfigProvider>
           <Suspense fallback={null}>
+            <SiteHeader user={user} />
             {children}
             <Toaster />
           </Suspense>

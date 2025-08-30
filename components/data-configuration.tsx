@@ -11,6 +11,9 @@ import { FileText, Database, Plus, ExternalLink, Settings } from "lucide-react"
 import { setSpreadsheetId, setCSVFileId, getSpreadsheetId, getCSVFileId } from "@/lib/data-store"
 import { useToast } from "@/hooks/use-toast"
 import { formatDate } from "@/lib/utils"
+import { useDriveFiles, useFactChecksCSVFileId } from "@/custom-hooks/useDrive"
+import { useConfig } from "@/custom-hooks/useConfig"
+import { useRequest } from "@/hooks/useRequest"
 
 interface DriveFile {
   id: string
@@ -26,53 +29,36 @@ export function DataConfiguration() {
   const [currentCSVFileId, setCurrentCSVFileIdState] = useState<string | null>(null)
   const [newSheetTitle, setNewSheetTitle] = useState("")
   const { toast } = useToast()
+  const { data: driveFilesData, mutate: refreshDrive, isLoading: driveLoading } = useDriveFiles()
+  const { fileId: factChecksFileId } = useFactChecksCSVFileId()
+  const { config, mutate: mutateConfig } = useConfig()
+  const { request } = useRequest<any>()
 
   const loadDriveFiles = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/drive/files")
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Admin access required for drive configuration")
-        }
-        throw new Error("Failed to load Drive files")
-      }
-
-      const { files } = await response.json()
-      setDriveFiles(files)
-    } catch (error) {
-      // console.error("Error loading Drive files:", error)
-      toast({
-        description: "Failed to load Drive files",
-        variant: "destructive",
-      })
+      if (driveFilesData && Array.isArray(driveFilesData)) setDriveFiles(driveFilesData as any)
+      else setDriveFiles([])
+    } catch {
+      toast({ description: "Failed to load Drive files", variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
-  }, [toast])
+  }, [toast, driveFilesData])
 
   useEffect(() => {
     // Load persisted config from backend, then fall back to any local values for backward compatibility
     ;(async () => {
       try {
-        const res = await fetch("/api/config")
-        if (res.ok) {
-          const { config } = await res.json()
-          const sheetId = config?.ANNOTATION_SPREADSHEET_ID || getSpreadsheetId()
-          const csvId = config?.CSV_FILE_ID || getCSVFileId()
-          if (sheetId) {
-            setSpreadsheetId(sheetId)
-            setCurrentSpreadsheetIdState(sheetId)
-          }
-          if (csvId) {
-            setCSVFileId(csvId)
-            setCurrentCSVFileIdState(csvId)
-          }
-        } else {
-          setCurrentSpreadsheetIdState(getSpreadsheetId())
-          setCurrentCSVFileIdState(getCSVFileId())
+        const sheetId = config?.ANNOTATION_SPREADSHEET_ID || getSpreadsheetId()
+        const csvId = config?.CSV_FILE_ID || getCSVFileId()
+        if (sheetId) {
+          setSpreadsheetId(sheetId)
+          setCurrentSpreadsheetIdState(sheetId)
+        }
+        if (csvId) {
+          setCSVFileId(csvId)
+          setCurrentCSVFileIdState(csvId)
         }
       } catch {
         setCurrentSpreadsheetIdState(getSpreadsheetId())
@@ -80,22 +66,17 @@ export function DataConfiguration() {
       }
       loadDriveFiles()
     })()
-  }, [loadDriveFiles])
+  }, [loadDriveFiles, config])
 
   const findFactChecksCSV = async () => {
     try {
-      const response = await fetch("/api/drive/factchecks-csv")
-      if (!response.ok) throw new Error("Failed to find factchecks.csv")
-
-      const { fileId } = await response.json()
+      const fileId = factChecksFileId
+      if (!fileId) throw new Error("Failed to find factchecks.csv")
       setCSVFileId(fileId)
       setCurrentCSVFileIdState(fileId)
       // Persist to App Config
-      await fetch("/api/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries: { CSV_FILE_ID: fileId } }),
-      })
+      await request.post("/config", { entries: { CSV_FILE_ID: fileId } })
+      await mutateConfig()
 
       toast({
         title: "Success",
@@ -124,23 +105,15 @@ export function DataConfiguration() {
     }
 
     try {
-      const response = await fetch("/api/sheets/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newSheetTitle }),
+      const resp = await request.post("/sheets/create", {
+        title: newSheetTitle,
       })
-
-      if (!response.ok) throw new Error("Failed to create annotation sheet")
-
-      const { spreadsheetId } = await response.json()
+      const { spreadsheetId } = resp as { spreadsheetId: string }
       setSpreadsheetId(spreadsheetId)
       setCurrentSpreadsheetIdState(spreadsheetId)
       // Persist to App Config
-      await fetch("/api/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries: { ANNOTATION_SPREADSHEET_ID: spreadsheetId } }),
-      })
+      await request.post("/config", { entries: { ANNOTATION_SPREADSHEET_ID: spreadsheetId } })
+      await mutateConfig()
       setNewSheetTitle("")
 
       toast({
@@ -163,11 +136,8 @@ export function DataConfiguration() {
     setCurrentCSVFileIdState(fileId)
     // Persist to App Config
     try {
-      await fetch("/api/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries: { CSV_FILE_ID: fileId } }),
-      })
+      await request.post("/config", { entries: { CSV_FILE_ID: fileId } })
+      await mutateConfig()
     } catch {}
     toast({
       title: "Success",
@@ -180,11 +150,8 @@ export function DataConfiguration() {
     setCurrentSpreadsheetIdState(fileId)
     // Persist to App Config
     try {
-      await fetch("/api/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries: { ANNOTATION_SPREADSHEET_ID: fileId } }),
-      })
+      await request.post("/config", { entries: { ANNOTATION_SPREADSHEET_ID: fileId } })
+      await mutateConfig()
     } catch {}
     toast({
       title: "Success",
@@ -345,7 +312,14 @@ export function DataConfiguration() {
               <CardTitle>Available Files</CardTitle>
               <CardDescription>CSV files and Google Sheets from your Drive</CardDescription>
             </div>
-            <Button variant="outline" onClick={loadDriveFiles} disabled={isLoading}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                refreshDrive()
+                loadDriveFiles()
+              }}
+              disabled={isLoading || driveLoading}
+            >
               <Settings className="mr-2 h-4 w-4" />
               Refresh
             </Button>

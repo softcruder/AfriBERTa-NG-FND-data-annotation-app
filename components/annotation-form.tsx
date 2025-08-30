@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { Clock, Plus, X, Save, ArrowLeft, ExternalLink, Pause, Play, Edit3 } from "lucide-react"
+import { Clock, Plus, X, Save, ArrowLeft, ExternalLink, Pause, Play, Edit3, FileText } from "lucide-react"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
 import { setCurrentTask } from "@/lib/data-store"
@@ -19,6 +19,7 @@ import { useTimeTracking } from "@/hooks/use-time-tracking"
 import { annotationFormSchema, VerdictEnum, type AnnotationFormData } from "@/lib/validation"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 interface AnnotationFormProps {
   task: AnnotationTask
@@ -32,6 +33,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
   const [canEditVerdict, setCanEditVerdict] = useState(false)
   const [extractedClaimText, setExtractedClaimText] = useState("")
   const { toast } = useToast()
+  const [showOriginalDesktop, setShowOriginalDesktop] = useState(false)
 
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
@@ -263,6 +265,66 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* Mobile button to open Original Data drawer */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="lg:hidden gap-2">
+                  <FileText className="h-4 w-4" /> Original Data
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="lg:hidden">
+                <SheetHeader>
+                  <SheetTitle>Original Data</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 max-h-[60vh] overflow-auto pr-2">
+                  {/* Duplicated read-only fields for mobile drawer */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium">ID</Label>
+                      <div className="mt-1 text-sm">{task.csvRow.data[0] || "(empty)"}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Extracted Claim Text</Label>
+                      <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[1] || "(empty)"}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Verdict</Label>
+                      <div className="mt-1 text-sm">{task.csvRow.data[2] || "(empty)"}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium">Domain</Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[3] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Claim Language</Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[4] || "(empty)"}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Source URL</Label>
+                      <div className="mt-1 break-all text-sm">{task.csvRow.data[7] || "(empty)"}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Claim Links</Label>
+                      <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[5] || "(empty)"}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Claim Platforms</Label>
+                      <div className="mt-1 text-sm">{task.csvRow.data[6] || "(empty)"}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Platform</Label>
+                      <div className="mt-1 text-sm">{task.csvRow.data[8] || "(empty)"}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Article Body</Label>
+                      <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[9] || "(empty)"}</div>
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
             <Button variant="outline" size="sm" onClick={handlePauseResume} className="gap-2 bg-transparent">
               {timeTracking.isActive ? (
                 <>
@@ -292,82 +354,99 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 hidden lg:block">
               <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
-                  <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Original Data</CardTitle>
-                  <CardDescription>Reference information from the CSV</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 p-6">
-                  {/* Labeled fields based on header screenshot; omit metadata (K) */}
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">ID</Label>
-                      <div className="mt-1 text-sm">{task.csvRow.data[0] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Extracted Claim Text
-                      </Label>
-                      <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[1] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Verdict</Label>
-                      <div className="mt-1 text-sm">{task.csvRow.data[2] || "(empty)"}</div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Domain</Label>
-                        <div className="mt-1 text-sm">{task.csvRow.data[3] || "(empty)"}</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Claim Language</Label>
-                        <div className="mt-1 text-sm">{task.csvRow.data[4] || "(empty)"}</div>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source URL</Label>
-                      <div className="mt-1 break-all text-sm">{task.csvRow.data[7] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Claim Links</Label>
-                      <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[5] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Claim Platforms</Label>
-                      <div className="mt-1 text-sm">{task.csvRow.data[6] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Platform</Label>
-                      <div className="mt-1 text-sm">{task.csvRow.data[8] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Article Body</Label>
-                      <div className="mt-1 text-sm whitespace-pre-wrap line-clamp-6">
-                        {task.csvRow.data[9] || "(empty)"}
-                      </div>
-                    </div>
-                  </div>
-
+                <CardHeader className="bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Session Stats</Label>
-                    <div className="mt-2 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Active Time:</span>
-                        <span className="font-mono text-sm font-medium">{timeTracking.formatTime()}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Status:</span>
-                        <Badge variant={timeTracking.isActive ? "default" : "secondary"} className="text-xs">
-                          {timeTracking.isActive ? "Active" : "Paused"}
-                        </Badge>
-                      </div>
-                      {timeTracking.isIdle && (
-                        <div className="text-sm text-amber-600 dark:text-amber-400 font-medium">Idle detected</div>
-                      )}
-                    </div>
+                    <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Original Data</CardTitle>
+                    <CardDescription>Reference information from the CSV</CardDescription>
                   </div>
-                </CardContent>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="bg-transparent"
+                    onClick={() => setShowOriginalDesktop(v => !v)}
+                  >
+                    {showOriginalDesktop ? "Hide" : "Show"}
+                  </Button>
+                </CardHeader>
+                {showOriginalDesktop && (
+                  <CardContent className="space-y-4 p-6">
+                    {/* Labeled fields based on header screenshot; omit metadata (K) */}
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">ID</Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[0] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Extracted Claim Text
+                        </Label>
+                        <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[1] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Verdict</Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[2] || "(empty)"}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Domain</Label>
+                          <div className="mt-1 text-sm">{task.csvRow.data[3] || "(empty)"}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Claim Language
+                          </Label>
+                          <div className="mt-1 text-sm">{task.csvRow.data[4] || "(empty)"}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source URL</Label>
+                        <div className="mt-1 break-all text-sm">{task.csvRow.data[7] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Claim Links</Label>
+                        <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[5] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Claim Platforms
+                        </Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[6] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Platform</Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[8] || "(empty)"}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Article Body</Label>
+                        <div className="mt-1 text-sm whitespace-pre-wrap line-clamp-6">
+                          {task.csvRow.data[9] || "(empty)"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Session Stats</Label>
+                      <div className="mt-2 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Active Time:</span>
+                          <span className="font-mono text-sm font-medium">{timeTracking.formatTime()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Status:</span>
+                          <Badge variant={timeTracking.isActive ? "default" : "secondary"} className="text-xs">
+                            {timeTracking.isActive ? "Active" : "Paused"}
+                          </Badge>
+                        </div>
+                        {timeTracking.isIdle && (
+                          <div className="text-sm text-amber-600 dark:text-amber-400 font-medium">Idle detected</div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             </div>
 

@@ -1,113 +1,67 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import Image from "next/image"
+import { useState, useEffect, useMemo } from "react"
 import type { User } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Clock, FileText, CheckCircle, Play, DollarSign, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react"
 import { AnnotationForm } from "@/components/annotation-form"
 import { PaymentDashboard } from "@/components/payment-dashboard"
-import { LogoutButton } from "@/components/logout-button"
+// import { LogoutButton } from "@/components/logout-button"
 import { getCurrentTask, setCurrentTask } from "@/lib/data-store"
 import type { AnnotationTask } from "@/lib/data-store"
 import { useConfig, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
+import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
+import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 
 interface AnnotatorDashboardProps {
   user: User
 }
 
-interface DashboardStats {
-  completedToday: number
-  timeWorkedToday: string
-  pendingTasks: number
-}
-
 export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   const [currentTask, setCurrentTaskState] = useState<AnnotationTask | null>(null)
-  const [stats, setStats] = useState<DashboardStats>({
-    completedToday: 0,
-    timeWorkedToday: "0h 0m",
-    pendingTasks: 0,
-  })
   const [isLoading, setIsLoading] = useState(false)
   const [tasksPage, setTasksPage] = useState(1)
-  const [tasks, setTasks] = useState<{ index: number; data: string[]; header: string[] }[]>([])
-  const [tasksTotal, setTasksTotal] = useState(0)
-  const [qaItems, setQaItems] = useState<any[]>([])
-  const [reloadKey, setReloadKey] = useState(0)
   const pageSize = 10
   const { toast } = useToast()
   const { spreadsheetId, csvFileId } = useConfig()
   const { data: tasksResp } = useTasks({ page: tasksPage, pageSize, fileId: csvFileId || undefined })
-  const { data: annotations } = useAnnotations(spreadsheetId)
+  const { data: annotations, mutate: mutateAnnotations } = useAnnotations(spreadsheetId)
   const { anonymize, loading: anonymizing } = useAnonymizeSelf()
-
-  const loadStats = useCallback(async () => {
-    try {
-      if (!spreadsheetId) return
-
-      const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) return
-
-      const { annotations } = await response.json()
-
-      const today = new Date().toDateString()
-      const todayAnnotations = annotations.filter(
-        (a: any) =>
-          a.annotatorId === user.id && new Date(a.startTime).toDateString() === today && a.status === "completed",
-      )
-
-      const totalMinutesToday = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-
-      const hours = Math.floor(totalMinutesToday / 60)
-      const minutes = totalMinutesToday % 60
-
-      setStats({
-        completedToday: todayAnnotations.length,
-        timeWorkedToday: `${hours}h ${minutes}m`,
-        pendingTasks: 0, // TODO: Calculate from CSV data
-      })
-    } catch (error) {
-      toast({
-        title: "Error Loading Stats",
-        description: "Failed to load dashboard statistics.",
-        variant: "destructive",
-      })
-    }
-  }, [toast, user.id])
+  const { create: createAnnotation } = useCreateAnnotation()
+  const { verify: verifyAnnotation } = useVerifyAnnotation()
 
   useEffect(() => {
     const task = getCurrentTask()
     setCurrentTaskState(task)
-    loadStats()
-  }, [loadStats])
+  }, [])
 
-  // Ensure config is synced from backend once
-  // When SWR data arrives, sync component state
-  useEffect(() => {
-    if (tasksResp?.items) {
-      setTasks(tasksResp.items)
-      setTasksTotal(tasksResp.total)
-    }
-  }, [tasksResp])
+  // Derive tasks and totals directly from hook data
+  const tasks = useMemo(() => tasksResp?.items ?? [], [tasksResp])
+  const tasksTotal = tasksResp?.total ?? 0
 
-  // Load paginated tasks
-  useEffect(() => {
-    if (annotations && Array.isArray(annotations)) {
-      const unverified = annotations.filter((a: any) => !a.verifiedBy && a.status !== "verified")
-      setQaItems(unverified.slice(0, 10))
-    }
+  // Derive QA items from annotations
+  const qaItems = useMemo(() => {
+    if (!annotations) return []
+    const unverified = annotations.filter((a: any) => !a.verifiedBy && a.status !== "verified")
+    return unverified.slice(0, 10)
   }, [annotations])
 
-  // Load QA list (unverified annotations)
-  useEffect(() => {
-    // recalc stats when data changes
-    loadStats()
-  }, [annotations, tasksResp, loadStats])
+  // Derive stats
+  const { completedToday, timeWorkedToday, pendingTasks } = useMemo(() => {
+    if (!annotations) return { completedToday: 0, timeWorkedToday: "0h 0m", pendingTasks: 0 }
+    const today = new Date().toDateString()
+    const todayAnnotations = annotations.filter(
+      (a: any) =>
+        a.annotatorId === user.id && new Date(a.startTime).toDateString() === today && a.status === "completed",
+    )
+    const totalMinutesToday = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+    const hours = Math.floor(totalMinutesToday / 60)
+    const minutes = totalMinutesToday % 60
+    return { completedToday: todayAnnotations.length, timeWorkedToday: `${hours}h ${minutes}m`, pendingTasks: 0 }
+  }, [annotations, user.id])
 
   const startTaskFromRow = async (row: { index: number; data: string[]; header: string[] }) => {
     setIsLoading(true)
@@ -213,24 +167,12 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         status: "completed" as const,
       }
 
-      const response = await fetch("/api/annotations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spreadsheetId, annotation }),
-      })
-
-      if (!response.ok) {
-        let details = ""
-        try {
-          const err = await response.json()
-          details = err?.details || err?.error || ""
-        } catch {}
-        throw new Error(`Failed to save annotation${details ? `: ${details}` : ""}`)
-      }
+      await createAnnotation({ spreadsheetId, annotation })
 
       setCurrentTask(null)
       setCurrentTaskState(null)
-      loadStats()
+      // refresh annotations to update stats and QA lists
+      mutateAnnotations()
 
       toast({
         title: "Task Completed",
@@ -263,26 +205,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Header: stack on mobile, flex on md+ */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-8 bg-white dark:bg-slate-800 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-700 gap-4">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Image src="/logo.png" alt="Logo" width={40} height={40} className="h-10 w-10" priority />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">Annotator Dashboard</h1>
-              <p className="text-slate-600 dark:text-slate-400 text-sm md:text-base">Welcome back, {user.name}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-            <LogoutButton />
-            <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700">
-              <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
-              <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <Button variant="outline" size="sm" onClick={handleAnonymize} disabled={anonymizing}>
-              Delete my data
-            </Button>
-          </div>
-        </div>
+        {/* Removed page-level header to avoid duplicate headers on dashboard */}
 
         {/* Stats Cards: stack on mobile, grid on md+ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8">
@@ -292,7 +215,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
               <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.completedToday}</div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{completedToday}</div>
               <p className="text-xs text-slate-600 dark:text-slate-400">rows annotated</p>
             </CardContent>
           </Card>
@@ -303,7 +226,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
               <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.timeWorkedToday}</div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{timeWorkedToday}</div>
               <p className="text-xs text-slate-600 dark:text-slate-400">today</p>
             </CardContent>
           </Card>
@@ -314,7 +237,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
               <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.pendingTasks || "-"}</div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{pendingTasks || "-"}</div>
               <p className="text-xs text-slate-600 dark:text-slate-400">rows remaining</p>
             </CardContent>
           </Card>
@@ -364,7 +287,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         </Tabs>
 
         {/* Task list with pagination */}
-        <div className="mt-8">
+        <div className="mt-8" id="qa-section">
           <Card className="shadow-sm border-slate-200 dark:border-slate-700">
             <CardHeader>
               <CardTitle className="text-lg">Available Tasks</CardTitle>
@@ -436,13 +359,9 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                     onClick={async () => {
                       try {
                         if (!spreadsheetId) return
-                        const res = await fetch(`/api/qa/verify`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ spreadsheetId, rowId: item.rowId }),
-                        })
-                        if (res.ok) {
-                          setQaItems(prev => prev.filter(x => x.rowId !== item.rowId))
+                        const res = await verifyAnnotation({ spreadsheetId: spreadsheetId!, rowId: item.rowId })
+                        if ((res as any)?.success !== false) {
+                          await mutateAnnotations()
                           toast({ title: "Verified", description: "Annotation marked as verified." })
                         }
                       } catch {}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatMoney } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -100,7 +101,11 @@ export function PaymentOverview() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `payment_summary_${new Date().toISOString().split("T")[0]}.csv`
+  const today = new Date()
+  const yyyy = today.getUTCFullYear()
+  const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
+  const dd = String(today.getUTCDate()).padStart(2, "0")
+  a.download = `payment_summary_${yyyy}-${mm}-${dd}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -121,7 +126,7 @@ export function PaymentOverview() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(totalPayments)}</div>
+            <div className="text-2xl font-bold">{formatMoney("₦", totalPayments)}</div>
             <p className="text-xs text-muted-foreground">across all annotators</p>
           </CardContent>
         </Card>
@@ -224,11 +229,11 @@ export function PaymentOverview() {
                     </TableCell>
                     <TableCell>{payment.totalHours.toFixed(1)}h</TableCell>
                     <TableCell>{payment.avgRowsPerHour.toFixed(1)}/hr</TableCell>
-                    <TableCell>₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(payment.paymentRows)}</TableCell>
-                    <TableCell>₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(payment.paymentTranslations)}</TableCell>
+                    <TableCell>{formatMoney("₦", payment.paymentRows)}</TableCell>
+                    <TableCell>{formatMoney("₦", payment.paymentTranslations)}</TableCell>
                     <TableCell>
                       <Badge variant="default" className="bg-orange-100 text-orange-800">
-                        ₦{new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(payment.totalPayment)}
+                        {formatMoney("₦", payment.totalPayment)}
                       </Badge>
                     </TableCell>
                   </TableRow>

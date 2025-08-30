@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -126,19 +127,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
   }
 
-  const formatTime = (timeString: string) => {
-    // Use a fixed locale and timezone to avoid SSR/CSR hydration mismatches
-    try {
-      const dt = new Date(timeString)
-      return new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "UTC",
-      }).format(dt)
-    } catch {
-      return timeString
-    }
-  }
+  const formatTime = (timeString: string) => formatDate(timeString, { withTime: true })
 
   return (
     <div className="space-y-6">
@@ -203,7 +192,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                       </div>
                     </TableCell>
                     <TableCell>{formatDuration(activity.durationMinutes)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatTime(activity.startTime)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(activity.startTime, { withTime: true })}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

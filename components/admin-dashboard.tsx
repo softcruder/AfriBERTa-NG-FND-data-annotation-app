@@ -134,7 +134,11 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `annotations_export_${new Date().toISOString().split("T")[0]}.csv`
+  const today = new Date()
+  const yyyy = today.getUTCFullYear()
+  const mm = String(today.getUTCMonth() + 1).padStart(2, "0")
+  const dd = String(today.getUTCDate()).padStart(2, "0")
+  a.download = `annotations_export_${yyyy}-${mm}-${dd}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

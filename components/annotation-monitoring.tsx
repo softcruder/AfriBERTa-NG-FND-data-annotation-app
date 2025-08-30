@@ -45,12 +45,13 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
 
       const { annotations } = await response.json()
 
-      // Transform annotations to activities with mock user data
+      // Transform annotations to activities with proper user data
       const activitiesData: AnnotationActivity[] = annotations.map((annotation: any) => ({
         id: `${annotation.rowId}_${annotation.startTime}`,
         annotatorId: annotation.annotatorId,
-        annotatorName: `Annotator ${annotation.annotatorId.slice(-4)}`, // Mock name
-        annotatorEmail: `annotator${annotation.annotatorId.slice(-4)}@example.com`, // Mock email
+        // In production, these would be fetched from user management system
+        annotatorName: annotation.annotatorName || `User ${annotation.annotatorId.slice(-4)}`,
+        annotatorEmail: annotation.annotatorEmail || annotation.annotatorId,
         rowId: annotation.rowId,
         claimText: annotation.claimText.substring(0, 100) + (annotation.claimText.length > 100 ? "..." : ""),
         status: annotation.status,
@@ -206,7 +207,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Today's Progress</CardTitle>
+            <CardTitle className="text-lg">Today&apos;s Progress</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">

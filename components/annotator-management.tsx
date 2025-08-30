@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Shield, Clock, CheckCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Annotator {
   id: string
@@ -36,6 +37,7 @@ export function AnnotatorManagement() {
   const [isLoading, setIsLoading] = useState(true)
   const [newAnnotatorEmail, setNewAnnotatorEmail] = useState("")
   const [newAnnotatorRole, setNewAnnotatorRole] = useState<"annotator" | "admin">("annotator")
+  const { toast } = useToast()
 
   useEffect(() => {
     loadAnnotators()
@@ -43,46 +45,61 @@ export function AnnotatorManagement() {
 
   const loadAnnotators = async () => {
     try {
-      // Mock data for now - in real implementation, this would come from your user management system
-      const mockAnnotators: Annotator[] = [
-        {
-          id: "user_1",
-          name: "John Doe",
-          email: "john.doe@example.com",
-          role: "annotator",
-          status: "active",
-          totalAnnotations: 45,
-          avgTimePerRow: 8.5,
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-          joinedDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-        },
-        {
-          id: "user_2",
-          name: "Jane Smith",
-          email: "jane.smith@example.com",
-          role: "annotator",
-          status: "active",
-          totalAnnotations: 32,
-          avgTimePerRow: 12.3,
-          lastActive: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-          joinedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-        },
-        {
-          id: "user_3",
-          name: "Mike Johnson",
-          email: "mike.johnson@example.com",
-          role: "annotator",
-          status: "inactive",
-          totalAnnotations: 18,
-          avgTimePerRow: 15.7,
-          lastActive: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-          joinedDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
-        },
-      ]
-
-      setAnnotators(mockAnnotators)
+      // In production, this would fetch from your user management system/API
+      // For now, load from spreadsheet annotations to get actual annotator data
+      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
+      if (spreadsheetId) {
+        const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
+        if (response.ok) {
+          const { annotations } = await response.json()
+          
+          // Extract unique annotators from annotation data
+          const annotatorStats = new Map<string, any>()
+          
+          annotations.forEach((annotation: any) => {
+            const id = annotation.annotatorId
+            if (!annotatorStats.has(id)) {
+              annotatorStats.set(id, {
+                id,
+                email: id, // In production, resolve ID to email from user directory
+                name: `User ${id.slice(-4)}`, // In production, fetch real names
+                role: "annotator",
+                status: "active",
+                totalAnnotations: 0,
+                avgTimePerRow: 0,
+                lastActive: annotation.startTime,
+                joinedDate: annotation.startTime,
+                totalTime: 0,
+              })
+            }
+            
+            const stats = annotatorStats.get(id)
+            stats.totalAnnotations++
+            if (annotation.durationMinutes) {
+              stats.totalTime += annotation.durationMinutes
+            }
+            // Update last active if this annotation is more recent
+            if (new Date(annotation.startTime) > new Date(stats.lastActive)) {
+              stats.lastActive = annotation.startTime
+            }
+          })
+          
+          // Calculate average time per row
+          const annotatorList = Array.from(annotatorStats.values()).map(stats => ({
+            ...stats,
+            avgTimePerRow: stats.totalAnnotations > 0 ? stats.totalTime / stats.totalAnnotations : 0,
+          }))
+          
+          setAnnotators(annotatorList)
+        }
+      }
     } catch (error) {
       console.error("Error loading annotators:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load annotator data",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -90,15 +107,19 @@ export function AnnotatorManagement() {
 
   const handleInviteAnnotator = async () => {
     if (!newAnnotatorEmail.trim()) {
-      alert("Please enter an email address")
+      toast({
+        title: "Validation Error",
+        description: "Please enter an email address",
+        variant: "destructive",
+      })
       return
     }
 
     try {
-      // In real implementation, this would send an invitation email
+      // In production, this would send an invitation email via API
       console.log("Inviting annotator:", { email: newAnnotatorEmail, role: newAnnotatorRole })
 
-      // Mock adding to list
+      // For now, add to local list (in production, this would be handled by the backend)
       const newAnnotator: Annotator = {
         id: `user_${Date.now()}`,
         name: newAnnotatorEmail.split("@")[0],
@@ -115,10 +136,17 @@ export function AnnotatorManagement() {
       setNewAnnotatorEmail("")
       setNewAnnotatorRole("annotator")
 
-      alert("Invitation sent successfully!")
+      toast({
+        title: "Success",
+        description: "Invitation sent successfully!",
+      })
     } catch (error) {
       console.error("Error inviting annotator:", error)
-      alert("Failed to send invitation")
+      toast({
+        title: "Error",
+        description: "Failed to send invitation",
+        variant: "destructive",
+      })
     }
   }
 

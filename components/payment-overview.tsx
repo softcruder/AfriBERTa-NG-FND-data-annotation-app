@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DollarSign, Clock, FileText, Download } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface PaymentSummary {
   annotatorId: string
@@ -23,6 +24,7 @@ interface PaymentSummary {
 export function PaymentOverview() {
   const [payments, setPayments] = useState<PaymentSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadPayments()
@@ -41,10 +43,11 @@ export function PaymentOverview() {
 
       const { payments: paymentData } = await response.json()
 
-      // Transform data and add mock names
+      // Transform data - in production, annotator names would come from user management system
       const paymentsWithNames: PaymentSummary[] = paymentData.map((payment: any) => ({
         ...payment,
-        annotatorName: `Annotator ${payment.annotatorId.slice(-4)}`, // Mock name
+        // In production, this would be fetched from a user database/directory
+        annotatorName: payment.annotatorName || `User ${payment.annotatorId.slice(-4)}`,
       }))
 
       setPayments(paymentsWithNames)
@@ -57,7 +60,11 @@ export function PaymentOverview() {
 
   const handleExportPayments = () => {
     if (payments.length === 0) {
-      alert("No payment data to export")
+      toast({
+        title: "No Data",
+        description: "No payment data to export",
+        variant: "destructive",
+      })
       return
     }
 

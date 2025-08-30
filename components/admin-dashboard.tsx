@@ -12,6 +12,7 @@ import { DataConfiguration } from "@/components/data-configuration"
 import { AnnotationMonitoring } from "@/components/annotation-monitoring"
 import { PaymentOverview } from "@/components/payment-overview"
 import { LogoutButton } from "@/components/logout-button"
+import { useToast } from "@/hooks/use-toast"
 
 interface AdminDashboardProps {
   user: User
@@ -32,6 +33,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     completionRate: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadAdminStats()
@@ -82,7 +84,11 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     try {
       const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
       if (!spreadsheetId) {
-        alert("No spreadsheet configured")
+        toast({
+          title: "Configuration Required",
+          description: "No spreadsheet configured. Please configure a spreadsheet first.",
+          variant: "destructive",
+        })
         return
       }
 
@@ -132,9 +138,18 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "Annotation data exported successfully",
+      })
     } catch (error) {
       console.error("Error exporting data:", error)
-      alert("Failed to export data")
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 

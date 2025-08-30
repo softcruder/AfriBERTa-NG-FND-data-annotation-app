@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FileText, Database, Plus, ExternalLink, Settings } from "lucide-react"
 import { setSpreadsheetId, setCSVFileId, getSpreadsheetId, getCSVFileId } from "@/lib/data-store"
+import { useToast } from "@/hooks/use-toast"
 
 interface DriveFile {
   id: string
@@ -23,6 +24,7 @@ export function DataConfiguration() {
   const [currentSpreadsheetId, setCurrentSpreadsheetIdState] = useState<string | null>(null)
   const [currentCSVFileId, setCurrentCSVFileIdState] = useState<string | null>(null)
   const [newSheetTitle, setNewSheetTitle] = useState("")
+  const { toast } = useToast()
 
   useEffect(() => {
     setCurrentSpreadsheetIdState(getSpreadsheetId())
@@ -48,7 +50,11 @@ export function DataConfiguration() {
     } catch (error) {
       console.error("Error loading Drive files:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to load Drive files"
-      alert(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -56,7 +62,11 @@ export function DataConfiguration() {
 
   const handleCreateAnnotationSheet = async () => {
     if (!newSheetTitle.trim()) {
-      alert("Please enter a title for the annotation sheet")
+      toast({
+        title: "Validation Error",
+        description: "Please enter a title for the annotation sheet",
+        variant: "destructive",
+      })
       return
     }
 
@@ -74,23 +84,36 @@ export function DataConfiguration() {
       setCurrentSpreadsheetIdState(spreadsheetId)
       setNewSheetTitle("")
 
-      alert("Annotation sheet created successfully!")
+      toast({
+        title: "Success",
+        description: "Annotation sheet created successfully!",
+      })
     } catch (error) {
       console.error("Error creating annotation sheet:", error)
-      alert("Failed to create annotation sheet")
+      toast({
+        title: "Error",
+        description: "Failed to create annotation sheet",
+        variant: "destructive",
+      })
     }
   }
 
   const handleSelectCSVFile = (fileId: string) => {
     setCSVFileId(fileId)
     setCurrentCSVFileIdState(fileId)
-    alert("CSV file selected successfully!")
+    toast({
+      title: "Success",
+      description: "CSV file selected successfully!",
+    })
   }
 
   const handleSelectSpreadsheet = (fileId: string) => {
     setSpreadsheetId(fileId)
     setCurrentSpreadsheetIdState(fileId)
-    alert("Spreadsheet selected successfully!")
+    toast({
+      title: "Success",
+      description: "Spreadsheet selected successfully!",
+    })
   }
 
   const formatDate = (dateString: string) => {

@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Download, FileText, Calendar, Users, DollarSign, Clock, CheckCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Download, FileText, Calendar, Users, DollarSign, Clock } from "lucide-react"
 import { exportConfigSchema, type ExportConfig } from "@/lib/validation"
 
 interface DataExportProps {
@@ -21,7 +21,7 @@ interface DataExportProps {
 
 export function DataExport({ annotators, onExport }: DataExportProps) {
   const [isExporting, setIsExporting] = useState(false)
-  const [exportComplete, setExportComplete] = useState(false)
+  const { toast } = useToast()
 
   const form = useForm<ExportConfig>({
     resolver: zodResolver(exportConfigSchema),
@@ -42,13 +42,21 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
 
   const onSubmit = async (data: ExportConfig) => {
     setIsExporting(true)
-    setExportComplete(false)
 
     try {
       await onExport(data)
-      setExportComplete(true)
+      toast({
+        title: "Export Complete",
+        description: "Export completed successfully! The file has been downloaded to your device.",
+        variant: "success",
+      })
     } catch (error) {
       console.error("Export failed:", error)
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsExporting(false)
     }
@@ -214,15 +222,6 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
               </div>
             </div>
           </div>
-
-          {exportComplete && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Export completed successfully! The file has been downloaded to your device.
-              </AlertDescription>
-            </Alert>
-          )}
 
           <Button type="submit" disabled={isExporting} className="w-full">
             {isExporting ? (

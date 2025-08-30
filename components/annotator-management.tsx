@@ -160,7 +160,7 @@ export function AnnotatorManagement() {
 
   const getStatusBadge = (status: string) => {
     return status === "active" ? (
-      <Badge variant="default" className="bg-green-100 text-green-800">
+      <Badge variant="default" className="bg-orange-100 text-orange-800">
         Active
       </Badge>
     ) : (
@@ -268,7 +268,7 @@ export function AnnotatorManagement() {
                     <TableCell>{getStatusBadge(annotator.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <CheckCircle className="h-4 w-4 text-orange-500" />
                         {annotator.totalAnnotations}
                       </div>
                     </TableCell>

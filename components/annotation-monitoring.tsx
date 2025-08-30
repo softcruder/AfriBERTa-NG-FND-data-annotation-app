@@ -88,7 +88,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-orange-500" />
       case "verified":
         return <CheckCircle className="h-4 w-4 text-blue-500" />
       case "in-progress":
@@ -102,7 +102,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
     switch (status) {
       case "completed":
         return (
-          <Badge variant="default" className="bg-green-100 text-green-800">
+          <Badge variant="default" className="bg-orange-100 text-orange-800">
             Completed
           </Badge>
         )

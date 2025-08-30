@@ -221,7 +221,7 @@ export function PaymentOverview() {
                     <TableCell>₦{payment.paymentRows.toLocaleString()}</TableCell>
                     <TableCell>₦{payment.paymentTranslations.toLocaleString()}</TableCell>
                     <TableCell>
-                      <Badge variant="default" className="bg-green-100 text-green-800">
+                      <Badge variant="default" className="bg-orange-100 text-orange-800">
                         ₦{payment.totalPayment.toLocaleString()}
                       </Badge>
                     </TableCell>

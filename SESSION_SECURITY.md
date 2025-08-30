@@ -7,11 +7,14 @@ This application now includes enhanced session security with encryption and admi
 For production security, you should set the following environment variables:
 
 \`\`\`bash
+
 # Session Encryption (REQUIRED for production)
+
 SESSION_SECRET=your-strong-secret-key-here-min-32-chars
 SESSION_SALT=your-salt-value-here
 
 # Google OAuth (existing)
+
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 NEXT_PUBLIC_GOOGLE_REDIRECT_URI=your-redirect-uri
@@ -20,6 +23,7 @@ NEXT_PUBLIC_GOOGLE_REDIRECT_URI=your-redirect-uri
 ## Admin Authorization
 
 Admin access is granted to the following email addresses:
+
 - oladipona17@gmail.com
 - nasirullah.m1901406@st.futminna.edu.ng
 

@@ -1,6 +1,6 @@
-import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from 'crypto'
+import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from "crypto"
 
-const ALGORITHM = 'aes-256-gcm'
+const ALGORITHM = "aes-256-gcm"
 const SALT_LENGTH = 32
 const IV_LENGTH = 16
 const TAG_LENGTH = 16
@@ -9,15 +9,15 @@ const ITERATIONS = 100000
 // Get encryption key from environment or generate a default for development
 function getEncryptionKey(): Buffer {
   const secret = process.env.SESSION_SECRET
-  const salt = process.env.SESSION_SALT || 'default-salt'
+  const salt = process.env.SESSION_SALT || "default-salt"
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('SESSION_SECRET environment variable must be set in production')
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET environment variable must be set in production")
     }
     // Use a fallback only in non-production environments
-    return pbkdf2Sync('default-development-secret-key-change-in-production', salt, ITERATIONS, 32, 'sha256')
+    return pbkdf2Sync("default-development-secret-key-change-in-production", salt, ITERATIONS, 32, "sha256")
   }
-  return pbkdf2Sync(secret, salt, ITERATIONS, 32, 'sha256')
+  return pbkdf2Sync(secret, salt, ITERATIONS, 32, "sha256")
 }
 
 export function encryptSession(data: string): string {
@@ -25,40 +25,40 @@ export function encryptSession(data: string): string {
     const key = getEncryptionKey()
     const iv = randomBytes(IV_LENGTH)
     const cipher = createCipheriv(ALGORITHM, key, iv)
-    
-    let encrypted = cipher.update(data, 'utf8', 'hex')
-    encrypted += cipher.final('hex')
-    
+
+    let encrypted = cipher.update(data, "utf8", "hex")
+    encrypted += cipher.final("hex")
+
     const tag = cipher.getAuthTag()
-    
+
     // Combine iv + tag + encrypted data
-    const combined = Buffer.concat([iv, tag, Buffer.from(encrypted, 'hex')])
-    return combined.toString('base64')
+    const combined = Buffer.concat([iv, tag, Buffer.from(encrypted, "hex")])
+    return combined.toString("base64")
   } catch (error) {
-    console.error('Encryption error:', error)
-    throw new Error('Failed to encrypt session data')
+    // console.error('Encryption error:', error)
+    throw new Error("Failed to encrypt session data")
   }
 }
 
 export function decryptSession(encryptedData: string): string {
   try {
     const key = getEncryptionKey()
-    const combined = Buffer.from(encryptedData, 'base64')
-    
+    const combined = Buffer.from(encryptedData, "base64")
+
     // Extract components
     const iv = combined.subarray(0, IV_LENGTH)
     const tag = combined.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH)
     const encrypted = combined.subarray(IV_LENGTH + TAG_LENGTH)
-    
+
     const decipher = createDecipheriv(ALGORITHM, key, iv)
     decipher.setAuthTag(tag)
-    
-    let decrypted = decipher.update(encrypted, undefined, 'utf8')
-    decrypted += decipher.final('utf8')
-    
+
+    let decrypted = decipher.update(encrypted, undefined, "utf8")
+    decrypted += decipher.final("utf8")
+
     return decrypted
   } catch (error) {
-    console.error('Decryption error occurred during session decryption')
-    throw new Error('Failed to decrypt session data')
+    // console.error('Decryption error occurred during session decryption')
+    throw new Error("Failed to decrypt session data")
   }
 }

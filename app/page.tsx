@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { getSessionFromCookie } from "@/lib/auth"
 import Image from "next/image"
+import Link from "next/link"
 
 interface HomePageProps {
   searchParams: { error?: string }
@@ -42,26 +43,51 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <Image src="/logo.png" alt="AfriBERTa NG Logo" width={80} height={80} className="text-primary" />
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <Image src="/logo.png" alt="AfriBERTa NG Logo" width={80} height={80} className="text-primary" />
+            </div>
+            <h1 className="text-4xl font-bold text-foreground mb-3 text-balance">AfriBERTa NG</h1>
+            <h2 className="text-xl font-semibold text-primary mb-2">Data Annotation Platform</h2>
+            <p className="text-muted-foreground text-balance">Professional fake news detection annotation system</p>
           </div>
-          <h1 className="text-4xl font-bold text-foreground mb-3 text-balance">AfriBERTa NG</h1>
-          <h2 className="text-xl font-semibold text-primary mb-2">Data Annotation Platform</h2>
-          <p className="text-muted-foreground text-balance">Professional fake news detection annotation system</p>
+
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{getErrorMessage(error)}</AlertDescription>
+            </Alert>
+          )}
+
+          <LoginForm />
         </div>
-
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{getErrorMessage(error)}</AlertDescription>
-          </Alert>
-        )}
-
-        <LoginForm />
       </div>
+      
+      {/* Footer with Privacy and Terms links */}
+      <footer className="border-t mt-auto">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm text-muted-foreground">
+            <Link 
+              href="/privacy" 
+              className="hover:text-foreground transition-colors underline"
+            >
+              Privacy Policy
+            </Link>
+            <span className="hidden sm:inline">•</span>
+            <Link 
+              href="/terms" 
+              className="hover:text-foreground transition-colors underline"
+            >
+              Terms of Service
+            </Link>
+            <span className="hidden sm:inline">•</span>
+            <span>© 2024 AfriBERTa NG</span>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

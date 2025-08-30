@@ -69,7 +69,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
         hoursToday: todayMinutes / 60,
       })
     } catch (error) {
-      console.error("Error loading stats:", error)
+      // console.error("Error loading stats:", error)
     } finally {
       setIsLoading(false)
     }

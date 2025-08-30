@@ -11,7 +11,7 @@ export function LoginForm() {
   const handleGoogleLogin = async () => {
     setIsLoading(true)
     try {
-      console.log("Google OAuth login initiated")
+      // console.log("Google OAuth login initiated")
 
       // Build Google OAuth URL
       const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
@@ -28,7 +28,7 @@ export function LoginForm() {
       // Redirect to Google OAuth
       window.location.href = googleAuthUrl.toString()
     } catch (error) {
-      console.error("Login failed:", error)
+      // console.error("Login failed:", error)
       setIsLoading(false)
     }
   }

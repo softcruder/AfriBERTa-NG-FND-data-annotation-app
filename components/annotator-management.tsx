@@ -45,61 +45,19 @@ export function AnnotatorManagement() {
 
   const loadAnnotators = async () => {
     try {
-      // In production, this would fetch from your user management system/API
-      // For now, load from spreadsheet annotations to get actual annotator data
       const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (spreadsheetId) {
-        const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-        if (response.ok) {
-          const { annotations } = await response.json()
-          
-          // Extract unique annotators from annotation data
-          const annotatorStats = new Map<string, any>()
-          
-          annotations.forEach((annotation: any) => {
-            const id = annotation.annotatorId
-            if (!annotatorStats.has(id)) {
-              annotatorStats.set(id, {
-                id,
-                email: id, // In production, resolve ID to email from user directory
-                name: `User ${id.slice(-4)}`, // In production, fetch real names
-                role: "annotator",
-                status: "active",
-                totalAnnotations: 0,
-                avgTimePerRow: 0,
-                lastActive: annotation.startTime,
-                joinedDate: annotation.startTime,
-                totalTime: 0,
-              })
-            }
-            
-            const stats = annotatorStats.get(id)
-            stats.totalAnnotations++
-            if (annotation.durationMinutes) {
-              stats.totalTime += annotation.durationMinutes
-            }
-            // Update last active if this annotation is more recent
-            if (new Date(annotation.startTime) > new Date(stats.lastActive)) {
-              stats.lastActive = annotation.startTime
-            }
-          })
-          
-          // Calculate average time per row
-          const annotatorList = Array.from(annotatorStats.values()).map(stats => ({
-            ...stats,
-            avgTimePerRow: stats.totalAnnotations > 0 ? stats.totalTime / stats.totalAnnotations : 0,
-          }))
-          
-          setAnnotators(annotatorList)
-        }
+      if (!spreadsheetId) {
+        setIsLoading(false)
+        return
       }
+
+      const response = await fetch(`/api/users?spreadsheetId=${spreadsheetId}`)
+      if (!response.ok) throw new Error("Failed to load users")
+
+      const { users } = await response.json()
+      setAnnotators(users)
     } catch (error) {
-      console.error("Error loading annotators:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load annotator data",
-        variant: "destructive",
-      })
+      // console.error("Error loading annotators:", error)
     } finally {
       setIsLoading(false)
     }
@@ -116,32 +74,52 @@ export function AnnotatorManagement() {
     }
 
     try {
-      // In production, this would send an invitation email via API
-      console.log("Inviting annotator:", { email: newAnnotatorEmail, role: newAnnotatorRole })
+      // In real implementation, this would send an invitation email
+      // console.log("Inviting annotator:", { email: newAnnotatorEmail, role: newAnnotatorRole })
 
-      // For now, add to local list (in production, this would be handled by the backend)
+      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
+      if (!spreadsheetId) {
+        toast({
+          title: "Configuration Error",
+          description: "No spreadsheet configured",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Create new user object
       const newAnnotator: Annotator = {
         id: `user_${Date.now()}`,
         name: newAnnotatorEmail.split("@")[0],
         email: newAnnotatorEmail,
         role: newAnnotatorRole,
-        status: "inactive", // Will be active once they accept invitation
+        status: "active",
         totalAnnotations: 0,
         avgTimePerRow: 0,
         lastActive: new Date().toISOString(),
         joinedDate: new Date().toISOString(),
       }
 
-      setAnnotators((prev) => [...prev, newAnnotator])
+      // Add user to database
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spreadsheetId, user: newAnnotator }),
+      })
+
+      if (!response.ok) throw new Error("Failed to add user")
+
+      setAnnotators(prev => [...prev, newAnnotator])
       setNewAnnotatorEmail("")
       setNewAnnotatorRole("annotator")
 
       toast({
         title: "Success",
         description: "Invitation sent successfully!",
+        variant: "default",
       })
     } catch (error) {
-      console.error("Error inviting annotator:", error)
+      // console.error("Error inviting annotator:", error)
       toast({
         title: "Error",
         description: "Failed to send invitation",
@@ -152,25 +130,60 @@ export function AnnotatorManagement() {
 
   const handleToggleStatus = async (annotatorId: string) => {
     try {
-      setAnnotators((prev) =>
-        prev.map((annotator) =>
-          annotator.id === annotatorId
-            ? { ...annotator, status: annotator.status === "active" ? "inactive" : "active" }
-            : annotator,
-        ),
+      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
+      if (!spreadsheetId) return
+
+      const annotator = annotators.find(a => a.id === annotatorId)
+      if (!annotator) return
+
+      const newStatus = annotator.status === "active" ? "inactive" : "active"
+
+      // Update in database
+      const response = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spreadsheetId,
+          userId: annotatorId,
+          updates: { status: newStatus },
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to update user status")
+
+      // Update local state
+      setAnnotators(prev =>
+        prev.map(annotator => (annotator.id === annotatorId ? { ...annotator, status: newStatus } : annotator)),
       )
     } catch (error) {
-      console.error("Error updating annotator status:", error)
+      // console.error("Error updating annotator status:", error)
     }
   }
 
   const handleRoleChange = async (annotatorId: string, newRole: "annotator" | "admin") => {
     try {
-      setAnnotators((prev) =>
-        prev.map((annotator) => (annotator.id === annotatorId ? { ...annotator, role: newRole } : annotator)),
+      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
+      if (!spreadsheetId) return
+
+      // Update in database
+      const response = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spreadsheetId,
+          userId: annotatorId,
+          updates: { role: newRole },
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to update user role")
+
+      // Update local state
+      setAnnotators(prev =>
+        prev.map(annotator => (annotator.id === annotatorId ? { ...annotator, role: newRole } : annotator)),
       )
     } catch (error) {
-      console.error("Error updating annotator role:", error)
+      // console.error("Error updating annotator role:", error)
     }
   }
 
@@ -223,7 +236,7 @@ export function AnnotatorManagement() {
                 type="email"
                 placeholder="annotator@example.com"
                 value={newAnnotatorEmail}
-                onChange={(e) => setNewAnnotatorEmail(e.target.value)}
+                onChange={e => setNewAnnotatorEmail(e.target.value)}
               />
             </div>
             <div className="w-32">
@@ -274,7 +287,7 @@ export function AnnotatorManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {annotators.map((annotator) => (
+                {annotators.map(annotator => (
                   <TableRow key={annotator.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -282,7 +295,7 @@ export function AnnotatorManagement() {
                           <AvatarFallback>
                             {annotator.name
                               .split(" ")
-                              .map((n) => n[0])
+                              .map(n => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>

@@ -32,6 +32,29 @@ export function DataConfiguration() {
     loadDriveFiles()
   }, [])
 
+  const findFactChecksCSV = async () => {
+    try {
+      const response = await fetch("/api/drive/factchecks-csv")
+      if (!response.ok) throw new Error("Failed to find factchecks.csv")
+
+      const { fileId } = await response.json()
+      setCSVFileId(fileId)
+      setCurrentCSVFileIdState(fileId)
+
+      toast({
+        title: "Success",
+        description: "Found and selected factchecks.csv from FactCheckScraper-v4.1 folder",
+        variant: "default",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not find factchecks.csv in FactCheckScraper-v4.1 folder",
+        variant: "destructive",
+      })
+    }
+  }
+
   const loadDriveFiles = async () => {
     try {
       setIsLoading(true)
@@ -48,11 +71,10 @@ export function DataConfiguration() {
       const { files } = await response.json()
       setDriveFiles(files)
     } catch (error) {
-      console.error("Error loading Drive files:", error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to load Drive files"
+      // console.error("Error loading Drive files:", error)
       toast({
-        title: "Error",
-        description: errorMessage,
+//         title: "Error",
+        description: "Failed to load Drive files",
         variant: "destructive",
       })
     } finally {
@@ -87,9 +109,10 @@ export function DataConfiguration() {
       toast({
         title: "Success",
         description: "Annotation sheet created successfully!",
+        variant: "default",
       })
     } catch (error) {
-      console.error("Error creating annotation sheet:", error)
+      // console.error("Error creating annotation sheet:", error)
       toast({
         title: "Error",
         description: "Failed to create annotation sheet",
@@ -229,7 +252,7 @@ export function DataConfiguration() {
                 id="sheet-title"
                 placeholder="Fake News Annotations - 2024"
                 value={newSheetTitle}
-                onChange={(e) => setNewSheetTitle(e.target.value)}
+                onChange={e => setNewSheetTitle(e.target.value)}
               />
             </div>
             <div className="flex items-end">
@@ -238,6 +261,27 @@ export function DataConfiguration() {
                 Create Sheet
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto-Configuration for Required Files */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Quick Setup
+          </CardTitle>
+          <CardDescription>
+            Automatically configure with required source data from FactCheckScraper-v4.1
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <Button onClick={findFactChecksCSV} className="flex-1">
+              <FileText className="mr-2 h-4 w-4" />
+              Find factchecks.csv
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -272,7 +316,7 @@ export function DataConfiguration() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {driveFiles.map((file) => (
+                {driveFiles.map(file => (
                   <TableRow key={file.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">

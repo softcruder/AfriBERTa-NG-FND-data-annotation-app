@@ -52,7 +52,7 @@ export function PaymentOverview() {
 
       setPayments(paymentsWithNames)
     } catch (error) {
-      console.error("Error loading payments:", error)
+      // console.error("Error loading payments:", error)
     } finally {
       setIsLoading(false)
     }
@@ -61,7 +61,6 @@ export function PaymentOverview() {
   const handleExportPayments = () => {
     if (payments.length === 0) {
       toast({
-        title: "No Data",
         description: "No payment data to export",
         variant: "destructive",
       })
@@ -82,7 +81,7 @@ export function PaymentOverview() {
 
     const csvContent = [
       headers.join(","),
-      ...payments.map((p) =>
+      ...payments.map(p =>
         [
           p.annotatorId,
           p.annotatorName,
@@ -199,7 +198,7 @@ export function PaymentOverview() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment) => (
+                {payments.map(payment => (
                   <TableRow key={payment.annotatorId}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -207,7 +206,7 @@ export function PaymentOverview() {
                           <AvatarFallback className="text-xs">
                             {payment.annotatorName
                               .split(" ")
-                              .map((n) => n[0])
+                              .map(n => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>

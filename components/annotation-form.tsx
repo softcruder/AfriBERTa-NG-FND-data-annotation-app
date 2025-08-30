@@ -76,7 +76,8 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
     onIdle: () => {
       toast({
         title: "Session Timeout Warning",
-        description: "You've been inactive for a while. Your session will timeout soon. Move your mouse or click anywhere to continue working.",
+        description:
+          "You've been inactive for a while. Your session will timeout soon. Move your mouse or click anywhere to continue working.",
         variant: "destructive",
       })
     },
@@ -333,9 +334,9 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                               canEditClaim ? "Edit the extracted claim text..." : `Enter claim ${index + 1}...`
                             }
                             value={claim}
-                            onChange={(e) => updateClaim(index, e.target.value)}
+                            onChange={e => updateClaim(index, e.target.value)}
                             className="min-h-[100px] resize-none"
-                            disabled={!canEditClaim && index === 0 && extractedClaimText}
+                            disabled={!canEditClaim && index === 0 && Boolean(extractedClaimText)}
                           />
                           {!canEditClaim && watchedValues.claims.length > 1 && (
                             <Button
@@ -364,7 +365,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                         <Switch
                           id="edit-sources"
                           checked={watchedValues.canEditSourceLinks}
-                          onCheckedChange={(checked) => setValue("canEditSourceLinks", checked)}
+                          onCheckedChange={checked => setValue("canEditSourceLinks", checked)}
                         />
                       </div>
                     </div>
@@ -375,7 +376,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                             <Input
                               placeholder={`Enter source link ${index + 1}...`}
                               value={link}
-                              onChange={(e) => updateSourceLink(index, e.target.value)}
+                              onChange={e => updateSourceLink(index, e.target.value)}
                               disabled={!watchedValues.canEditSourceLinks}
                             />
                           </div>
@@ -428,7 +429,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                         <Switch
                           id="needs-translation"
                           checked={watchedValues.needsTranslation}
-                          onCheckedChange={(checked) => setValue("needsTranslation", checked)}
+                          onCheckedChange={checked => setValue("needsTranslation", checked)}
                         />
                       </div>
                     </div>
@@ -436,7 +437,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                       <Textarea
                         placeholder="Enter English translation..."
                         value={watchedValues.translation || ""}
-                        onChange={(e) => setValue("translation", e.target.value)}
+                        onChange={e => setValue("translation", e.target.value)}
                         className="min-h-[100px]"
                       />
                     )}

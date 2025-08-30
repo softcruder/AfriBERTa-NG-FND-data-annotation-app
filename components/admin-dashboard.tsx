@@ -74,7 +74,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         }
       }
     } catch (error) {
-      console.error("Error loading admin stats:", error)
+      // console.error("Error loading admin stats:", error)
     } finally {
       setIsLoading(false)
     }
@@ -144,9 +144,8 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         description: "Annotation data exported successfully",
       })
     } catch (error) {
-      console.error("Error exporting data:", error)
       toast({
-        title: "Export Failed",
+//         title: "Export Failed",
         description: "Failed to export data. Please try again.",
         variant: "destructive",
       })

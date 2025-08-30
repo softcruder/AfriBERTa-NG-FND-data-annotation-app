@@ -16,11 +16,13 @@ export function LoginForm() {
       // Build Google OAuth URL
       const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
       googleAuthUrl.searchParams.set("client_id", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "")
-      googleAuthUrl.searchParams.set("redirect_uri", process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "")
+  // Derive redirect_uri from current origin to support local and production seamlessly
+  const redirectUri = `${window.location.origin}/api/auth/google/callback`
+  googleAuthUrl.searchParams.set("redirect_uri", redirectUri)
       googleAuthUrl.searchParams.set("response_type", "code")
       googleAuthUrl.searchParams.set(
         "scope",
-        "openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets",
+        "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets",
       )
       googleAuthUrl.searchParams.set("access_type", "offline")
       googleAuthUrl.searchParams.set("prompt", "consent")

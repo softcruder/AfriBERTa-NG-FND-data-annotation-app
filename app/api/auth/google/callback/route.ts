@@ -18,17 +18,19 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for access token
+  // Build redirect_uri dynamically from the current request to support local/prod
+  const redirectUri = `${request.nextUrl.origin}${request.nextUrl.pathname}`
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!,
+    redirect_uri: redirectUri,
       }),
     })
 
@@ -51,32 +53,29 @@ export async function GET(request: NextRequest) {
 
     const user = await userResponse.json()
 
-    // Create session (in a real app, you'd use a proper session store)
-    const sessionData = {
+    // Create session compatible with AuthSession type used across the app
+    const session = {
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         picture: user.picture,
-        role: getUserRole(user.email), // Use admin authorization logic
+        role: getUserRole(user.email),
       },
-      tokens: {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: Date.now() + tokens.expires_in * 1000,
-      },
-      expiresAt: Date.now() + 60 * 60 * 24 * 7 * 1000, // 7 days
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: Date.now() + tokens.expires_in * 1000,
     }
 
     const response = NextResponse.redirect(new URL("/dashboard", request.url))
 
     // Encrypt and set session cookie
-    const encryptedSession = encryptSession(JSON.stringify(sessionData))
+    const encryptedSession = encryptSession(JSON.stringify(session))
     response.cookies.set("auth_session", encryptedSession, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: tokens.expires_in,
     })
 
     return response

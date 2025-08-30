@@ -34,13 +34,21 @@ export function DataConfiguration() {
     try {
       setIsLoading(true)
       const response = await fetch("/api/drive/files")
-      if (!response.ok) throw new Error("Failed to load Drive files")
+      
+      if (!response.ok) {
+        if (response.status === 403) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Admin access required for drive configuration")
+        }
+        throw new Error("Failed to load Drive files")
+      }
 
       const { files } = await response.json()
       setDriveFiles(files)
     } catch (error) {
       console.error("Error loading Drive files:", error)
-      alert("Failed to load Drive files")
+      const errorMessage = error instanceof Error ? error.message : "Failed to load Drive files"
+      alert(errorMessage)
     } finally {
       setIsLoading(false)
     }

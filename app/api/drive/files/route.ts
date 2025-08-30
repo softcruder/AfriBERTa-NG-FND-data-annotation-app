@@ -15,6 +15,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
     }
 
+    // Only admins can access drive files for configuration
+    if (session.user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized - Admin access required for drive configuration" }, { status: 403 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get("query")
 

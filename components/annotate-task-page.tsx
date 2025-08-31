@@ -12,22 +12,14 @@ import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
 type Role = "annotator" | "admin"
 
 interface AnnotateTaskPageProps {
-  rowId: string
+  rowId: string // This is the CSV ID from column A
   role: Role
-}
-
-// Parse a rowId of the form `${fileId}_row_${index}` => { fileId, index }
-function parseRowId(rowId: string): { fileId: string | null; index: number | null } {
-  const match = rowId.match(/^(.*)_row_(\d+)$/)
-  if (!match) return { fileId: null, index: null }
-  const [, fileId, idx] = match
-  return { fileId, index: Number.parseInt(idx, 10) }
 }
 
 export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, spreadsheetId } = useAuth()
+  const { user, spreadsheetId, csvFileId } = useAuth()
   const [task, setTask] = useState<AnnotationTask | null>(null)
   const [loading, setLoading] = useState(true)
   const { create: createAnnotation } = useCreateAnnotation()
@@ -40,20 +32,22 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
     let cancelled = false
     ;(async () => {
       try {
-        const parsed = parseRowId(rowId)
-        if (!parsed.fileId || parsed.index == null) {
-          toast({ title: "Invalid row", description: "Could not parse row identifier", variant: "destructive" })
+        if (!csvFileId) {
+          toast({ title: "Missing config", description: "CSV file not configured", variant: "destructive" })
           router.push(targetAfterComplete)
           return
         }
 
-        // Fetch CSV from API and pick the row at index (header is at 0)
-        const res = await fetch(`/api/drive/csv/${encodeURIComponent(parsed.fileId)}`)
+        // Fetch CSV from API and find the row by ID in the first column
+        const res = await fetch(`/api/drive/csv/${encodeURIComponent(csvFileId)}`)
         if (!res.ok) throw new Error("Failed to load CSV")
         const json = (await res.json()) as { data: string[][] }
         const csv = json.data
         const header = csv?.[0]
-        const row = csv?.[parsed.index]
+        const targetId = (rowId || "").trim()
+        const foundIndex = (csv || []).findIndex((r, i) => i > 0 && (r?.[0] || "").trim() === targetId)
+        if (foundIndex === -1) throw new Error("Row not found in CSV by ID")
+        const row = csv?.[foundIndex]
         if (!row || !Array.isArray(row)) throw new Error("Row not found in CSV")
 
         // Build initial AnnotationTask consistent with dashboard starter
@@ -66,7 +60,7 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
         const newTask: AnnotationTask = {
           id: `task_${Date.now()}`,
           rowId,
-          csvRow: { id: rowId, originalIndex: parsed.index, data: row, header },
+          csvRow: { id: rowId, originalIndex: foundIndex, data: row, header },
           startTime: new Date(),
           claims: [extractedClaim],
           sourceLinks: linksArray.length ? linksArray : [""],
@@ -88,7 +82,7 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
     return () => {
       cancelled = true
     }
-  }, [rowId, router, targetAfterComplete, toast])
+  }, [rowId, router, targetAfterComplete, toast, csvFileId])
 
   if (!user) return null
   const libUser = user as unknown as LibUser
@@ -134,7 +128,7 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
 
       await createAnnotation({ spreadsheetId, annotation })
       toast({ title: "Task saved", description: "Annotation saved successfully" })
-      router.push(targetAfterComplete)
+      router.push(`${targetAfterComplete}?refresh=1`)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       toast({ title: "Save failed", description: message, variant: "destructive" })
@@ -142,7 +136,7 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
   }
 
   const handleTaskCancel = () => {
-    router.push(targetAfterComplete)
+    router.push(`${targetAfterComplete}?refresh=1`)
   }
 
   if (loading) return <div className="container mx-auto p-6">Loading task…</div>

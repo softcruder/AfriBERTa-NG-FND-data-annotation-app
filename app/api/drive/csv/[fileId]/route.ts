@@ -4,14 +4,20 @@ import { requireSession } from "@/lib/server-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 // Route handler for fetching a CSV file from Google Drive by fileId
-export async function GET(request: NextRequest, context: { params: { fileId: string } }) {
+export async function GET(
+  request: NextRequest,
+  context: { params: { fileId?: string } | Promise<{ fileId?: string }> },
+) {
   const limited = await enforceRateLimit(request, { route: "drive:csv:GET" })
   if (limited) return limited
   try {
     const { response, session } = await requireSession(request)
     if (response) return response
 
-    const fileId = context?.params?.fileId
+    const maybePromise = context.params as any
+    const resolvedParams: { fileId?: string } =
+      maybePromise && typeof maybePromise.then === "function" ? await maybePromise : maybePromise
+    const { fileId } = resolvedParams
     if (!fileId || typeof fileId !== "string") {
       return NextResponse.json({ error: "Invalid file ID provided" }, { status: 400 })
     }

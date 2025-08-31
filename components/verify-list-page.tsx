@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function VerifyListPage() {
   const { spreadsheetId } = useAuth()
@@ -25,7 +26,23 @@ export function VerifyListPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? (
-            <div className="text-muted-foreground">Loading…</div>
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-3 border rounded-lg flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <Skeleton className="h-4 w-2/3 mb-2" />
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : items.length === 0 ? (
             <div className="text-muted-foreground">No items pending verification.</div>
           ) : (
@@ -46,6 +63,7 @@ export function VerifyListPage() {
                   </Link>
                   <Button
                     size="sm"
+                    isLoading={loading}
                     onClick={async () => {
                       try {
                         if (!spreadsheetId) return
@@ -56,16 +74,9 @@ export function VerifyListPage() {
                         }
                       } catch {}
                     }}
-                    disabled={loading}
+                    disabled={false}
                   >
-                    {loading ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span className="size-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
-                        Verifying
-                      </span>
-                    ) : (
-                      "Verify"
-                    )}
+                    Verify
                   </Button>
                 </div>
               </div>

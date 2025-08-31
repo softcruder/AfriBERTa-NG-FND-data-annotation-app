@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import type { User } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ interface AnnotatorDashboardProps {
 }
 
 export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
+  const router = useRouter()
   const [currentTask, setCurrentTaskState] = useState<AnnotationTask | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [tasksPage, setTasksPage] = useState(1)
@@ -65,6 +67,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
 
   const startTaskFromRow = async (row: { index: number; data: string[]; header: string[] }) => {
     setIsLoading(true)
+    console.log("Starting task from row:", row)
     try {
       if (!csvFileId) {
         toast({
@@ -74,34 +77,14 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         })
         return
       }
-
-      const rowData = row.data
-      // CSV columns by header screenshot:
-      // A:id, B:extracted_claim_text, C:verdict, D:domain, E:claim_language,
-      // F:claim_links, G:claim_platforms, H:source_url, I:platform, J:article_body, K:metadata
-      const extractedClaim = rowData[1] || rowData[0] || ""
-      const verdict = rowData[2] || ""
-      const sourceUrl = rowData[7] || ""
-      const claimLinks = rowData[5] || ""
-      const linksArray = [sourceUrl, ...claimLinks.split(/;\s*/)].filter(Boolean)
-
-      const newTask: AnnotationTask = {
-        id: `task_${Date.now()}`,
-        rowId: `${csvFileId}_row_${row.index}`,
-        csvRow: {
-          id: `${csvFileId}_row_${row.index}`,
-          originalIndex: row.index,
-          data: rowData,
-        },
-        startTime: new Date(),
-        claims: [extractedClaim],
-        sourceLinks: linksArray.length ? linksArray : [""],
-        verdict,
-        status: "in-progress",
+      // Navigate to dedicated annotate page using CSV ID (first column)
+      const idCol = (row.data?.[0] || "").trim()
+      if (!idCol) {
+        toast({ title: "Missing ID", description: "This row has no ID in column A.", variant: "destructive" })
+        return
       }
-
-      setCurrentTask(newTask)
-      setCurrentTaskState(newTask)
+      const rowId = idCol
+      router.push(`/dashboard/annotator/annotate/${encodeURIComponent(rowId)}`)
     } catch (error) {
       toast({
         title: "Task Start Failed",
@@ -289,7 +272,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         {/* Task list with pagination */}
         <div className="mt-8" id="qa-section">
           <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-            <CardHeader>
+            <CardHeader className="flex justify-between items-center">
               <CardTitle className="text-lg">Available Tasks</CardTitle>
               <CardDescription>
                 Showing {tasks.length} of {tasksTotal} rows
@@ -298,12 +281,15 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 {tasks.map(t => (
-                  <div key={t.index} className="p-3 border rounded-lg flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground">Row #{t.index}</div>
+                  <div
+                    key={t.index}
+                    className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-muted-foreground">ID: {(t.data?.[0] || "").trim() || "(none)"}</div>
                       <div className="font-medium truncate">{t.data[1] || t.data[0] || "(empty)"}</div>
                     </div>
-                    <Button size="sm" onClick={() => startTaskFromRow(t)} className="gap-2">
+                    <Button size="sm" onClick={() => startTaskFromRow(t)} className="gap-2 w-full sm:w-auto">
                       <Play className="h-4 w-4" /> Start
                     </Button>
                   </div>

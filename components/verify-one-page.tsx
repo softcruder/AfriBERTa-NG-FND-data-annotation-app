@@ -1,10 +1,12 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo } from "react"
 import { useAuth, useAnnotations } from "@/custom-hooks"
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 
 interface VerifyOnePageProps {
@@ -13,7 +15,7 @@ interface VerifyOnePageProps {
 
 export function VerifyOnePage({ id }: VerifyOnePageProps) {
   const { spreadsheetId } = useAuth()
-  const { data: annotations, mutate } = useAnnotations(spreadsheetId)
+  const { data: annotations, mutate, isLoading } = useAnnotations(spreadsheetId)
   const { verify, loading } = useVerifyAnnotation()
   const { toast } = useToast()
 
@@ -30,6 +32,39 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
     } catch {}
   }
 
+  const backHref = `/dashboard/${useAuth().user?.role === "admin" ? "admin" : "annotator"}/verify`
+
+  if (isLoading)
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Skeleton className="h-6 w-40 mb-1" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+              <Skeleton className="h-8 w-24" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-24" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            </div>
+            <Skeleton className="h-9 w-32" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+
   if (!item)
     return (
       <div className="container mx-auto p-6">
@@ -38,6 +73,11 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
             <CardTitle>Not Found</CardTitle>
             <CardDescription>Annotation with the given id was not found.</CardDescription>
           </CardHeader>
+          <CardContent>
+            <Link href={backHref}>
+              <Button variant="outline">Go Back</Button>
+            </Link>
+          </CardContent>
         </Card>
       </div>
     )
@@ -46,8 +86,17 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
     <div className="container mx-auto p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Verify Annotation</CardTitle>
-          <CardDescription>Row ID: {item.rowId}</CardDescription>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>Verify Annotation</CardTitle>
+              <CardDescription>Row ID: {item.rowId}</CardDescription>
+            </div>
+            <Link href={backHref}>
+              <Button variant="outline" size="sm">
+                Back to list
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
@@ -66,17 +115,8 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               ))}
             </div>
           </div>
-          <Button onClick={handleVerify} disabled={loading || item.status === "verified"}>
-            {loading ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="size-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
-                Processing
-              </span>
-            ) : item.status === "verified" ? (
-              "Already Verified"
-            ) : (
-              "Mark Verified"
-            )}
+          <Button onClick={handleVerify} isLoading={loading} disabled={item.status === "verified"}>
+            {item.status === "verified" ? "Already Verified" : "Mark Verified"}
           </Button>
         </CardContent>
       </Card>

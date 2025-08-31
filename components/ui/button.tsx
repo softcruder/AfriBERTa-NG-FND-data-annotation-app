@@ -37,14 +37,33 @@ function Button({
   variant,
   size,
   asChild = false,
+  isLoading = false,
+  children,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    isLoading?: boolean
   }) {
   const Comp = asChild ? Slot : "button"
 
-  return <Comp data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />
+  return (
+    <Comp
+      data-slot="button"
+      aria-busy={isLoading || undefined}
+      className={cn(buttonVariants({ variant, size, className }), isLoading && "relative text-transparent")}
+      disabled={isLoading || disabled}
+      {...props}
+    >
+      {isLoading && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+        </span>
+      )}
+      <span className={cn(isLoading && "invisible")}>{children}</span>
+    </Comp>
+  )
 }
 
 export { Button, buttonVariants }

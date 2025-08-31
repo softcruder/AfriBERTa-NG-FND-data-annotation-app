@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { GOOGLE_OAUTH_SCOPES } from "@/lib/auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 // This route simply redirects to Google's OAuth consent screen.
@@ -12,12 +13,11 @@ export async function GET(request: NextRequest) {
   authUrl.searchParams.set("client_id", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "")
   authUrl.searchParams.set("redirect_uri", redirectUri)
   authUrl.searchParams.set("response_type", "code")
-  authUrl.searchParams.set(
-    "scope",
-    "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets",
-  )
+  authUrl.searchParams.set("scope", GOOGLE_OAUTH_SCOPES.join(" "))
   authUrl.searchParams.set("access_type", "offline")
-  authUrl.searchParams.set("prompt", "consent")
+  // Do not force consent every time; allow client to choose prompt
+  const prompt = request.nextUrl.searchParams.get("prompt")
+  if (prompt) authUrl.searchParams.set("prompt", prompt)
 
   return NextResponse.redirect(authUrl)
 }

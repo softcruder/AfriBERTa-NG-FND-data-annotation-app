@@ -659,7 +659,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                     <Button
                       type="submit"
                       className="flex-1 h-11 gap-2 bg-primary hover:bg-primary/90"
-                      // disabled={timeTracking.isIdle || !isValid}
+                      disabled={timeTracking.isIdle || !isValid}
                     >
                       <Save className="h-4 w-4" />
                       Complete & Submit

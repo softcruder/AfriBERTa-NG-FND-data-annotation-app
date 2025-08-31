@@ -4,15 +4,20 @@ import { useSWRGet } from "@/hooks/useRequest"
 import type { KeyedMutator } from "swr"
 import type { DriveFile } from "@/lib/google-apis"
 
-export function useDriveFiles(query?: string): {
+export function useDriveFiles(params?: { query?: string; pageSize?: number; pageToken?: string }): {
   data: DriveFile[]
+  nextPageToken?: string
   error: unknown
   isLoading: boolean
-  mutate: KeyedMutator<{ files: DriveFile[] }>
+  mutate: KeyedMutator<{ files: DriveFile[]; nextPageToken?: string }>
 } {
-  const key = query ? `/drive/files?query=${encodeURIComponent(query)}` : "/drive/files"
-  const { data, error, isLoading, mutate } = useSWRGet<{ files: DriveFile[] }>(key)
-  return { data: data?.files ?? [], error, isLoading, mutate }
+  const search = new URLSearchParams()
+  if (params?.query) search.set("query", params.query)
+  if (params?.pageSize) search.set("pageSize", String(params.pageSize))
+  if (params?.pageToken) search.set("pageToken", params.pageToken)
+  const key = search.toString() ? `/drive/files?${search.toString()}` : "/drive/files"
+  const { data, error, isLoading, mutate } = useSWRGet<{ files: DriveFile[]; nextPageToken?: string }>(key)
+  return { data: data?.files ?? [], nextPageToken: data?.nextPageToken, error, isLoading, mutate }
 }
 
 export function useFactChecksCSVFileId(): {

@@ -181,11 +181,6 @@ export function SiteHeader() {
               <DropdownMenuItem onClick={goVerify} className="gap-2">
                 <ShieldCheck className="h-4 w-4" /> Verify others&apos; work
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/user/settings" className="flex items-center gap-2">
-                  <SettingsIcon className="h-4 w-4" /> Settings
-                </Link>
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleAnonymize} className="gap-2">
                 <Trash2 className="h-4 w-4" /> Delete my data
               </DropdownMenuItem>

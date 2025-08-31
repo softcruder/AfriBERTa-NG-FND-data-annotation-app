@@ -1,5 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { logAnnotation, getAnnotations, updatePaymentFormulas, initializeGoogleAPIs } from "@/lib/google-apis"
+import {
+  logAnnotation,
+  getAnnotations,
+  updatePaymentFormulas,
+  initializeGoogleAPIs,
+  appendFinalDatasetRow,
+  getAppConfig,
+} from "@/lib/google-apis"
 import { requireSession } from "@/lib/server-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
@@ -17,7 +24,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Spreadsheet ID is required" }, { status: 400 })
     }
 
-    const annotations = await getAnnotations(session!.accessToken, spreadsheetId)
+    let annotations = await getAnnotations(session!.accessToken, spreadsheetId)
+
+    // Hide QA-passed (verified) annotations from non-admin users
+    if (session!.user.role !== "admin") {
+      annotations = annotations.filter(a => a.status !== "verified" && !a.verifiedBy)
+    }
 
     return NextResponse.json({ annotations })
   } catch (error) {
@@ -66,6 +78,36 @@ export async function POST(request: NextRequest) {
     }
 
     await logAnnotation(session!.accessToken, spreadsheetId, annotation)
+
+    // Also append to final dataset if configured
+    try {
+      const cfg = await getAppConfig(session!.accessToken)
+      const finalSheet = cfg["FINAL_DATASET_SPREADSHEET_ID"]
+      if (finalSheet) {
+        // Build merged row: original fields are not available server-side here unless carried in payload.
+        // We'll include annotation fields; clients may include CSV fields in annotation.claimText etc.
+        const merged: (string | number)[] = [
+          annotation.rowId,
+          annotation.claimText,
+          (annotation.sourceLinks || []).join("; "),
+          annotation.translation || "",
+          annotation.verdict || "",
+          annotation.sourceUrl || "",
+          (annotation.claimLinks || []).join("; "),
+          annotation.translationLanguage || "",
+          annotation.startTime,
+          annotation.endTime || "",
+          annotation.durationMinutes ?? "",
+          annotation.annotatorId,
+          annotation.status,
+          annotation.verifiedBy || "",
+        ]
+        await appendFinalDatasetRow(session!.accessToken, finalSheet, merged)
+      }
+    } catch (e) {
+      // Don't block response if final dataset append fails
+      //console.warn("Final dataset append failed:", e)
+    }
 
     // Update payment formulas after logging annotation; don't block success if this fails
     try {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,9 +17,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Shield, Clock, CheckCircle } from "lucide-react"
+import { Shield, Clock, CheckCircle, Save } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth, useUsers, useAddUser, useUpdateUser } from "@/custom-hooks"
+import { useAuth, useUsers, useUpdateUser } from "@/custom-hooks"
+import { useRequest } from "@/hooks/useRequest"
 
 interface Annotator {
   id: string
@@ -34,75 +35,33 @@ interface Annotator {
 }
 
 export function AnnotatorManagement() {
-  const [annotators, setAnnotators] = useState<Annotator[]>([])
-  const [newAnnotatorEmail, setNewAnnotatorEmail] = useState("")
-  const [newAnnotatorRole, setNewAnnotatorRole] = useState<"annotator" | "admin">("annotator")
   const { toast } = useToast()
-  const { spreadsheetId } = useAuth()
+  const { spreadsheetId, config, refresh: refreshSession } = useAuth()
   const { data: swrUsers, isLoading: usersLoading, mutate } = useUsers(spreadsheetId)
-  const { add } = useAddUser()
   const { update } = useUpdateUser()
+  const { request } = useRequest<{ success: boolean }>()
 
   // Derive list directly from SWR when not locally modified by us
   const remoteAnnotators: Annotator[] = Array.isArray(swrUsers) ? (swrUsers as Annotator[]) : []
-  const isLoading = usersLoading && annotators.length === 0
+  const isLoading = usersLoading && remoteAnnotators.length === 0
 
-  const handleInviteAnnotator = async () => {
-    if (!newAnnotatorEmail.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter an email address",
-        variant: "destructive",
-      })
-      return
-    }
+  // Admin configuration (from Config sheet)
+  const initialAdmins = useMemo(() => (config?.ADMIN_EMAILS as string) || "", [config])
+  const [adminEmails, setAdminEmails] = useState<string>(initialAdmins)
+  // keep in sync when config changes
+  if (adminEmails !== initialAdmins && initialAdmins && adminEmails === "") {
+    // when config arrives first time
+    setAdminEmails(initialAdmins)
+  }
 
+  const handleSaveAdmins = async () => {
     try {
-      // In real implementation, this would send an invitation email
-      // console.log("Inviting annotator:", { email: newAnnotatorEmail, role: newAnnotatorRole })
-
-      if (!spreadsheetId) {
-        toast({
-          title: "Configuration Error",
-          description: "No spreadsheet configured",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Create new user object
-      const newAnnotator: Annotator = {
-        id: `user_${Date.now()}`,
-        name: newAnnotatorEmail.split("@")[0],
-        email: newAnnotatorEmail,
-        role: newAnnotatorRole,
-        status: "active",
-        totalAnnotations: 0,
-        avgTimePerRow: 0,
-        lastActive: new Date().toISOString(),
-        joinedDate: new Date().toISOString(),
-      }
-
-      // Add user via hook
-      await add({ spreadsheetId, user: newAnnotator })
-      mutate()
-
-      setAnnotators(prev => [...prev, newAnnotator])
-      setNewAnnotatorEmail("")
-      setNewAnnotatorRole("annotator")
-
-      toast({
-        title: "Success",
-        description: "Invitation sent successfully!",
-        variant: "default",
-      })
-    } catch (error) {
-      // console.error("Error inviting annotator:", error)
-      toast({
-        title: "Error",
-        description: "Failed to send invitation",
-        variant: "destructive",
-      })
+      const value = adminEmails.trim()
+      await request.post("/config", { entries: { ADMIN_EMAILS: value } })
+      await refreshSession()
+      toast({ title: "Saved", description: "Admin emails updated." })
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update admin emails", variant: "destructive" })
     }
   }
 
@@ -110,16 +69,13 @@ export function AnnotatorManagement() {
     try {
       if (!spreadsheetId) return
 
-      const annotator = annotators.find(a => a.id === annotatorId)
+      const annotator = remoteAnnotators.find(a => a.id === annotatorId)
       if (!annotator) return
 
       const newStatus = annotator.status === "active" ? "inactive" : "active"
 
       await update({ spreadsheetId, userId: annotatorId, updates: { status: newStatus } })
-      mutate()
-
-      // Optimistically update local additions too
-      setAnnotators(prev => prev.map(a => (a.id === annotatorId ? { ...a, status: newStatus } : a)))
+      await mutate()
     } catch (error) {
       // console.error("Error updating annotator status:", error)
     }
@@ -130,10 +86,7 @@ export function AnnotatorManagement() {
       if (!spreadsheetId) return
 
       await update({ spreadsheetId, userId: annotatorId, updates: { role: newRole } })
-      mutate()
-
-      // Optimistically update local additions too
-      setAnnotators(prev => prev.map(a => (a.id === annotatorId ? { ...a, role: newRole } : a)))
+      await mutate()
     } catch (error) {
       // console.error("Error updating annotator role:", error)
     }
@@ -173,45 +126,27 @@ export function AnnotatorManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Invite New Annotator */}
+      {/* Admin Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle>Invite New Annotator</CardTitle>
-          <CardDescription>Send an invitation to join the annotation team</CardDescription>
+          <CardTitle>Admin Configuration</CardTitle>
+          <CardDescription>Manage admin emails from the Config sheet (comma-separated)</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-end">
             <div className="flex-1">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="admins">Admin Emails</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="annotator@example.com"
-                value={newAnnotatorEmail}
-                onChange={e => setNewAnnotatorEmail(e.target.value)}
+                id="admins"
+                type="text"
+                placeholder="admin1@example.com, admin2@example.com"
+                value={adminEmails}
+                onChange={e => setAdminEmails(e.target.value)}
               />
             </div>
-            <div className="w-32">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={newAnnotatorRole}
-                onValueChange={(value: "annotator" | "admin") => setNewAnnotatorRole(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="annotator">Annotator</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleInviteAnnotator}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite
-              </Button>
-            </div>
+            <Button onClick={handleSaveAdmins}>
+              <Save className="mr-2 h-4 w-4" /> Save
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -239,7 +174,7 @@ export function AnnotatorManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(remoteAnnotators.length ? remoteAnnotators : annotators).map(annotator => (
+                {remoteAnnotators.map(annotator => (
                   <TableRow key={annotator.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">

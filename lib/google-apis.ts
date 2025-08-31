@@ -278,6 +278,10 @@ export async function createSpreadsheetInAfriBertaFolder(accessToken: string, ti
 export async function findOrCreateAppConfigSpreadsheet(accessToken: string): Promise<string> {
   const { drive, sheets } = initializeGoogleAPIs(accessToken)
 
+  // If explicitly provided via environment, prefer that and do not attempt to create
+  const envConfigId = process.env.CONFIG_SPREADSHEET_ID || process.env.NEXT_PUBLIC_CONFIG_SPREADSHEET_ID
+  if (envConfigId) return envConfigId
+
   // Ensure parent folder exists
   const folderId = await findOrCreateAfriBertaFolder(accessToken)
 
@@ -330,6 +334,10 @@ export async function findOrCreateAppConfigSpreadsheet(accessToken: string): Pro
 export async function findAppConfigSpreadsheet(accessToken: string): Promise<string | undefined> {
   const { drive } = initializeGoogleAPIs(accessToken)
   try {
+    // If explicitly provided via environment, prefer that
+    const envConfigId = process.env.CONFIG_SPREADSHEET_ID || process.env.NEXT_PUBLIC_CONFIG_SPREADSHEET_ID
+    if (envConfigId) return envConfigId
+
     const folderId = await findOrCreateAfriBertaFolder(accessToken)
     const list = await drive.files.list({
       q: `'${folderId}' in parents and name='${APP_CONFIG_SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet'`,
@@ -341,9 +349,22 @@ export async function findAppConfigSpreadsheet(accessToken: string): Promise<str
   }
 }
 
+/** Resolve the App Config spreadsheet ID using env override (if provided),
+ * otherwise optionally create or find it under the AfriBERTa folder. */
+async function resolveAppConfigSpreadsheetId(
+  accessToken: string,
+  opts?: { allowCreate?: boolean },
+): Promise<string | undefined> {
+  const envConfigId = process.env.CONFIG_SPREADSHEET_ID || process.env.NEXT_PUBLIC_CONFIG_SPREADSHEET_ID
+  if (envConfigId) return envConfigId
+  if (opts?.allowCreate) return await findOrCreateAppConfigSpreadsheet(accessToken)
+  return await findAppConfigSpreadsheet(accessToken)
+}
+
 export async function getAppConfig(accessToken: string): Promise<AppConfig> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-  const spreadsheetId = await findOrCreateAppConfigSpreadsheet(accessToken)
+  const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: true })
+  if (!spreadsheetId) throw new Error("Config spreadsheet not found and could not be created")
 
   const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:C" })
   const values = res.data.values || []
@@ -362,7 +383,7 @@ export async function getAppConfig(accessToken: string): Promise<AppConfig> {
  */
 export async function getAppConfigSafe(accessToken: string): Promise<AppConfig | undefined> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-  const spreadsheetId = await findAppConfigSpreadsheet(accessToken)
+  const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: false })
   if (!spreadsheetId) return undefined
   try {
     const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:C" })
@@ -381,7 +402,8 @@ export async function getAppConfigSafe(accessToken: string): Promise<AppConfig |
 
 export async function setAppConfig(accessToken: string, entries: AppConfig): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-  const spreadsheetId = await findOrCreateAppConfigSpreadsheet(accessToken)
+  const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: true })
+  if (!spreadsheetId) throw new Error("Config spreadsheet not found and could not be created")
 
   // Read current config to decide upsert positions
   const current = await getAppConfig(accessToken)
@@ -427,24 +449,31 @@ export async function setAppConfig(accessToken: string, entries: AppConfig): Pro
   }
 }
 
-export async function listDriveFiles(accessToken: string, query?: string): Promise<DriveFile[]> {
+export async function listDriveFiles(
+  accessToken: string,
+  query?: string,
+  opts?: { pageSize?: number; pageToken?: string },
+): Promise<{ files: DriveFile[]; nextPageToken?: string }> {
   const { drive } = initializeGoogleAPIs(accessToken)
 
   try {
     const response = await drive.files.list({
       q: query || "mimeType='text/csv' or mimeType='application/vnd.google-apps.spreadsheet'",
-      fields: "files(id,name,mimeType,modifiedTime)",
+      fields: "files(id,name,mimeType,modifiedTime),nextPageToken",
       orderBy: "modifiedTime desc",
+      pageSize: Math.min(100, Math.max(1, opts?.pageSize ?? 5)),
+      pageToken: opts?.pageToken,
     })
 
-    return (
+    const files =
       response.data.files?.map(file => ({
         id: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
         modifiedTime: file.modifiedTime!,
       })) || []
-    )
+
+    return { files, nextPageToken: (response.data as any).nextPageToken }
   } catch (error) {
     throw new Error(`Failed to list Drive files: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
@@ -556,6 +585,21 @@ export async function logAnnotation(
   } catch (error) {
     throw new Error(`Failed to log annotation: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
+}
+
+/** Append a consolidated row to the final dataset spreadsheet. */
+export async function appendFinalDatasetRow(
+  accessToken: string,
+  spreadsheetId: string,
+  row: (string | number)[],
+): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: "Annotated_Dataset!A:Z",
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [row] },
+  })
 }
 
 export async function getAnnotations(accessToken: string, spreadsheetId: string): Promise<AnnotationRow[]> {

@@ -36,7 +36,7 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
           {link("/dashboard/annotator/tasks", "Tasks", FileText)}
           {link("/dashboard/annotator/payments", "Payments", DollarSign)}
           {link("/dashboard/annotator/verify", "Verify", ShieldCheck)}
-          {link("/dashboard/user/settings", "Settings", SettingsIcon)}
+          {/* Settings removed to declutter */}
         </>
       )}
       {isAdmin && (
@@ -46,7 +46,7 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
           {link("/dashboard/admin/annotators", "Annotators", Users)}
           {link("/dashboard/admin/payments", "Payments", DollarSign)}
           {link("/dashboard/admin/config", "Config", SettingsIcon)}
-          {link("/dashboard/user/settings", "Settings", SettingsIcon)}
+          {/* Settings removed to declutter */}
         </>
       )}
     </div>

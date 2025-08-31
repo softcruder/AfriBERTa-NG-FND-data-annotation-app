@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { downloadCSVFile, getAppConfig } from "@/lib/google-apis"
+import { downloadCSVFile, getAppConfig, getAnnotations } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 /**
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1"))
-    const pageSize = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("pageSize") || "10")))
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("pageSize") || "5")))
     const overrideFileId = searchParams.get("fileId") || undefined
 
     let fileId = overrideFileId
@@ -36,7 +36,17 @@ export async function GET(request: NextRequest) {
     }
 
     const header = data[0]
-    const rows = data.slice(1)
+    let rows = data.slice(1)
+
+    // Exclude rows already worked on (based on Annotations_Log rowId pattern `${fileId}_row_${index}`)
+    const cfg = await getAppConfig(session!.accessToken)
+    const spreadsheetId = cfg["ANNOTATION_SPREADSHEET_ID"]
+    if (spreadsheetId) {
+      const anns = await getAnnotations(session!.accessToken, spreadsheetId)
+      const doneRowIds = new Set((anns || []).map(a => a.rowId))
+      rows = rows.filter((_, idx) => !doneRowIds.has(`${fileId}_row_${idx + 1}`))
+    }
+
     const total = rows.length
     const start = (page - 1) * pageSize
     const end = Math.min(start + pageSize, total)

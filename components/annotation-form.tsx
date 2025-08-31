@@ -74,8 +74,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
     onIdle: () => {
       toast({
         title: "Session Timeout Warning",
-        description:
-          "You've been inactive for a while. Your session will timeout soon. Move your mouse or click anywhere to continue working.",
+        description: "You've been inactive for a while. Your session will timeout soon.",
         variant: "destructive",
       })
     },

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { GOOGLE_OAUTH_SCOPES } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Chrome } from "lucide-react"
@@ -20,12 +21,15 @@ export function LoginForm() {
       const redirectUri = `${window.location.origin}/api/auth/google/callback`
       googleAuthUrl.searchParams.set("redirect_uri", redirectUri)
       googleAuthUrl.searchParams.set("response_type", "code")
-      googleAuthUrl.searchParams.set(
-        "scope",
-        "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets",
-      )
+      googleAuthUrl.searchParams.set("scope", GOOGLE_OAUTH_SCOPES.join(" "))
       googleAuthUrl.searchParams.set("access_type", "offline")
-      googleAuthUrl.searchParams.set("prompt", "consent")
+      // Prefer no prompt if session exists; fallback to default prompt at Google
+      try {
+        const hasSessionCookie = document.cookie.split(";").some(c => c.trim().startsWith("auth_session="))
+        if (hasSessionCookie) {
+          googleAuthUrl.searchParams.set("prompt", "none")
+        }
+      } catch {}
 
       // Redirect to Google OAuth
       window.location.href = googleAuthUrl.toString()

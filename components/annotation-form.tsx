@@ -34,20 +34,65 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
   const [extractedClaimText, setExtractedClaimText] = useState("")
   const { toast } = useToast()
   const [showOriginalDesktop, setShowOriginalDesktop] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Robustly parse links that may come as:
+  // - array of strings
+  // - single string
+  // - stringified JSON array (e.g. "[\"a\",\"b\"]" or "['a','b']")
+  // - delimited string using ; , or newlines
+  const parseLinks = (input: unknown): string[] => {
+    const parseJSONStringArray = (s: string): string[] => {
+      try {
+        const parsed = JSON.parse(s)
+        return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : []
+      } catch {
+        // try single quotes -> double quotes
+        try {
+          const normalized = s.replace(/'/g, '"')
+          const parsed = JSON.parse(normalized)
+          return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : []
+        } catch {
+          return []
+        }
+      }
+    }
+
+    if (Array.isArray(input)) {
+      return input.flatMap(item => parseLinks(item)).filter(Boolean)
+    }
+    if (typeof input === "string") {
+      const s = input.trim()
+      if (!s) return []
+      if ((s.startsWith("[") && s.endsWith("]")) || /^\[.*\]$/.test(s)) {
+        const fromJson = parseJSONStringArray(s)
+        if (fromJson.length) return fromJson
+      }
+      return s
+        .split(/[;\n,]\s*/)
+        .map(t =>
+          t
+            .trim()
+            .replace(/^"(.*)"$/, "$1")
+            .replace(/^'(.*)'$/, "$1"),
+        )
+        .filter(Boolean)
+    }
+    return []
+  }
 
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
-  const initialSourceUrl = task.csvRow.data[7] || task.sourceLinks?.[0] || ""
-  const initialClaimLinksFromCSV = (task.csvRow.data[5] || "")
-    .split(/;\s*/)
-    .map(s => s.trim())
-    .filter(Boolean)
-  const initialClaimLinks =
-    task.sourceLinks && task.sourceLinks.length > 1 ? task.sourceLinks.slice(1) : initialClaimLinksFromCSV
+  // Parse potentially stringified sourceLinks and CSV claim links
+  const parsedSourceLinks = parseLinks(task.sourceLinks as unknown)
+  const initialSourceUrl = task.csvRow.data[7] || parsedSourceLinks[0] || ""
+  const initialClaimLinksFromCSV = parseLinks(task.csvRow.data[5])
+  const initialClaimLinks = parsedSourceLinks.length > 1 ? parsedSourceLinks.slice(1) : initialClaimLinksFromCSV
   const initialArticleBody = task.csvRow.data[9] || ""
 
   const form = useForm<AnnotationFormData>({
     resolver: zodResolver(annotationFormSchema),
+    mode: "onChange",
     defaultValues: {
       claims: task.claims.length > 0 ? task.claims : [""],
       sourceUrl: initialSourceUrl,
@@ -196,6 +241,8 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
   }
 
   const onSubmit = (data: AnnotationFormData) => {
+    if (submitting) return
+    setSubmitting(true)
     timeTracking.stop()
 
     const completedTask: AnnotationTask = {
@@ -215,7 +262,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
     }
 
     localStorage.removeItem(`annotation_progress_${task.id}`)
-    onComplete(completedTask)
+    Promise.resolve(onComplete(completedTask)).finally(() => setSubmitting(false))
   }
 
   const handleCancel = () => {
@@ -244,16 +291,12 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto p-6 max-w-6xl">
-        <div className="flex items-center justify-between mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-6">
-            <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Annotation Task</h1>
+        <div className="flex items-start md:items-center flex-wrap md:flex-nowrap justify-between gap-4 mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center flex-wrap md:flex-nowrap gap-6 min-w-0 flex-1">
+            <div className="min-w-0">
+              <h1 className="text-[16px] md:text-2xl font-bold text-slate-900 dark:text-slate-100">Annotation Task</h1>
               <div className="flex items-center gap-4 mt-1">
-                <p className="text-sm text-slate-600 dark:text-slate-400">Row ID: {task.rowId}</p>
+                <p className="text-sm text-slate-600 break-all dark:text-slate-400 max-w-full">Row ID: {task.rowId}</p>
                 {canEditClaim && (
                   <Badge variant="secondary" className="gap-1">
                     <Edit3 className="h-3 w-3" />
@@ -262,8 +305,23 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                 )}
               </div>
             </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Clock className="h-4 w-4 text-slate-500" />
+              <Badge variant={timeTracking.isIdle ? "destructive" : "secondary"} className="font-mono">
+                {timeTracking.formatTime()}
+                {timeTracking.isIdle && " (IDLE)"}
+              </Badge>
+            </div>
+            <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700 shrink-0">
+              <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
+              <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap md:flex-nowrap items-center gap-4 justify-end w-full md:w-auto">
+            <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
+              <ArrowLeft className="h-4 w-4" />
+              Go Back
+            </Button>
             {/* Mobile button to open Original Data drawer */}
             <Sheet>
               <SheetTrigger asChild>
@@ -337,29 +395,24 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                 </>
               )}
             </Button>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-slate-500" />
-              <Badge variant={timeTracking.isIdle ? "destructive" : "secondary"} className="font-mono">
-                {timeTracking.formatTime()}
-                {timeTracking.isIdle && " (IDLE)"}
-              </Badge>
-            </div>
-            <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700">
-              <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
-              <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
           </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 hidden lg:block">
+          <div
+            className={`grid grid-cols-1 gap-6 ${
+              showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"
+            }`}
+          >
+            <div className="hidden lg:block">
               <Card className="shadow-sm border-slate-200 dark:border-slate-700">
                 <CardHeader className="bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Original Data</CardTitle>
-                    <CardDescription>Reference information from the CSV</CardDescription>
-                  </div>
+                  {showOriginalDesktop && (
+                    <div>
+                      <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Original Data</CardTitle>
+                      <CardDescription>Reference information from the CSV</CardDescription>
+                    </div>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -382,22 +435,24 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                           Extracted Claim Text
                         </Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[1] || "(empty)"}</div>
+                        <div className="mt-1 text-sm whitespace-pre-wrap break-all">
+                          {task.csvRow.data[1] || "(empty)"}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Verdict</Label>
-                        <div className="mt-1 text-sm">{task.csvRow.data[2] || "(empty)"}</div>
+                        <div className="mt-1 text-sm break-all">{task.csvRow.data[2] || "(empty)"}</div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Domain</Label>
-                          <div className="mt-1 text-sm">{task.csvRow.data[3] || "(empty)"}</div>
+                          <div className="mt-1 text-sm break-all">{task.csvRow.data[3] || "(empty)"}</div>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Claim Language
                           </Label>
-                          <div className="mt-1 text-sm">{task.csvRow.data[4] || "(empty)"}</div>
+                          <div className="mt-1 text-sm break-all">{task.csvRow.data[4] || "(empty)"}</div>
                         </div>
                       </div>
                       <div>
@@ -406,21 +461,23 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Claim Links</Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[5] || "(empty)"}</div>
+                        <div className="mt-1 text-sm whitespace-pre-wrap break-all">
+                          {task.csvRow.data[5] || "(empty)"}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                           Claim Platforms
                         </Label>
-                        <div className="mt-1 text-sm">{task.csvRow.data[6] || "(empty)"}</div>
+                        <div className="mt-1 text-sm break-all">{task.csvRow.data[6] || "(empty)"}</div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Platform</Label>
-                        <div className="mt-1 text-sm">{task.csvRow.data[8] || "(empty)"}</div>
+                        <div className="mt-1 text-sm break-all">{task.csvRow.data[8] || "(empty)"}</div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Article Body</Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap line-clamp-6">
+                        <div className="mt-1 text-sm whitespace-pre-wrap break-all line-clamp-6">
                           {task.csvRow.data[9] || "(empty)"}
                         </div>
                       </div>
@@ -449,7 +506,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
               </Card>
             </div>
 
-            <div className="lg:col-span-2">
+            <div>
               <Card className="shadow-sm border-slate-200 dark:border-slate-700">
                 <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
                   <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Annotation Form</CardTitle>
@@ -523,7 +580,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                               }
                               value={claim}
                               onChange={e => updateClaim(index, e.target.value)}
-                              className="min-h-[100px] resize-none"
+                              className="min-h-[100px] resize-none break-all"
                               disabled={!canEditClaim && index === 0 && Boolean(extractedClaimText)}
                             />
                             {!canEditClaim && watchedValues.claims.length > 1 && (
@@ -562,7 +619,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                           placeholder="Enter translated claim text..."
                           value={watchedValues.translation || ""}
                           onChange={e => setValue("translation", e.target.value)}
-                          className="min-h-[100px]"
+                          className="min-h-[100px] break-all"
                         />
                       </div>
                     )}
@@ -573,7 +630,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                     <div>
                       <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Source URL</Label>
                       <div className="flex gap-2 mt-2">
-                        <Input value={watchedValues.sourceUrl || ""} disabled />
+                        <Input value={watchedValues.sourceUrl || ""} disabled className="break-all" />
                         {!!watchedValues.sourceUrl && (
                           <Button
                             type="button"
@@ -602,35 +659,38 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                         </Button>
                       </div>
                       <div className="mt-2 space-y-2">
-                        {(watchedValues.claimLinks?.length ? watchedValues.claimLinks : [""]).map((link, index) => (
-                          <div key={index} className="flex gap-2 items-center">
-                            <Input
-                              placeholder={`Enter claim link ${index + 1}...`}
-                              value={link}
-                              onChange={e => updateClaimLink(index, e.target.value)}
-                            />
-                            {link && (
+                        {(Array.isArray(watchedValues.claimLinks) ? watchedValues.claimLinks : [""]).map(
+                          (link, index) => (
+                            <div key={index} className="flex gap-2 items-center">
+                              <Input
+                                placeholder={`Enter claim link ${index + 1}...`}
+                                value={String(link || "")}
+                                onChange={e => updateClaimLink(index, e.target.value)}
+                                className="break-all"
+                              />
+                              {link && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(link, "_blank")}
+                                  className="shrink-0"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.open(link, "_blank")}
+                                onClick={() => removeClaimLink(index)}
                                 className="shrink-0"
                               >
-                                <ExternalLink className="h-4 w-4" />
+                                <X className="h-4 w-4" />
                               </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeClaimLink(index)}
-                              className="shrink-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
+                            </div>
+                          ),
+                        )}
                       </div>
                       {errors.claimLinks && (
                         <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>
@@ -647,7 +707,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                       placeholder={needsTranslation ? "Enter translated article body..." : "Edit article body..."}
                       value={watchedValues.articleBody || ""}
                       onChange={e => setValue("articleBody", e.target.value)}
-                      className="min-h-[140px] mt-2"
+                      className="min-h-[140px] mt-2 break-all"
                     />
                   </div>
                   {needsTranslation && errors.translation && (
@@ -658,6 +718,7 @@ export function AnnotationForm({ task, user, onComplete, onCancel }: AnnotationF
                     <Button
                       type="submit"
                       className="flex-1 h-11 gap-2 bg-primary hover:bg-primary/90"
+                      isLoading={submitting}
                       disabled={timeTracking.isIdle || !isValid}
                     >
                       <Save className="h-4 w-4" />

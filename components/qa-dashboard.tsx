@@ -1,6 +1,4 @@
 "use client"
-
-import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,12 +34,8 @@ interface QADashboardProps {
 }
 
 export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false)
-
   const handleRefresh = async () => {
-    setIsRefreshing(true)
     await onRefresh()
-    setIsRefreshing(false)
   }
 
   const completionRate = (metrics.completedAnnotations / metrics.totalAnnotations) * 100
@@ -56,8 +50,8 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
           <h2 className="text-2xl font-bold text-foreground">Quality Assurance Dashboard</h2>
           <p className="text-muted-foreground">Monitor annotation quality and performance metrics</p>
         </div>
-        <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline">
-          <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+        <Button onClick={handleRefresh} variant="outline">
+          <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
       </div>

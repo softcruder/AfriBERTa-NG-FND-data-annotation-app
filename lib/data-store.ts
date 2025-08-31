@@ -6,6 +6,7 @@ export interface CSVRow {
   assigned?: boolean
   assignedTo?: string
   completed?: boolean
+  header?: string[]
 }
 
 export interface AnnotationTask {
@@ -17,6 +18,11 @@ export interface AnnotationTask {
   claims: string[]
   sourceLinks: string[]
   translation?: string
+  verdict?: string
+  translationLanguage?: "ha" | "yo"
+  articleBody?: string
+  sourceUrl?: string
+  claimLinks?: string[]
   status: "not-started" | "in-progress" | "completed"
 }
 

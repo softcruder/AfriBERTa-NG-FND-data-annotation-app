@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,9 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FileText, Database, Plus, ExternalLink, Settings } from "lucide-react"
-import { setSpreadsheetId, setCSVFileId, getSpreadsheetId, getCSVFileId } from "@/lib/data-store"
+// Stop using localStorage for configuration: rely on backend Config via useAuth
 import { useToast } from "@/hooks/use-toast"
 import { formatDate } from "@/lib/utils"
+import { useDriveFiles, useFactChecksCSVFileId } from "@/custom-hooks/useDrive"
+import { useAuth } from "@/custom-hooks/useAuth"
+import { useRequest } from "@/hooks/useRequest"
 
 interface DriveFile {
   id: string
@@ -20,27 +23,46 @@ interface DriveFile {
 }
 
 export function DataConfiguration() {
-  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [currentSpreadsheetId, setCurrentSpreadsheetIdState] = useState<string | null>(null)
   const [currentCSVFileId, setCurrentCSVFileIdState] = useState<string | null>(null)
+  const [currentFinalDatasetId, setCurrentFinalDatasetId] = useState<string | null>(null)
   const [newSheetTitle, setNewSheetTitle] = useState("")
   const { toast } = useToast()
+  const [drivePageToken, setDrivePageToken] = useState<string | undefined>(undefined)
+  const {
+    data: driveFilesData,
+    nextPageToken,
+    mutate: refreshDrive,
+    isLoading: driveLoading,
+  } = useDriveFiles({
+    pageSize: 5,
+    pageToken: drivePageToken,
+  })
+  const { fileId: factChecksFileId } = useFactChecksCSVFileId()
+  const { config, refresh: refreshSession } = useAuth()
+  const { request } = useRequest<any>()
 
   useEffect(() => {
-    setCurrentSpreadsheetIdState(getSpreadsheetId())
-    setCurrentCSVFileIdState(getCSVFileId())
-    loadDriveFiles()
-  }, [])
+    // Always source from backend config
+    setCurrentSpreadsheetIdState(config?.ANNOTATION_SPREADSHEET_ID || null)
+    setCurrentCSVFileIdState(config?.CSV_FILE_ID || null)
+    setCurrentFinalDatasetId(config?.FINAL_DATASET_SPREADSHEET_ID || null)
+  }, [config])
+
+  const driveFiles: DriveFile[] = useMemo(() => {
+    if (!driveFilesData) return []
+    return Array.isArray(driveFilesData) ? (driveFilesData as DriveFile[]) : []
+  }, [driveFilesData])
 
   const findFactChecksCSV = async () => {
     try {
-      const response = await fetch("/api/drive/factchecks-csv")
-      if (!response.ok) throw new Error("Failed to find factchecks.csv")
-
-      const { fileId } = await response.json()
-      setCSVFileId(fileId)
+      const fileId = factChecksFileId
+      if (!fileId) throw new Error("Failed to find factchecks.csv")
       setCurrentCSVFileIdState(fileId)
+      // Persist to App Config
+      await request.post("/config", { entries: { CSV_FILE_ID: fileId } })
+      await refreshSession()
 
       toast({
         title: "Success",
@@ -56,31 +78,7 @@ export function DataConfiguration() {
     }
   }
 
-  const loadDriveFiles = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch("/api/drive/files")
-      
-      if (!response.ok) {
-        if (response.status === 403) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Admin access required for drive configuration")
-        }
-        throw new Error("Failed to load Drive files")
-      }
-
-      const { files } = await response.json()
-      setDriveFiles(files)
-    } catch (error) {
-      // console.error("Error loading Drive files:", error)
-      toast({
-        description: "Failed to load Drive files",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // loadDriveFiles moved above into useCallback
 
   const handleCreateAnnotationSheet = async () => {
     if (!newSheetTitle.trim()) {
@@ -93,17 +91,14 @@ export function DataConfiguration() {
     }
 
     try {
-      const response = await fetch("/api/sheets/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newSheetTitle }),
+      const resp = await request.post("/sheets/create", {
+        title: newSheetTitle,
       })
-
-      if (!response.ok) throw new Error("Failed to create annotation sheet")
-
-      const { spreadsheetId } = await response.json()
-      setSpreadsheetId(spreadsheetId)
+      const { spreadsheetId } = resp as { spreadsheetId: string }
       setCurrentSpreadsheetIdState(spreadsheetId)
+      // Persist to App Config
+      await request.post("/config", { entries: { ANNOTATION_SPREADSHEET_ID: spreadsheetId } })
+      await refreshSession()
       setNewSheetTitle("")
 
       toast({
@@ -121,22 +116,39 @@ export function DataConfiguration() {
     }
   }
 
-  const handleSelectCSVFile = (fileId: string) => {
-    setCSVFileId(fileId)
+  const handleSelectCSVFile = async (fileId: string) => {
     setCurrentCSVFileIdState(fileId)
+    // Persist to App Config
+    try {
+      await request.post("/config", { entries: { CSV_FILE_ID: fileId } })
+      await refreshSession()
+    } catch {}
     toast({
       title: "Success",
       description: "CSV file selected successfully!",
     })
   }
 
-  const handleSelectSpreadsheet = (fileId: string) => {
-    setSpreadsheetId(fileId)
+  const handleSelectSpreadsheet = async (fileId: string) => {
     setCurrentSpreadsheetIdState(fileId)
+    // Persist to App Config
+    try {
+      await request.post("/config", { entries: { ANNOTATION_SPREADSHEET_ID: fileId } })
+      await refreshSession()
+    } catch {}
     toast({
       title: "Success",
       description: "Spreadsheet selected successfully!",
     })
+  }
+
+  const handleSelectFinalDataset = async (fileId: string) => {
+    setCurrentFinalDatasetId(fileId)
+    try {
+      await request.post("/config", { entries: { FINAL_DATASET_SPREADSHEET_ID: fileId } })
+      await refreshSession()
+    } catch {}
+    toast({ title: "Success", description: "Final dataset sheet selected." })
   }
 
   // use shared formatDate from lib/utils
@@ -166,7 +178,7 @@ export function DataConfiguration() {
   return (
     <div className="space-y-6">
       {/* Current Configuration */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -234,6 +246,41 @@ export function DataConfiguration() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Final Dataset Sheet
+            </CardTitle>
+            <CardDescription>Destination for combined annotated dataset</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {currentFinalDatasetId ? (
+              <div className="space-y-2">
+                <Badge variant="default" className="bg-blue-100 text-blue-800">
+                  Configured
+                </Badge>
+                <p className="text-sm text-muted-foreground">Sheet ID: {currentFinalDatasetId}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(`https://docs.google.com/spreadsheets/d/${currentFinalDatasetId}`, "_blank")
+                  }
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View in Sheets
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Badge variant="secondary">Not Configured</Badge>
+                <p className="text-sm text-muted-foreground">Pick a spreadsheet below</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create New Annotation Sheet */}
@@ -292,14 +339,25 @@ export function DataConfiguration() {
               <CardTitle>Available Files</CardTitle>
               <CardDescription>CSV files and Google Sheets from your Drive</CardDescription>
             </div>
-            <Button variant="outline" onClick={loadDriveFiles} disabled={isLoading}>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  setRefreshing(true)
+                  await refreshDrive()
+                } finally {
+                  setRefreshing(false)
+                }
+              }}
+              disabled={refreshing || driveLoading}
+            >
               <Settings className="mr-2 h-4 w-4" />
-              Refresh
+              {refreshing ? "Refreshing" : "Refresh"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {refreshing ? (
             <div className="text-center py-8 text-muted-foreground">Loading files...</div>
           ) : driveFiles.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No files found</div>
@@ -346,6 +404,16 @@ export function DataConfiguration() {
                             {currentSpreadsheetId === file.id ? "Selected" : "Use for Annotations"}
                           </Button>
                         )}
+                        {file.mimeType.includes("spreadsheet") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSelectFinalDataset(file.id)}
+                            disabled={currentFinalDatasetId === file.id}
+                          >
+                            {currentFinalDatasetId === file.id ? "Selected" : "Use for Final Dataset"}
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -357,6 +425,17 @@ export function DataConfiguration() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {nextPageToken && (
+                  <TableRow>
+                    <TableCell colSpan={4}>
+                      <div className="flex justify-center py-2">
+                        <Button variant="outline" size="sm" onClick={() => setDrivePageToken(nextPageToken)}>
+                          Load more
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}

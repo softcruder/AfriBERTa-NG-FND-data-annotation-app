@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
 import type { User } from "@/lib/auth"
 import { calculatePayment, calculateEfficiencyMetrics, formatCurrency, DEFAULT_RATES } from "@/lib/payment-calculator"
+import { useAuth, useAnnotations } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -21,63 +22,38 @@ interface AnnotatorStats {
 }
 
 export function PaymentDashboard({ user }: PaymentDashboardProps) {
-  const [stats, setStats] = useState<AnnotatorStats>({
-    totalRows: 0,
-    translations: 0,
-    totalHours: 0,
-    completedToday: 0,
-    hoursToday: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  const { spreadsheetId } = useAuth()
+  const { data: annotations } = useAnnotations(spreadsheetId)
 
-  useEffect(() => {
-    loadStats()
-  }, [])
-
-  const loadStats = async () => {
-    try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) {
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) return
-
-      const { annotations } = await response.json()
-
-      // Filter annotations for current user
-      const userAnnotations = annotations.filter((a: any) => a.annotatorId === user.id)
-
-      // Calculate stats
-      const today = new Date().toDateString()
-      const todayAnnotations = userAnnotations.filter(
-        (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
-      )
-
-      const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
-      const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
-      const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-      const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-
-      setStats({
-        totalRows,
-        translations,
-        totalHours: totalMinutes / 60,
-        completedToday: todayAnnotations.length,
-        hoursToday: todayMinutes / 60,
-      })
-    } catch (error) {
-      // console.error("Error loading stats:", error)
-    } finally {
-      setIsLoading(false)
+  const stats: AnnotatorStats = useMemo(() => {
+    const anns = annotations || []
+    if (!anns.length) {
+      return { totalRows: 0, translations: 0, totalHours: 0, completedToday: 0, hoursToday: 0 }
     }
-  }
+
+    const userAnnotations = anns.filter((a: any) => a.annotatorId === user.id)
+    const today = new Date().toDateString()
+    const todayAnnotations = userAnnotations.filter(
+      (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
+    )
+
+    const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
+    const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
+    const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+    const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+
+    return {
+      totalRows,
+      translations,
+      totalHours: totalMinutes / 60,
+      completedToday: todayAnnotations.length,
+      hoursToday: todayMinutes / 60,
+    }
+  }, [annotations, user.id])
 
   const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours)
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
-  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday) // Simplified for today
+  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday)
 
   const getEfficiencyColor = (status: string) => {
     switch (status) {

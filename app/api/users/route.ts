@@ -1,19 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUsers, addUser, updateUser, type User } from "@/lib/google-apis"
-import { getSessionFromCookie } from "@/lib/auth"
+import { requireSession } from "@/lib/server-auth"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "users:GET" })
+  if (limited) return limited
   try {
-    // Get session from cookie
-    const sessionCookie = request.cookies.get("auth_session")
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-
-    const session = getSessionFromCookie(sessionCookie.value)
-    if (!session) {
-      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
-    }
+    const { response, session } = await requireSession(request)
+    if (response) return response
 
     const { searchParams } = new URL(request.url)
     const spreadsheetId = searchParams.get("spreadsheetId")
@@ -22,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Spreadsheet ID is required" }, { status: 400 })
     }
 
-    const users = await getUsers(session.accessToken, spreadsheetId)
+    const users = await getUsers(session!.accessToken, spreadsheetId)
 
     return NextResponse.json({ users })
   } catch (error) {
@@ -32,17 +27,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "users:POST" })
+  if (limited) return limited
   try {
-    // Get session from cookie
-    const sessionCookie = request.cookies.get("auth_session")
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-
-    const session = getSessionFromCookie(sessionCookie.value)
-    if (!session) {
-      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
-    }
+    const { response, session } = await requireSession(request)
+    if (response) return response
 
     const { spreadsheetId, user } = await request.json()
 
@@ -50,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Spreadsheet ID and user data are required" }, { status: 400 })
     }
 
-    await addUser(session.accessToken, spreadsheetId, user)
+    await addUser(session!.accessToken, spreadsheetId, user)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -60,17 +49,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "users:PATCH" })
+  if (limited) return limited
   try {
-    // Get session from cookie
-    const sessionCookie = request.cookies.get("auth_session")
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-
-    const session = getSessionFromCookie(sessionCookie.value)
-    if (!session) {
-      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
-    }
+    const { response, session } = await requireSession(request)
+    if (response) return response
 
     const { spreadsheetId, userId, updates } = await request.json()
 
@@ -78,7 +61,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Spreadsheet ID, user ID, and updates are required" }, { status: 400 })
     }
 
-    await updateUser(session.accessToken, spreadsheetId, userId, updates)
+    await updateUser(session!.accessToken, spreadsheetId, userId, updates)
 
     return NextResponse.json({ success: true })
   } catch (error) {

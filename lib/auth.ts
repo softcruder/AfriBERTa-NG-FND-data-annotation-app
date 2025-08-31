@@ -24,7 +24,7 @@ export const GOOGLE_OAUTH_CONFIG = {
     "openid",
     "email",
     "profile",
-  "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
   ].join(" "),
 }
@@ -33,7 +33,9 @@ export const GOOGLE_OAUTH_CONFIG = {
 export function getGoogleAuthUrl(): string {
   // Prefer dynamic origin on the client to avoid env drift between local and prod
   const dynamicRedirect =
-    typeof window !== "undefined" ? `${window.location.origin}/api/auth/google/callback` : GOOGLE_OAUTH_CONFIG.redirectUri
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/auth/google/callback`
+      : GOOGLE_OAUTH_CONFIG.redirectUri
 
   const params = new URLSearchParams({
     client_id: GOOGLE_OAUTH_CONFIG.clientId || "",
@@ -55,8 +57,9 @@ export function getStoredSession(): AuthSession | null {
     const stored = localStorage.getItem("auth_session")
     if (!stored) return null
 
-    // Parse the session data directly (no decryption on client side)
-    const session: AuthSession = JSON.parse(stored)
+    // Decrypt the session data before parsing
+    const decrypted = decryptSession(stored)
+    const session: AuthSession = JSON.parse(decrypted)
 
     // Check if session is expired
     if (Date.now() > session.expiresAt) {

@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSession } from "@/lib/auth"
+import { requireSession } from "@/lib/server-auth"
 import { exportConfigSchema } from "@/lib/validation"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "export:POST", limit: 2, windowMs: 3000 })
+  if (limited) return limited
   try {
-    const session = await getSession()
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { response, session } = await requireSession(request, { role: "admin" })
+    if (response) return response
 
     const body = await request.json()
     const config = exportConfigSchema.parse(body)
@@ -106,12 +107,10 @@ function convertToCSV(data: any): string {
     return row
   })
 
-
   // If no annotations, add a note
   if (data.annotations.length === 0) {
     rows.push(["No data available", ...Array(headers.length - 1).fill("")])
   }
 
-  return [headers, ...rows].map((row) => row.join(",")).join("\n")
-
+  return [headers, ...rows].map(row => row.join(",")).join("\n")
 }

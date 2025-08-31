@@ -1,0 +1,14 @@
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import { getSessionFromCookie } from "@/lib/auth"
+import { AnnotatorDashboard } from "@/components/annotator-dashboard"
+
+export default async function AnnotatorIndexPage() {
+  const cookieStore = await cookies()
+  const sessionCookie = cookieStore.get("auth_session")
+  if (!sessionCookie) redirect("/")
+  const session = getSessionFromCookie(sessionCookie.value)
+  if (!session) redirect("/")
+  if (session.user.role !== "annotator") redirect("/dashboard")
+  return <AnnotatorDashboard user={session.user} />
+}

@@ -1,21 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { findFactChecksCSV } from "@/lib/google-apis"
-import { getSessionFromCookie } from "@/lib/auth"
+import { requireSession } from "@/lib/server-auth"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "drive:factchecks-csv:GET" })
+  if (limited) return limited
   try {
-    // Get session from cookie
-    const sessionCookie = request.cookies.get("auth_session")
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
+    const { response, session } = await requireSession(request)
+    if (response) return response
 
-    const session = getSessionFromCookie(sessionCookie.value)
-    if (!session) {
-      return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
-    }
-
-    const fileId = await findFactChecksCSV(session.accessToken)
+    const fileId = await findFactChecksCSV(session!.accessToken)
 
     return NextResponse.json({ fileId })
   } catch (error) {

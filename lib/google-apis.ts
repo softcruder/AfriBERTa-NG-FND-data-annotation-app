@@ -19,6 +19,15 @@ export interface AnnotationRow {
   durationMinutes?: number
   status: "in-progress" | "completed" | "verified"
   verifiedBy?: string
+  // Extended fields
+  verdict?: string
+  sourceUrl?: string
+  claimLinks?: string[]
+  claim_text_ha?: string
+  claim_text_yo?: string
+  article_body_ha?: string
+  article_body_yo?: string
+  translationLanguage?: "ha" | "yo"
 }
 
 export interface PaymentSummary {
@@ -31,6 +40,9 @@ export interface PaymentSummary {
   paymentTranslations: number
   totalPayment: number
 }
+
+// Simple key-value app configuration stored in a dedicated spreadsheet within the AfriBERTa folder
+export type AppConfig = Record<string, string>
 
 // Initialize Google APIs with OAuth token
 export function initializeGoogleAPIs(accessToken: string) {
@@ -49,6 +61,7 @@ export function initializeGoogleAPIs(accessToken: string) {
 const AFRIBERTA_FND_FOLDER = "AfriBERTa-NG-FND"
 const FACTCHECK_SCRAPER_FOLDER = "FactCheckScraper-v4.1"
 const FACTCHECKS_CSV_FILE = "factchecks.csv"
+const APP_CONFIG_SPREADSHEET_NAME = "AfriBERTa-NG-FND-App-Config"
 
 // Helper function to find or create the AfriBERTa-NG-FND folder
 export async function findOrCreateAfriBertaFolder(accessToken: string): Promise<string> {
@@ -156,6 +169,27 @@ export async function createSpreadsheetInAfriBertaFolder(accessToken: string, ti
               },
             ],
           },
+          // Optional Config sheet inside the annotation spreadsheet for future use
+          {
+            properties: {
+              title: "Config",
+            },
+            data: [
+              {
+                startRow: 0,
+                startColumn: 0,
+                rowData: [
+                  {
+                    values: [
+                      { userEnteredValue: { stringValue: "Key" } },
+                      { userEnteredValue: { stringValue: "Value" } },
+                      { userEnteredValue: { stringValue: "Updated_At" } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
           {
             properties: {
               title: "Payments",
@@ -202,6 +236,14 @@ export async function createSpreadsheetInAfriBertaFolder(accessToken: string, ti
                       { userEnteredValue: { stringValue: "Duration_Minutes" } },
                       { userEnteredValue: { stringValue: "Status" } },
                       { userEnteredValue: { stringValue: "Verified_By" } },
+                      { userEnteredValue: { stringValue: "Verdict" } },
+                      { userEnteredValue: { stringValue: "Source_URL" } },
+                      { userEnteredValue: { stringValue: "Claim_Links" } },
+                      { userEnteredValue: { stringValue: "Claim_Text_HA" } },
+                      { userEnteredValue: { stringValue: "Claim_Text_YO" } },
+                      { userEnteredValue: { stringValue: "Article_Body_HA" } },
+                      { userEnteredValue: { stringValue: "Article_Body_YO" } },
+                      { userEnteredValue: { stringValue: "Translation_Language" } },
                     ],
                   },
                 ],
@@ -229,24 +271,209 @@ export async function createSpreadsheetInAfriBertaFolder(accessToken: string, ti
   }
 }
 
-export async function listDriveFiles(accessToken: string, query?: string): Promise<DriveFile[]> {
+/**
+ * Find or create the global App Config spreadsheet within the AfriBERTa folder.
+ * This spreadsheet contains a single sheet named "Config" with columns [Key, Value, Updated_At].
+ */
+export async function findOrCreateAppConfigSpreadsheet(accessToken: string): Promise<string> {
+  const { drive, sheets } = initializeGoogleAPIs(accessToken)
+
+  // If explicitly provided via environment, prefer that and do not attempt to create
+  const envConfigId = process.env.CONFIG_SPREADSHEET_ID || process.env.NEXT_PUBLIC_CONFIG_SPREADSHEET_ID
+  if (envConfigId) return envConfigId
+
+  // Ensure parent folder exists
+  const folderId = await findOrCreateAfriBertaFolder(accessToken)
+
+  // Try to find existing config spreadsheet
+  const list = await drive.files.list({
+    q: `'${folderId}' in parents and name='${APP_CONFIG_SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet'`,
+    fields: "files(id,name)",
+  })
+
+  if (list.data.files && list.data.files[0]?.id) {
+    return list.data.files[0].id
+  }
+
+  // Create new config spreadsheet
+  const created = await sheets.spreadsheets.create({
+    requestBody: {
+      properties: { title: APP_CONFIG_SPREADSHEET_NAME },
+      sheets: [
+        {
+          properties: { title: "Config" },
+          data: [
+            {
+              startRow: 0,
+              startColumn: 0,
+              rowData: [
+                {
+                  values: [
+                    { userEnteredValue: { stringValue: "Key" } },
+                    { userEnteredValue: { stringValue: "Value" } },
+                    { userEnteredValue: { stringValue: "Updated_At" } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  })
+
+  const configSpreadsheetId = created.data.spreadsheetId!
+  // Move to folder
+  await drive.files.update({ fileId: configSpreadsheetId, addParents: folderId, fields: "id,parents" })
+  return configSpreadsheetId
+}
+
+/**
+ * Try to find the App Config spreadsheet without creating it. Returns undefined if not found.
+ */
+export async function findAppConfigSpreadsheet(accessToken: string): Promise<string | undefined> {
+  const { drive } = initializeGoogleAPIs(accessToken)
+  try {
+    // If explicitly provided via environment, prefer that
+    const envConfigId = process.env.CONFIG_SPREADSHEET_ID || process.env.NEXT_PUBLIC_CONFIG_SPREADSHEET_ID
+    if (envConfigId) return envConfigId
+
+    const folderId = await findOrCreateAfriBertaFolder(accessToken)
+    const list = await drive.files.list({
+      q: `'${folderId}' in parents and name='${APP_CONFIG_SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet'`,
+      fields: "files(id,name)",
+    })
+    return list.data.files && list.data.files[0]?.id ? list.data.files[0].id : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Resolve the App Config spreadsheet ID using env override (if provided),
+ * otherwise optionally create or find it under the AfriBERTa folder. */
+async function resolveAppConfigSpreadsheetId(
+  accessToken: string,
+  opts?: { allowCreate?: boolean },
+): Promise<string | undefined> {
+  const envConfigId = process.env.CONFIG_SPREADSHEET_ID || process.env.NEXT_PUBLIC_CONFIG_SPREADSHEET_ID
+  if (envConfigId) return envConfigId
+  if (opts?.allowCreate) return await findOrCreateAppConfigSpreadsheet(accessToken)
+  return await findAppConfigSpreadsheet(accessToken)
+}
+
+export async function getAppConfig(accessToken: string): Promise<AppConfig> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: true })
+  if (!spreadsheetId) throw new Error("Config spreadsheet not found and could not be created")
+
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:C" })
+  const values = res.data.values || []
+  const cfg: AppConfig = {}
+  for (const row of values) {
+    const key = row[0]?.trim()
+    const val = row[1]?.toString() ?? ""
+    if (key) cfg[key] = val
+  }
+  return cfg
+}
+
+/**
+ * Safe version of getAppConfig that doesn't create the spreadsheet if missing.
+ * Returns undefined if the config store is not present.
+ */
+export async function getAppConfigSafe(accessToken: string): Promise<AppConfig | undefined> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: false })
+  if (!spreadsheetId) return undefined
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:C" })
+    const values = res.data.values || []
+    const cfg: AppConfig = {}
+    for (const row of values) {
+      const key = row[0]?.trim()
+      const val = row[1]?.toString() ?? ""
+      if (key) cfg[key] = val
+    }
+    return cfg
+  } catch {
+    return undefined
+  }
+}
+
+export async function setAppConfig(accessToken: string, entries: AppConfig): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: true })
+  if (!spreadsheetId) throw new Error("Config spreadsheet not found and could not be created")
+
+  // Read current config to decide upsert positions
+  const current = await getAppConfig(accessToken)
+  const updates: Array<{ key: string; row: number; value: string }> = []
+  const appends: Array<[string, string, string]> = []
+
+  // Build a map of existing keys to row numbers
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:A" })
+  const existingKeys = (res.data.values || []).map(r => (r[0] || "").toString())
+
+  Object.entries(entries).forEach(([key, value]) => {
+    const idx = existingKeys.findIndex(k => k === key)
+    if (idx >= 0) {
+      // Row number = idx + 2 (skip header)
+      updates.push({ key, row: idx + 2, value })
+    } else {
+      appends.push([key, value, new Date().toISOString()])
+    }
+  })
+
+  // Batch update existing rows
+  if (updates.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: "RAW",
+        data: updates.map(u => ({
+          range: `Config!A${u.row}:C${u.row}`,
+          values: [[u.key, u.value, new Date().toISOString()]],
+        })),
+      },
+    })
+  }
+
+  // Append new rows
+  if (appends.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: "Config!A:C",
+      valueInputOption: "RAW",
+      requestBody: { values: appends },
+    })
+  }
+}
+
+export async function listDriveFiles(
+  accessToken: string,
+  query?: string,
+  opts?: { pageSize?: number; pageToken?: string },
+): Promise<{ files: DriveFile[]; nextPageToken?: string }> {
   const { drive } = initializeGoogleAPIs(accessToken)
 
   try {
     const response = await drive.files.list({
       q: query || "mimeType='text/csv' or mimeType='application/vnd.google-apps.spreadsheet'",
-      fields: "files(id,name,mimeType,modifiedTime)",
+      fields: "files(id,name,mimeType,modifiedTime),nextPageToken",
       orderBy: "modifiedTime desc",
+      pageSize: Math.min(100, Math.max(1, opts?.pageSize ?? 5)),
+      pageToken: opts?.pageToken,
     })
 
-    return (
+    const files =
       response.data.files?.map(file => ({
         id: file.id!,
         name: file.name!,
         mimeType: file.mimeType!,
         modifiedTime: file.modifiedTime!,
       })) || []
-    )
+
+    return { files, nextPageToken: (response.data as any).nextPageToken }
   } catch (error) {
     throw new Error(`Failed to list Drive files: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
@@ -328,7 +555,7 @@ export async function logAnnotation(
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Annotations_Log!A:J",
+      range: "Annotations_Log!A:R",
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [
@@ -343,6 +570,14 @@ export async function logAnnotation(
             annotation.durationMinutes || "",
             annotation.status,
             annotation.verifiedBy || "",
+            annotation.verdict || "",
+            annotation.sourceUrl || "",
+            (annotation.claimLinks || []).join("; "),
+            annotation.claim_text_ha || "",
+            annotation.claim_text_yo || "",
+            annotation.article_body_ha || "",
+            annotation.article_body_yo || "",
+            annotation.translationLanguage || "",
           ],
         ],
       },
@@ -352,13 +587,28 @@ export async function logAnnotation(
   }
 }
 
+/** Append a consolidated row to the final dataset spreadsheet. */
+export async function appendFinalDatasetRow(
+  accessToken: string,
+  spreadsheetId: string,
+  row: (string | number)[],
+): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: "Annotated_Dataset!A:Z",
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [row] },
+  })
+}
+
 export async function getAnnotations(accessToken: string, spreadsheetId: string): Promise<AnnotationRow[]> {
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A2:J",
+      range: "Annotations_Log!A2:R",
     })
 
     const rows = response.data.values || []
@@ -373,6 +623,14 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
       durationMinutes: row[7] ? Number.parseInt(row[7]) : undefined,
       status: (row[8] || "in-progress") as AnnotationRow["status"],
       verifiedBy: row[9] || undefined,
+      verdict: row[10] || undefined,
+      sourceUrl: row[11] || undefined,
+      claimLinks: (row[12] || "").split("; ").filter(Boolean),
+      claim_text_ha: row[13] || undefined,
+      claim_text_yo: row[14] || undefined,
+      article_body_ha: row[15] || undefined,
+      article_body_yo: row[16] || undefined,
+      translationLanguage: (row[17] as any) || undefined,
     }))
   } catch (error) {
     throw new Error(`Failed to get annotations: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -477,6 +735,158 @@ export async function getUsers(accessToken: string, spreadsheetId: string): Prom
   } catch (error) {
     throw new Error(`Failed to get users: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
+}
+
+/**
+ * Upsert a user by email into Users sheet (append if not found, otherwise update select fields)
+ */
+export async function upsertUserByEmail(
+  accessToken: string,
+  spreadsheetId: string,
+  payload: Pick<User, "email" | "name" | "id" | "role"> & Partial<User>,
+): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  // Read emails to find existing row
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!A2:I" })
+  const rows = res.data.values || []
+
+  let rowIndex = -1
+  for (let i = 0; i < rows.length; i++) {
+    const email = rows[i][2] || ""
+    if (email.toLowerCase() === payload.email.toLowerCase()) {
+      rowIndex = i
+      break
+    }
+  }
+
+  const now = new Date().toISOString()
+  if (rowIndex === -1) {
+    // Append new user
+    const newUser: User = {
+      id: payload.id,
+      name: payload.name,
+      email: payload.email,
+      role: payload.role,
+      status: payload.status || "active",
+      totalAnnotations: payload.totalAnnotations ?? 0,
+      avgTimePerRow: payload.avgTimePerRow ?? 0,
+      lastActive: now,
+      joinedDate: now,
+    }
+    await addUser(accessToken, spreadsheetId, newUser)
+  } else {
+    // Update existing row (only fields that may change frequently)
+    const rowNumber = rowIndex + 2
+    const existing = rows[rowIndex]
+    const updated: User = {
+      id: existing[0] || payload.id,
+      name: payload.name || existing[1] || "",
+      email: existing[2] || payload.email,
+      role: payload.role || (existing[3] as any) || "annotator",
+      status: (existing[4] as any) || "active",
+      totalAnnotations: Number.parseInt(existing[5] || "0"),
+      avgTimePerRow: Number.parseFloat(existing[6] || "0"),
+      lastActive: now,
+      joinedDate: existing[8] || now,
+    }
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `Users!A${rowNumber}:I${rowNumber}`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [
+          [
+            updated.id,
+            updated.name,
+            updated.email,
+            updated.role,
+            updated.status,
+            updated.totalAnnotations,
+            updated.avgTimePerRow,
+            updated.lastActive,
+            updated.joinedDate,
+          ],
+        ],
+      },
+    })
+  }
+}
+
+/** Update an annotation's status and verification info by rowId */
+export async function updateAnnotationStatus(
+  accessToken: string,
+  spreadsheetId: string,
+  rowId: string,
+  updates: Partial<Pick<AnnotationRow, "status" | "verifiedBy">>,
+): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  // Read annotations to find row
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:R" })
+  const rows = res.data.values || []
+  const idx = rows.findIndex(r => (r[0] || "") === rowId)
+  if (idx === -1) throw new Error(`Annotation rowId ${rowId} not found`)
+
+  const rowNum = idx + 2
+  const row = rows[idx]
+  // Columns mapping: A=rowId, ..., I=Status(9th index 8), J=Verified_By (index 9)
+  const status = updates.status ? updates.status : row[8] || "in-progress"
+  const verifiedBy = updates.verifiedBy ?? row[9] ?? ""
+
+  // We only update the two columns to minimize write
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: "RAW",
+      data: [
+        { range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] },
+        { range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] },
+      ],
+    },
+  })
+}
+
+export async function getUnverifiedAnnotations(accessToken: string, spreadsheetId: string): Promise<AnnotationRow[]> {
+  const all = await getAnnotations(accessToken, spreadsheetId)
+  return all.filter(a => (a.status === "completed" || a.status === "in-progress") && !a.verifiedBy)
+}
+
+/**
+ * Anonymize all annotations created by a given annotator by replacing Annotator_ID with 'anonymous'
+ * and clearing Verified_By. This preserves annotation content for research while removing identity linkage.
+ */
+export async function anonymizeAnnotationsByAnnotator(
+  accessToken: string,
+  spreadsheetId: string,
+  annotatorId: string,
+): Promise<{ updated: number }> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  // Read all annotations
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:R" })
+  const rows = res.data.values || []
+  if (rows.length === 0) return { updated: 0 }
+
+  // Find row numbers where column B (index 1) matches annotatorId
+  const toUpdate: number[] = []
+  rows.forEach((r, idx) => {
+    if ((r[1] || "") === annotatorId) toUpdate.push(idx + 2) // +2 to account for header and 1-based rows
+  })
+
+  if (toUpdate.length === 0) return { updated: 0 }
+
+  // Prepare batch updates: set B (Annotator_ID) to 'anonymous' and J (Verified_By) to ''
+  const data = toUpdate.flatMap(rowNum => [
+    { range: `Annotations_Log!B${rowNum}:B${rowNum}`, values: [["anonymous"]] },
+    { range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[""]] },
+  ])
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: "RAW", data },
+  })
+
+  return { updated: toUpdate.length }
 }
 
 export async function addUser(accessToken: string, spreadsheetId: string, user: User): Promise<void> {

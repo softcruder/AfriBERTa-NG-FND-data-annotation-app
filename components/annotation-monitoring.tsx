@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo } from "react"
+import { useAuth, useAnnotations, useVerifyAnnotation } from "@/custom-hooks"
 import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -27,65 +28,40 @@ interface AnnotationActivity {
 }
 
 export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProps) {
-  const [activities, setActivities] = useState<AnnotationActivity[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { spreadsheetId } = useAuth()
+  const { verify } = useVerifyAnnotation()
+  const { data: annotations, isLoading, mutate } = useAnnotations(spreadsheetId)
+  const activities: AnnotationActivity[] = useMemo(() => {
+    if (!Array.isArray(annotations)) return []
+    const items = annotations.map((annotation: any) => ({
+      id: `${annotation.rowId}_${annotation.startTime}`,
+      annotatorId: annotation.annotatorId,
+      annotatorName: annotation.annotatorName || `User ${annotation.annotatorId.slice(-4)}`,
+      annotatorEmail: annotation.annotatorEmail || annotation.annotatorId,
+      rowId: annotation.rowId,
+      claimText: annotation.claimText.substring(0, 100) + (annotation.claimText.length > 100 ? "..." : ""),
+      status: annotation.status,
+      startTime: annotation.startTime,
+      endTime: annotation.endTime,
+      durationMinutes: annotation.durationMinutes,
+    })) as AnnotationActivity[]
+    return items.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+  }, [annotations])
 
+  // Emit stats only when activities change to avoid loops
   useEffect(() => {
-    loadActivities()
-    const interval = setInterval(loadActivities, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadActivities = async () => {
-    try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) return
-
-      const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) return
-
-      const { annotations } = await response.json()
-
-      // Transform annotations to activities with proper user data
-      const activitiesData: AnnotationActivity[] = annotations.map((annotation: any) => ({
-        id: `${annotation.rowId}_${annotation.startTime}`,
-        annotatorId: annotation.annotatorId,
-        // In production, these would be fetched from user management system
-        annotatorName: annotation.annotatorName || `User ${annotation.annotatorId.slice(-4)}`,
-        annotatorEmail: annotation.annotatorEmail || annotation.annotatorId,
-        rowId: annotation.rowId,
-        claimText: annotation.claimText.substring(0, 100) + (annotation.claimText.length > 100 ? "..." : ""),
-        status: annotation.status,
-        startTime: annotation.startTime,
-        endTime: annotation.endTime,
-        durationMinutes: annotation.durationMinutes,
-      }))
-
-      // Sort by start time (most recent first)
-      activitiesData.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-
-      setActivities(activitiesData)
-
-      // Update parent stats if callback provided
-      if (onStatsUpdate) {
-        const today = new Date().toDateString()
-        const activeToday = new Set(
-          activitiesData.filter(a => new Date(a.startTime).toDateString() === today).map(a => a.annotatorId),
-        ).size
-
-        onStatsUpdate({
-          activeAnnotators: activeToday,
-          totalAnnotations: activitiesData.filter(a => a.status === "completed").length,
-          pendingPayments: 0, // Will be calculated in payment component
-          completionRate: 0,
-        })
-      }
-    } catch (error) {
-      // console.error("Error loading activities:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    if (!onStatsUpdate || activities.length === 0) return
+    const today = new Date().toDateString()
+    const activeToday = new Set(
+      activities.filter(a => new Date(a.startTime).toDateString() === today).map(a => a.annotatorId),
+    ).size
+    onStatsUpdate({
+      activeAnnotators: activeToday,
+      totalAnnotations: activities.filter(a => a.status === "completed").length,
+      pendingPayments: 0,
+      completionRate: 0,
+    })
+  }, [activities, onStatsUpdate])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -140,7 +116,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Live feed of annotation activities</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={loadActivities} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
@@ -190,10 +166,29 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                       <div className="flex items-center gap-2">
                         {getStatusIcon(activity.status)}
                         {getStatusBadge(activity.status)}
+                        {activity.status !== "verified" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                if (!spreadsheetId) return
+                                const res = await verify({ spreadsheetId, rowId: activity.rowId })
+                                if (res?.success) {
+                                  mutate()
+                                }
+                              } catch {}
+                            }}
+                          >
+                            Verify
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{formatDuration(activity.durationMinutes)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(activity.startTime, { withTime: true })}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(activity.startTime, { withTime: true })}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

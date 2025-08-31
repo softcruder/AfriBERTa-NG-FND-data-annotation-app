@@ -783,7 +783,7 @@ export async function upsertUserByEmail(
       id: existing[0] || payload.id,
       name: payload.name || existing[1] || "",
       email: existing[2] || payload.email,
-      role: payload.role || (existing[3] as any) || "annotator",
+      role: ((existing[3] ?? payload.role) as any) || "annotator",
       status: (existing[4] as any) || "active",
       totalAnnotations: Number.parseInt(existing[5] || "0"),
       avgTimePerRow: Number.parseFloat(existing[6] || "0"),

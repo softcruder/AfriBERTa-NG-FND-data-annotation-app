@@ -56,12 +56,14 @@ function Button({
       disabled={isLoading || disabled}
       {...props}
     >
-      {isLoading && (
-        <span className="absolute inset-0 flex items-center justify-center">
-          <span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-        </span>
-      )}
-      <span className={cn(isLoading && "invisible")}>{children}</span>
+      <span className={"flex gap-[16px] items-center justify-center"}>
+        {children}
+        {isLoading && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+          </span>
+        )}
+      </span>
     </Comp>
   )
 }

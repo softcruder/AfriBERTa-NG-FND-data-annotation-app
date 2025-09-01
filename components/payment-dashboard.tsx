@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
 import type { User } from "@/lib/auth"
-import { calculatePayment, calculateEfficiencyMetrics, formatCurrency, DEFAULT_RATES } from "@/lib/payment-calculator"
-import { useAuth, useAnnotations } from "@/custom-hooks"
+import { calculatePayment, calculateEfficiencyMetrics, formatCurrency } from "@/lib/payment-calculator"
+import { useAuth, useAnnotations, usePaymentConfig } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -24,6 +24,7 @@ interface AnnotatorStats {
 export function PaymentDashboard({ user }: PaymentDashboardProps) {
   const { spreadsheetId } = useAuth()
   const { data: annotations } = useAnnotations(spreadsheetId)
+  const { paymentRates } = usePaymentConfig()
 
   const stats: AnnotatorStats = useMemo(() => {
     const anns = annotations || []
@@ -51,9 +52,9 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
     }
   }, [annotations, user.id])
 
-  const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours)
+  const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours, paymentRates)
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
-  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday)
+  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday, paymentRates)
 
   const getEfficiencyColor = (status: string) => {
     switch (status) {
@@ -187,11 +188,11 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Progress to Bonus</span>
                 <span className="text-sm font-medium">
-                  {stats.totalRows}/{DEFAULT_RATES.bonusThreshold} rows
+                  {stats.totalRows}/{paymentRates.bonusThreshold} rows
                 </span>
               </div>
-              <Progress value={(stats.totalRows / (DEFAULT_RATES.bonusThreshold || 50)) * 100} className="h-2" />
-              {stats.totalRows >= (DEFAULT_RATES.bonusThreshold || 50) && (
+              <Progress value={(stats.totalRows / (paymentRates.bonusThreshold || 50)) * 100} className="h-2" />
+              {stats.totalRows >= (paymentRates.bonusThreshold || 50) && (
                 <div className="flex items-center gap-1 text-orange-600">
                   <Award className="h-4 w-4" />
                   <span className="text-xs font-medium">Bonus Unlocked!</span>

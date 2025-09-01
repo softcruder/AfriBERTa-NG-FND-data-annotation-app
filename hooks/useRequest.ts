@@ -38,10 +38,24 @@ export function useRequest<T = any, E = any>() {
   return { loading, error, data, request }
 }
 
-// Generic axios-backed fetcher for SWR GET requests
+// Generic fetch()-backed fetcher for SWR GET requests
 async function swrFetcher<T = any>(url: string): Promise<T> {
-  const res = await requestService.get<T>(url)
-  return res.data
+  const fullUrl = `/api/${url}`
+  const res = await fetch(fullUrl, { credentials: "same-origin" })
+  if (!res.ok) {
+    // Try to parse error body for better diagnostics
+    let details: unknown = undefined
+    try {
+      details = await res.json()
+    } catch {
+      // ignore body parse errors
+    }
+    const err = new Error(`SWR GET ${fullUrl} failed: ${res.status}`)
+    ;(err as any).status = res.status
+    ;(err as any).details = details
+    throw err
+  }
+  return (await res.json()) as T
 }
 
 // Helper to build URL with query params
@@ -56,18 +70,8 @@ export function buildURL(path: string, query?: Record<string, any>): string {
   return qs ? `${path}?${qs}` : path
 }
 
-// SWR GET hook: uses axios under the hood via swrFetcher
-export function useSWRGet<T = any>(key: Key | null, swrKeyToUrl?: (key: Key) => string, options?: SWRConfiguration<T>) {
-  const getUrl = (k: Key) => (swrKeyToUrl ? swrKeyToUrl(k) : (k as string))
-  const resp = useSWR<T>(key, (k: Key) => swrFetcher<T>(getUrl(k)), {
-    // Reduce excessive network calls to avoid hitting quotas
-    revalidateOnFocus: false,
-    revalidateIfStale: false,
-    revalidateOnReconnect: false,
-    shouldRetryOnError: false,
-    dedupingInterval: 15000,
-    keepPreviousData: true,
-    ...options,
-  })
+// SWR GET hook: uses fetch() under the hood via swrFetcher
+export function useSWRGet<T = any>(key: string | null, options?: SWRConfiguration<T>) {
+  const resp = useSWR<T>(key, swrFetcher, options)
   return resp
 }

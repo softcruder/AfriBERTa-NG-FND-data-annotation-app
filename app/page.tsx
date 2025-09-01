@@ -5,9 +5,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { getSessionFromCookie } from "@/lib/auth"
 import Image from "next/image"
-
+interface ErrorResponse {
+  error?: string
+}
 interface HomePageProps {
-  searchParams?: { error?: string }
+  searchParams?: Promise<ErrorResponse> | ErrorResponse
 }
 
 async function getSession() {
@@ -27,17 +29,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   if (session) {
     redirect("/dashboard")
   }
+  // If searchParams is a promise (dynamic API), await it
+  const resolvedSearchParams = await searchParams
+  const { error } = resolvedSearchParams || {}
 
-  let error: string | undefined
-  if (typeof searchParams === "object" && searchParams !== null && "then" in searchParams) {
-    // If searchParams is a promise (dynamic API), await it
-    const awaitedParams = await searchParams
-    error = awaitedParams?.error
-  } else {
-    error = searchParams?.error
-  }
-
-  const getErrorMessage = (error: string) => {
+  const getErrorMessage = (error?: string) => {
     switch (error) {
       case "auth_failed":
         return "Authentication failed. Please try again."
@@ -57,7 +53,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-3 text-balance">AfriBERTa NG</h1>
           <h2 className="text-xl font-semibold text-primary mb-2">Data Annotation Platform</h2>
-          <p className="text-muted-foreground text-balance">Professional fake news detection annotation system</p>
+          <p className="text-muted-foreground text-balance">For cross-lingual fake news detection system</p>
         </div>
 
         {error && (

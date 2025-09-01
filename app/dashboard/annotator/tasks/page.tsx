@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { redirect, useSearchParams } from "next/navigation"
 import { getSessionFromCookie } from "@/lib/auth"
 import { TasksListPage } from "@/components/tasks-list-page"
 
@@ -10,5 +10,6 @@ export default async function AnnotatorTasksPage() {
   const session = getSessionFromCookie(sessionCookie.value)
   if (!session) redirect("/")
   if (session.user.role !== "annotator") redirect("/dashboard")
+
   return <TasksListPage basePath="/dashboard/annotator" />
 }

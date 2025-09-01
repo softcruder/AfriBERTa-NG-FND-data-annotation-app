@@ -13,7 +13,7 @@ type Role = "annotator" | "admin"
 
 interface AnnotateTaskPageProps {
   rowId: string // This is the CSV ID from column A
-  role: Role
+  role: Role;
 }
 
 export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
@@ -51,7 +51,7 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
         if (!row || !Array.isArray(row)) throw new Error("Row not found in CSV")
 
         // Build initial AnnotationTask consistent with dashboard starter
-        const extractedClaim = row[1] || row[0] || ""
+        const extractedClaim = row[1] ?? ""
         const verdict = row[2] || ""
         const sourceUrl = row[7] || ""
         const claimLinks = row[5] || ""

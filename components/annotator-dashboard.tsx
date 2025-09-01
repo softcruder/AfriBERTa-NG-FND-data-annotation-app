@@ -248,10 +248,10 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                     size="lg"
                     className="w-full h-12 gap-2 bg-primary hover:bg-primary/90 text-base md:text-lg"
                     onClick={() => tasks[0] && startTaskFromRow(tasks[0])}
-                    disabled={isLoading}
+                    isLoading={isLoading}
                   >
                     <Play className="h-4 w-4" />
-                    {isLoading ? "Loading Task..." : "Start First Task"}
+                    Start First Task
                   </Button>
                 </CardContent>
               </Card>

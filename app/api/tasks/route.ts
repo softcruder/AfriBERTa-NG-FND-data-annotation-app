@@ -11,8 +11,16 @@ import { enforceRateLimit } from "@/lib/rate-limit"
  * - fileId: optional override the CSV file id; if missing, use config[CSV_FILE_ID]
  */
 // naive in-memory cache for CSV per fileId to reduce repeated downloads within a short window
-const csvCache = new Map<string, { data: string[][]; ts: number }>()
-const CSV_TTL_MS = 30_000
+export const csvCache = new Map<string, { data: string[][]; ts: number }>()
+const CONFIG = {
+  CSV_TTL_MS: 30_000,
+  ANNOTATION_TTL_MS: 60_000,
+  DEFAULT_PAGE_SIZE: 10,
+  MAX_PAGE_SIZE: 100,
+} as const
+
+export const annotationCache = new Map<string, { rowIds: Set<string>; ts: number }>()
+// const ANNOTATION_TTL_MS = 60_000 // Cache annotations longer than CSV
 
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, { route: "tasks:GET" })
@@ -23,16 +31,40 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1"))
-    const pageSize = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("pageSize") || "5")))
+    if (isNaN(page)) {
+      return NextResponse.json({ error: "Invalid page parameter" }, { status: 400 })
+    }
+    const pageSize = Math.min(CONFIG.MAX_PAGE_SIZE, Math.max(1, Number.parseInt(searchParams.get("pageSize") || "5")))
     const overrideFileId = searchParams.get("fileId") || undefined
 
-    let fileId = overrideFileId
-    // Fetch config once
-    const cfgPromise = getAppConfig(session!.accessToken)
-    if (!fileId) {
-      const cfg = await cfgPromise
-      fileId = cfg["CSV_FILE_ID"]
+    // Fetch config once and reuse
+    let cfg: any
+    try {
+      cfg = await getAppConfig(session!.accessToken)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      if (message.includes("quota") || message.includes("rate") || message.includes("429")) {
+        return NextResponse.json(
+          {
+            error: "Google API quota exceeded",
+            details: "Please try again later or contact administrator",
+            retryAfter: 60,
+          },
+          { status: 429 },
+        )
+      }
+      if (message.includes("403") || message.includes("permission")) {
+        return NextResponse.json(
+          {
+            error: "Access denied to configuration spreadsheet",
+            details: "Please check your permissions",
+          },
+          { status: 403 },
+        )
+      }
+      throw e // Re-throw if not a known Google API error
     }
+    const fileId = overrideFileId || cfg["CSV_FILE_ID"]
 
     if (!fileId) return NextResponse.json({ error: "CSV file not configured" }, { status: 400 })
 
@@ -40,27 +72,118 @@ export async function GET(request: NextRequest) {
     let cached = csvCache.get(fileId)
     const now = Date.now()
     let data: string[][]
-    if (cached && now - cached.ts < CSV_TTL_MS) {
+    if (cached && now - cached.ts < CONFIG.CSV_TTL_MS) {
       data = cached.data
     } else {
-      data = await downloadCSVFile(session!.accessToken, fileId)
-      csvCache.set(fileId, { data, ts: now })
+      try {
+        data = await downloadCSVFile(session!.accessToken, fileId)
+        csvCache.set(fileId, { data, ts: now })
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        if (message.includes("quota") || message.includes("rate") || message.includes("429")) {
+          return NextResponse.json(
+            {
+              error: "Google API quota exceeded",
+              details: "CSV download failed due to rate limiting. Please try again later.",
+              retryAfter: 60,
+            },
+            { status: 429 },
+          )
+        }
+        if (message.includes("404") || message.includes("not found")) {
+          return NextResponse.json(
+            {
+              error: "CSV file not found",
+              details: `File with ID '${fileId}' does not exist or is not accessible`,
+            },
+            { status: 404 },
+          )
+        }
+        if (message.includes("403") || message.includes("permission")) {
+          return NextResponse.json(
+            {
+              error: "Access denied to CSV file",
+              details: "Please check file permissions and sharing settings",
+            },
+            { status: 403 },
+          )
+        }
+        throw e // Re-throw if not a known Google API error
+      }
     }
-    if (!data || data.length <= 1) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return NextResponse.json({ error: "Invalid or empty CSV file" }, { status: 400 })
+    }
+
+    // console.log(`Loaded CSV ${fileId} with ${data.length} rows`)
+    // console.log("Loaded CSV:", data)
+
+    if (data.length <= 1) {
       return NextResponse.json({ items: [], total: 0, page, pageSize })
     }
 
+    // Validate CSV structure consistency
     const header = data[0]
+    if (!header || !Array.isArray(header) || header.length === 0) {
+      return NextResponse.json({ error: "CSV header is missing or invalid" }, { status: 400 })
+    }
+
+    const headerLength = header.length
+    const invalidRows: number[] = []
+
+    // Check each row for consistency
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i]
+      if (!Array.isArray(row)) {
+        invalidRows.push(i + 1) // 1-based row numbering for user feedback
+        continue
+      }
+
+      if (row.length !== headerLength) {
+        invalidRows.push(i + 1)
+      }
+    }
+
+    if (invalidRows.length > 0) {
+      const errorMsg =
+        invalidRows.length <= 5
+          ? `CSV has inconsistent row structure at rows: ${invalidRows.slice(0, 5).join(", ")}`
+          : `CSV has inconsistent row structure at ${invalidRows.length} rows (first 5: ${invalidRows.slice(0, 5).join(", ")})`
+
+      return NextResponse.json(
+        {
+          error: "CSV structure validation failed",
+          details: errorMsg,
+          invalidRowCount: invalidRows.length,
+        },
+        { status: 400 },
+      )
+    }
     let rows = data.slice(1)
 
     // Exclude rows already worked on by matching CSV ID (first column) with annotation rowIds
-    const cfg = await cfgPromise
     const spreadsheetId = cfg["ANNOTATION_SPREADSHEET_ID"]
     if (spreadsheetId) {
-      // Only fetch annotation row IDs to minimize payload processing
-      const anns = await getAnnotations(session!.accessToken, spreadsheetId)
-      const doneRowIds = new Set((anns || []).map(a => a.rowId))
-      rows = rows.filter(r => !doneRowIds.has((r[0] || "").trim()))
+      try {
+        // Only fetch annotation row IDs to minimize payload processing
+        const anns = await getAnnotations(session!.accessToken, spreadsheetId)
+        const doneRowIds = new Set((anns || []).map(a => a.rowId))
+        rows = rows.filter(r => !doneRowIds.has((r[0] || "").trim()))
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        if (message.includes("quota") || message.includes("rate") || message.includes("429")) {
+          // Log warning but continue without filtering - better to show all tasks than fail completely
+          console.warn("Google API quota exceeded when fetching annotations, continuing without filtering")
+        } else if (message.includes("404") || message.includes("not found")) {
+          console.warn(`Annotation spreadsheet not found: ${spreadsheetId}, continuing without filtering`)
+        } else if (message.includes("403") || message.includes("permission")) {
+          console.warn(`Access denied to annotation spreadsheet: ${spreadsheetId}, continuing without filtering`)
+        } else {
+          // For other errors, we can still continue but log the issue
+          console.error("Error fetching annotations:", message)
+        }
+        // Continue without filtering - it's better to show potentially duplicate tasks than to fail
+      }
     }
 
     const total = rows.length

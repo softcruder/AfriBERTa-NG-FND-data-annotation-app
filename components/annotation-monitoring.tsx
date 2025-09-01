@@ -116,8 +116,8 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Live feed of annotation activities</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <Button variant="outline" size="sm" onClick={() => mutate()} isLoading={isLoading}>
+              <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
           </div>

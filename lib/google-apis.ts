@@ -1,5 +1,6 @@
 // Google Drive and Sheets API integration utilities
 import { google } from "googleapis"
+import { parsePaymentRatesFromConfig } from "./payment-calculator"
 
 export interface DriveFile {
   id: string
@@ -401,51 +402,75 @@ export async function getAppConfigSafe(accessToken: string): Promise<AppConfig |
 }
 
 export async function setAppConfig(accessToken: string, entries: AppConfig): Promise<void> {
+  console.log("Starting setAppConfig with entries:", Object.keys(entries))
   const { sheets } = initializeGoogleAPIs(accessToken)
+
+  console.log("Resolving spreadsheet ID...")
   const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: true })
   if (!spreadsheetId) throw new Error("Config spreadsheet not found and could not be created")
+  console.log("Using spreadsheet ID:", spreadsheetId)
 
-  // Read current config to decide upsert positions
-  const current = await getAppConfig(accessToken)
-  const updates: Array<{ key: string; row: number; value: string }> = []
-  const appends: Array<[string, string, string]> = []
+  try {
+    console.log("Reading existing data...")
+    // Read existing config to determine what to update vs append
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Config!A2:A", // Just get keys to minimize data transfer
+      majorDimension: "ROWS",
+    })
 
-  // Build a map of existing keys to row numbers
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:A" })
-  const existingKeys = (res.data.values || []).map(r => (r[0] || "").toString())
+    const existingKeys = (res.data.values || []).map(row => row[0]?.toString()).filter(Boolean)
+    console.log("Existing keys found:", existingKeys.length)
 
-  Object.entries(entries).forEach(([key, value]) => {
-    const idx = existingKeys.findIndex(k => k === key)
-    if (idx >= 0) {
-      // Row number = idx + 2 (skip header)
-      updates.push({ key, row: idx + 2, value })
-    } else {
-      appends.push([key, value, new Date().toISOString()])
+    const updates: Array<{ range: string; values: string[][] }> = []
+    const appends: Array<[string, string, string]> = []
+    const timestamp = new Date().toISOString()
+
+    Object.entries(entries).forEach(([key, value]) => {
+      const existingIndex = existingKeys.indexOf(key)
+      if (existingIndex >= 0) {
+        // Update existing row (existingIndex + 2 because A2 is row 2)
+        const rowNumber = existingIndex + 2
+        updates.push({
+          range: `Config!A${rowNumber}:C${rowNumber}`,
+          values: [[key, value, timestamp]],
+        })
+      } else {
+        // New row to append
+        appends.push([key, value, timestamp])
+      }
+    })
+
+    console.log("Operations to perform:", { updates: updates.length, appends: appends.length })
+
+    // Perform updates sequentially to avoid potential conflicts
+    if (updates.length > 0) {
+      console.log("Performing batch updates...")
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          valueInputOption: "RAW",
+          data: updates,
+        },
+      })
+      console.log("Batch updates completed")
     }
-  })
 
-  // Batch update existing rows
-  if (updates.length > 0) {
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId,
-      requestBody: {
+    if (appends.length > 0) {
+      console.log("Performing appends...")
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: "Config!A:C",
         valueInputOption: "RAW",
-        data: updates.map(u => ({
-          range: `Config!A${u.row}:C${u.row}`,
-          values: [[u.key, u.value, new Date().toISOString()]],
-        })),
-      },
-    })
-  }
+        requestBody: { values: appends },
+      })
+      console.log("Appends completed")
+    }
 
-  // Append new rows
-  if (appends.length > 0) {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: "Config!A:C",
-      valueInputOption: "RAW",
-      requestBody: { values: appends },
-    })
+    console.log("All operations completed successfully")
+  } catch (error) {
+    console.error("Error in setAppConfig:", error)
+    throw error
   }
 }
 
@@ -641,6 +666,10 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   try {
+    // Get current payment configuration
+    const config = await getAppConfigSafe(accessToken)
+    const rates = parsePaymentRatesFromConfig(config)
+
     const annotations = await getAnnotations(accessToken, spreadsheetId)
     const annotatorIds = [...new Set(annotations.map(a => a.annotatorId))]
 
@@ -652,8 +681,8 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
         `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>")`, // Translations
         `=IF(E${rowNum}=0,0,B${rowNum}/E${rowNum})`, // Avg_Rows_Per_Hour
         `=SUMIFS(Annotations_Log!H:H,Annotations_Log!B:B,"${annotatorId}")/60`, // Total_Hours
-        `=B${rowNum}*100`, // Payment_Rows (₦100 per row)
-        `=C${rowNum}*150`, // Payment_Translations (₦150 per translation)
+        `=B${rowNum}*${rates.perRow}`, // Payment_Rows (configurable per row)
+        `=C${rowNum}*${rates.perTranslation}`, // Payment_Translations (configurable per translation)
         `=F${rowNum}+G${rowNum}`, // Total_Payment
       ]
     })

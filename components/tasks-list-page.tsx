@@ -15,13 +15,20 @@ interface TasksListPageProps {
 }
 
 export function TasksListPage({ basePath }: TasksListPageProps) {
+  const search = useSearchParams()
+  const page = search.get("page") ? parseInt(search.get("page") as string, 10) : 1
+
   const { csvFileId } = useAuth()
-  const [page, setPage] = useState(1)
+
+  const [currentPage, setCurrentPage] = useState<number>(page)
   const pageSize = 10
-  const { data: tasksResp, isLoading, mutate } = useTasks({ page, pageSize, fileId: csvFileId || undefined })
+  const {
+    data: tasksResp,
+    isLoading,
+    mutate,
+  } = useTasks({ page: currentPage, pageSize, fileId: csvFileId || undefined })
   const tasks = tasksResp?.items ?? []
   const total = tasksResp?.total ?? 0
-  const search = useSearchParams()
 
   // If redirected here after a save with ?refresh=1, trigger a refetch once
   useEffect(() => {
@@ -88,17 +95,22 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
             {!isLoading && tasks.length === 0 && <div className="text-sm text-muted-foreground">No tasks to show.</div>}
           </div>
           <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
               <ChevronLeft className="h-4 w-4" /> Prev
             </Button>
             <div className="text-sm">
-              Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+              Page {currentPage} of {Math.max(1, Math.ceil(total / pageSize))}
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage(p => p + 1)}
-              disabled={page >= Math.ceil(total / pageSize)}
+              onClick={() => setCurrentPage(p => p + 1)}
+              disabled={currentPage >= Math.ceil(total / pageSize)}
             >
               Next <ChevronRight className="h-4 w-4" />
             </Button>

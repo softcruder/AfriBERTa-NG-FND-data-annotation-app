@@ -14,6 +14,8 @@ export type SessionUser = {
 
 export type AuthContextValue = {
   user: SessionUser | null
+  isAdmin: boolean
+  isAnnotator: boolean
   expiresAt?: number
   loading: boolean
   config: Record<string, string>
@@ -45,17 +47,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     throw lastErr
   }
-  const { data, isLoading, mutate } = useSWR<{ user: SessionUser; expiresAt: number; config: Record<string, string> }>(
-    "/api/session",
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateIfStale: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 15000,
-      keepPreviousData: true,
-    },
-  )
+  const {
+    data: { user, config, expiresAt } = {},
+    isLoading,
+    mutate,
+  } = useSWR<{ user: SessionUser; expiresAt: number; config: Record<string, string> }>("/api/session", fetcher, {})
 
   const { request } = useRequest<{ success: boolean }>()
   const logout = useCallback(async () => {
@@ -68,18 +64,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const value: AuthContextValue = useMemo(
     () => ({
-      user: data?.user ?? null,
-      expiresAt: data?.expiresAt,
+      user: user ?? null,
+      isAdmin: user?.role === "admin",
+      isAnnotator: user?.role === "annotator",
+      expiresAt,
       loading: isLoading,
-      config: data?.config ?? {},
-      spreadsheetId: data?.config?.ANNOTATION_SPREADSHEET_ID,
-      csvFileId: data?.config?.CSV_FILE_ID,
+      config: config ?? {},
+      spreadsheetId: config?.ANNOTATION_SPREADSHEET_ID,
+      csvFileId: config?.CSV_FILE_ID,
       logout,
       refresh: async () => {
         await mutate()
       },
     }),
-    [data, isLoading, logout, mutate],
+    [config, expiresAt, isLoading, logout, mutate, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

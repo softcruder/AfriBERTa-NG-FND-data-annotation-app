@@ -7,7 +7,6 @@ import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { AuthProvider } from "@/custom-hooks/useAuth"
-import { SiteHeader } from "@/components/site-header"
 
 export const metadata: Metadata = {
   title: "AfriBERTa NG | Data Annotation Platform",
@@ -30,7 +29,6 @@ export default async function RootLayout({
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <AuthProvider>
           <Suspense fallback={null}>
-            <SiteHeader />
             {children}
             <Toaster />
           </Suspense>

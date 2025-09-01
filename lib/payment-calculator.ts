@@ -1,5 +1,13 @@
 import { formatMoney } from "@/lib/utils"
+import type { AppConfig } from "@/lib/google-apis"
 
+// Payment configuration keys in AppConfig
+export const PAYMENT_CONFIG_KEYS = {
+  PER_ROW_RATE: "payment_per_row_rate",
+  PER_TRANSLATION_RATE: "payment_per_translation_rate",
+  BONUS_THRESHOLD: "payment_bonus_threshold",
+  BONUS_RATE: "payment_bonus_rate",
+} as const
 
 // Payment calculation utilities
 export interface PaymentRates {
@@ -7,6 +15,13 @@ export interface PaymentRates {
   perTranslation: number // ₦150 per translation
   bonusThreshold?: number // rows threshold for bonus
   bonusRate?: number // bonus percentage
+}
+
+export interface PaymentConfig {
+  perRowRate: string
+  perTranslationRate: string
+  bonusThreshold: string
+  bonusRate: string
 }
 
 export interface PaymentCalculation {
@@ -30,6 +45,44 @@ export const DEFAULT_RATES: PaymentRates = {
   perTranslation: 150, // ₦150 per translation
   bonusThreshold: 50, // bonus after 50 rows
   bonusRate: 0.1, // 10% bonus
+}
+
+/**
+ * Parse payment rates from AppConfig, falling back to defaults
+ */
+export function parsePaymentRatesFromConfig(config: AppConfig | undefined): PaymentRates {
+  if (!config) return DEFAULT_RATES
+
+  return {
+    perRow: parseFloat(config[PAYMENT_CONFIG_KEYS.PER_ROW_RATE]) || DEFAULT_RATES.perRow,
+    perTranslation: parseFloat(config[PAYMENT_CONFIG_KEYS.PER_TRANSLATION_RATE]) || DEFAULT_RATES.perTranslation,
+    bonusThreshold: parseInt(config[PAYMENT_CONFIG_KEYS.BONUS_THRESHOLD]) || DEFAULT_RATES.bonusThreshold,
+    bonusRate: parseFloat(config[PAYMENT_CONFIG_KEYS.BONUS_RATE]) || DEFAULT_RATES.bonusRate,
+  }
+}
+
+/**
+ * Convert PaymentRates to AppConfig format
+ */
+export function paymentRatesToConfig(rates: PaymentRates): PaymentConfig {
+  return {
+    perRowRate: rates.perRow.toString(),
+    perTranslationRate: rates.perTranslation.toString(),
+    bonusThreshold: (rates.bonusThreshold || DEFAULT_RATES.bonusThreshold!).toString(),
+    bonusRate: (rates.bonusRate || DEFAULT_RATES.bonusRate!).toString(),
+  }
+}
+
+/**
+ * Convert PaymentConfig to AppConfig entries
+ */
+export function paymentConfigToAppConfig(config: PaymentConfig): Record<string, string> {
+  return {
+    [PAYMENT_CONFIG_KEYS.PER_ROW_RATE]: config.perRowRate,
+    [PAYMENT_CONFIG_KEYS.PER_TRANSLATION_RATE]: config.perTranslationRate,
+    [PAYMENT_CONFIG_KEYS.BONUS_THRESHOLD]: config.bonusThreshold,
+    [PAYMENT_CONFIG_KEYS.BONUS_RATE]: config.bonusRate,
+  }
 }
 
 export function calculatePayment(
@@ -71,11 +124,7 @@ export function formatCurrency(amount: number, currency = "₦"): string {
   return formatMoney(currency, amount)
 }
 
-export function calculateEfficiencyMetrics(
-  totalRows: number,
-  totalHours: number,
-  targetRowsPerHour = 5,
-) {
+export function calculateEfficiencyMetrics(totalRows: number, totalHours: number, targetRowsPerHour = 5) {
   const avgRowsPerHour = totalHours > 0 ? totalRows / totalHours : 0
   const efficiency = (avgRowsPerHour / targetRowsPerHour) * 100
 

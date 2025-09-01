@@ -231,18 +231,9 @@ export function DataExport({ annotators, onExport }: DataExportProps) {
             </div>
           </div>
 
-          <Button type="submit" disabled={isExporting} className="w-full">
-            {isExporting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                Exporting...
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Export Data
-              </>
-            )}
+          <Button type="submit" isLoading={isExporting} className="w-full">
+            <Download className="mr-2 h-4 w-4" />
+            Export Data
           </Button>
         </form>
       </CardContent>

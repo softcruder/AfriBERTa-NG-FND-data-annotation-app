@@ -60,7 +60,11 @@ function Button({
         {children}
         {isLoading && (
           <span className="absolute inset-0 flex items-center justify-center">
-            <span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 bg-current rounded-full loading-dot"></span>
+              <span className="size-1.5 bg-current rounded-full loading-dot"></span>
+              <span className="size-1.5 bg-current rounded-full loading-dot"></span>
+            </span>
           </span>
         )}
       </span>

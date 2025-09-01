@@ -52,9 +52,11 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
     }
   }, [annotations, user.id])
 
-  const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours, paymentRates)
+  // Calculate payment with new signature: (annotations, translations, qa, hours, rates, userLanguages)
+  const userLanguagesString = user.translationLanguages?.join(',') || ''
+  const payment = calculatePayment(stats.totalRows, stats.translations, 0, stats.totalHours, paymentRates, userLanguagesString)
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
-  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday, paymentRates)
+  const todayPayment = calculatePayment(stats.completedToday, 0, 0, stats.hoursToday, paymentRates, userLanguagesString)
 
   const getEfficiencyColor = (status: string) => {
     switch (status) {
@@ -120,7 +122,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
             <div className={`text-2xl font-bold ${getEfficiencyColor(efficiency.status)}`}>
               {efficiency.efficiency.toFixed(0)}%
             </div>
-            <p className="text-xs text-muted-foreground">{payment.avgRowsPerHour.toFixed(1)} rows/hour</p>
+            <p className="text-xs text-muted-foreground">{payment.avgAnnotationsPerHour.toFixed(1)} rows/hour</p>
           </CardContent>
         </Card>
 
@@ -146,7 +148,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Base Payment ({stats.totalRows} rows)</span>
-              <span className="font-medium">{formatCurrency(payment.breakdown.rowPayment)}</span>
+              <span className="font-medium">{formatCurrency(payment.breakdown.annotationPayment)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">
@@ -202,7 +204,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="text-center">
-                <div className="text-lg font-bold">{payment.avgRowsPerHour.toFixed(1)}</div>
+                <div className="text-lg font-bold">{payment.avgAnnotationsPerHour.toFixed(1)}</div>
                 <div className="text-xs text-muted-foreground">Rows/Hour</div>
               </div>
               <div className="text-center">

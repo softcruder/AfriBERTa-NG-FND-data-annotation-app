@@ -23,7 +23,16 @@ export interface AnnotationTask {
   articleBody?: string
   sourceUrl?: string
   claimLinks?: string[]
-  status: "not-started" | "in-progress" | "completed"
+  status: "not-started" | "in-progress" | "completed" | "qa-pending" | "qa-approved" | "admin-review"
+  // Task validity fields
+  isValid?: boolean
+  invalidityReason?: string
+  // QA workflow tracking
+  annotatorId?: string
+  qaId?: string
+  adminId?: string
+  qaComments?: string
+  adminComments?: string
 }
 
 // Local storage keys

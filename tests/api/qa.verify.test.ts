@@ -2,16 +2,28 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { POST as verifyPOST } from "@/app/api/qa/verify/route"
 import { NextRequest } from "next/server"
 
-vi.mock("@/lib/auth", () => ({
-  getSessionFromCookie: vi.fn(() => ({
-    accessToken: "token",
-    user: { email: "qa@example.com" },
-  })),
+// Mock the server auth module - that's what the route actually uses
+vi.mock("@/lib/server-auth", () => ({
+  requireSession: vi.fn().mockResolvedValue({
+    response: null,
+    session: {
+      user: { id: "annotator1", email: "annotator@example.com", role: "annotator" },
+      accessToken: "token",
+    },
+  }),
+}))
+
+// Mock rate limiting
+vi.mock("@/lib/rate-limit", () => ({
+  enforceRateLimit: vi.fn().mockResolvedValue(null),
 }))
 
 const updateMock = vi.fn()
+const getAnnotationsMock = vi.fn()
+
 vi.mock("@/lib/google-apis", () => ({
   updateAnnotationStatus: (...args: any[]) => updateMock(...args),
+  getAnnotations: (...args: any[]) => getAnnotationsMock(...args),
 }))
 
 function makeRequest(body: any) {
@@ -27,11 +39,26 @@ function makeRequest(body: any) {
 describe("/api/qa/verify POST", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Mock a different annotation to prevent self-verification error
+    getAnnotationsMock.mockResolvedValue([
+      { 
+        rowId: "5", 
+        annotatorId: "different-user",
+        status: "completed",
+        annotation: {},
+        csvRow: { data: [] }
+      }
+    ])
   })
 
   it("verifies successfully", async () => {
     updateMock.mockResolvedValueOnce(undefined)
-    const req = makeRequest({ spreadsheetId: "sheet1", rowId: "5" })
+    const req = makeRequest({ 
+      spreadsheetId: "sheet1", 
+      rowId: "5",
+      qaComments: "Looks good",
+      isApproved: true
+    })
     const res = await verifyPOST(req)
     const json = await res.json()
     expect(res.status).toBe(200)
@@ -47,7 +74,12 @@ describe("/api/qa/verify POST", () => {
 
   it("returns 500 on update error", async () => {
     updateMock.mockRejectedValueOnce(new Error("boom"))
-    const req = makeRequest({ spreadsheetId: "sheet1", rowId: "5" })
+    const req = makeRequest({ 
+      spreadsheetId: "sheet1", 
+      rowId: "5",
+      qaComments: "Error test",
+      isApproved: true
+    })
     const res = await verifyPOST(req)
     expect(res.status).toBe(500)
   })

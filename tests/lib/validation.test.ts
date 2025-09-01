@@ -1,0 +1,168 @@
+import { describe, it, expect } from "vitest"
+import { VerdictEnum, annotationFormSchema } from "@/lib/validation"
+
+describe("Enhanced Validation Schema", () => {
+  describe("VerdictEnum", () => {
+    it("includes all expected verdict options", () => {
+      const values = VerdictEnum._def.values
+      expect(values).toContain("True")
+      expect(values).toContain("False")
+      expect(values).toContain("Misleading")
+      expect(values).toContain("Partly True")
+      expect(values).toContain("Unverifiable")
+      expect(values).toContain("Other")
+      expect(values).toContain("Not Valid")
+    })
+  })
+
+  describe("annotationFormSchema", () => {
+    it("validates basic annotation form", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: false,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it("validates translation annotation form", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        translation: "Test translation",
+        translationLanguage: "ha",
+        needsTranslation: true,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it("validates QA annotation form", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: false,
+        verdict: "True",
+        isValid: true,
+        isQAMode: true,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it("validates invalid task marking", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: false,
+        verdict: "Not Valid",
+        isValid: false,
+        invalidityReason: "Poor quality data",
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it("requires at least one claim", () => {
+      const data = {
+        claims: [],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: false,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0].path).toContain("claims")
+    })
+
+    it("requires translation when needsTranslation is true", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: true,
+        // Missing translation and translationLanguage
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0].path).toContain("translation")
+    })
+
+    it("allows empty translation when verdict is 'Not Valid'", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: true,
+        translation: "", // Empty translation
+        verdict: "Not Valid",
+        isValid: false,
+        invalidityReason: "Poor quality",
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(false) // Still fails because translationLanguage is required
+    })
+
+    it("requires invalidity reason when task is marked invalid", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: false,
+        verdict: "Not Valid",
+        isValid: false,
+        // Missing invalidityReason
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(false)
+      expect(result.error?.issues.some((issue: any) =>
+        issue.path.includes("invalidityReason")
+      )).toBe(true)
+    })
+
+    it("validates time fields", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        needsTranslation: false,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+        startTime: "2024-01-01T10:00:00Z",
+        endTime: "2024-01-01T11:00:00Z",
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+  })
+})

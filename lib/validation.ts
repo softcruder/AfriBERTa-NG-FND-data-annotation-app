@@ -1,7 +1,15 @@
 import { z } from "zod"
 
-// Allowed verdict values for selection UI
-export const VerdictEnum = z.enum(["True", "False", "Misleading", "Partly True", "Unverifiable", "Other"])
+// Core verdict values that require editing if verdict is something else
+export const CoreVerdictEnum = z.enum(["True", "False", "Misleading"])
+
+// All possible verdict values (including non-core ones that need to be changed)
+export const VerdictEnum = z.enum(["True", "False", "Misleading", "Partly True", "Unverifiable", "Other", "Not Valid"])
+
+// Check if a verdict is one of the core values (True, False, Misleading)
+export function isCoreVerdict(verdict: string): boolean {
+  return ["True", "False", "Misleading"].includes(verdict)
+}
 
 export const annotationFormSchema = z
   .object({
@@ -23,6 +31,11 @@ export const annotationFormSchema = z
     articleBody: z.string().optional(),
     // Verdict via select
     verdict: VerdictEnum.optional(),
+    // Task validity fields
+    isValid: z.boolean().default(true),
+    invalidityReason: z.string().optional(),
+    // QA mode flag
+    isQAMode: z.boolean().default(false),
   })
   .refine(
     data => {
@@ -36,6 +49,19 @@ export const annotationFormSchema = z
     {
       message: "Translation text and target language are required when translation is needed",
       path: ["translation"],
+    },
+  )
+  .refine(
+    data => {
+      // If task is marked as not valid, require a reason
+      if (!data.isValid || data.verdict === "Not Valid") {
+        return Boolean(data.invalidityReason && data.invalidityReason.trim().length > 0)
+      }
+      return true
+    },
+    {
+      message: "Please provide a reason when marking task as not valid",
+      path: ["invalidityReason"],
     },
   )
 

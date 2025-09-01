@@ -3,47 +3,58 @@ import type { AppConfig } from "@/lib/google-apis"
 
 // Payment configuration keys in AppConfig
 export const PAYMENT_CONFIG_KEYS = {
-  PER_ROW_RATE: "payment_per_row_rate",
-  PER_TRANSLATION_RATE: "payment_per_translation_rate",
+  ANNOTATION_RATE: "payment_annotation_rate", // NGN100 for annotation
+  TRANSLATION_REGULAR_RATE: "payment_translation_regular_rate", // NGN80 for regular translator
+  TRANSLATION_DUAL_RATE: "payment_translation_dual_rate", // NGN70 for dual translator
+  QA_RATE: "payment_qa_rate", // NGN20 for QA
   BONUS_THRESHOLD: "payment_bonus_threshold",
   BONUS_RATE: "payment_bonus_rate",
 } as const
 
 // Payment calculation utilities
 export interface PaymentRates {
-  perRow: number // ₦100 per row
-  perTranslation: number // ₦150 per translation
+  annotation: number // ₦100 per annotation
+  translationRegular: number // ₦70 per translation (regular translator)
+  translationDual: number // ₦80 per translation (dual translator)
+  qa: number // ₦20 per QA
   bonusThreshold?: number // rows threshold for bonus
   bonusRate?: number // bonus percentage
 }
 
 export interface PaymentConfig {
-  perRowRate: string
-  perTranslationRate: string
+  annotationRate: string
+  translationRegularRate: string
+  translationDualRate: string
+  qaRate: string
   bonusThreshold: string
   bonusRate: string
 }
 
 export interface PaymentCalculation {
-  totalRows: number
-  translations: number
+  totalAnnotations: number
+  totalTranslations: number
+  totalQA: number
   totalHours: number
-  avgRowsPerHour: number
-  basePayment: number
+  avgAnnotationsPerHour: number
+  annotationPayment: number
   translationPayment: number
+  qaPayment: number
   bonusPayment: number
   totalPayment: number
   breakdown: {
-    rowPayment: number
+    annotationPayment: number
     translationPayment: number
+    qaPayment: number
     bonus: number
   }
 }
 
 export const DEFAULT_RATES: PaymentRates = {
-  perRow: 100, // ₦100 per completed row
-  perTranslation: 150, // ₦150 per translation
-  bonusThreshold: 50, // bonus after 50 rows
+  annotation: 100, // ₦100 per annotation
+  translationRegular: 70, // ₦80 per translation (regular translator)
+  translationDual: 80, // ₦70 per translation (dual translator)
+  qa: 20, // ₦20 per QA
+  bonusThreshold: 50, // bonus after 50 annotations
   bonusRate: 0.1, // 10% bonus
 }
 
@@ -54,8 +65,11 @@ export function parsePaymentRatesFromConfig(config: AppConfig | undefined): Paym
   if (!config) return DEFAULT_RATES
 
   return {
-    perRow: parseFloat(config[PAYMENT_CONFIG_KEYS.PER_ROW_RATE]) || DEFAULT_RATES.perRow,
-    perTranslation: parseFloat(config[PAYMENT_CONFIG_KEYS.PER_TRANSLATION_RATE]) || DEFAULT_RATES.perTranslation,
+    annotation: parseFloat(config[PAYMENT_CONFIG_KEYS.ANNOTATION_RATE]) || DEFAULT_RATES.annotation,
+    translationRegular:
+      parseFloat(config[PAYMENT_CONFIG_KEYS.TRANSLATION_REGULAR_RATE]) || DEFAULT_RATES.translationRegular,
+    translationDual: parseFloat(config[PAYMENT_CONFIG_KEYS.TRANSLATION_DUAL_RATE]) || DEFAULT_RATES.translationDual,
+    qa: parseFloat(config[PAYMENT_CONFIG_KEYS.QA_RATE]) || DEFAULT_RATES.qa,
     bonusThreshold: parseInt(config[PAYMENT_CONFIG_KEYS.BONUS_THRESHOLD]) || DEFAULT_RATES.bonusThreshold,
     bonusRate: parseFloat(config[PAYMENT_CONFIG_KEYS.BONUS_RATE]) || DEFAULT_RATES.bonusRate,
   }
@@ -66,8 +80,10 @@ export function parsePaymentRatesFromConfig(config: AppConfig | undefined): Paym
  */
 export function paymentRatesToConfig(rates: PaymentRates): PaymentConfig {
   return {
-    perRowRate: rates.perRow.toString(),
-    perTranslationRate: rates.perTranslation.toString(),
+    annotationRate: rates.annotation.toString(),
+    translationRegularRate: rates.translationRegular.toString(),
+    translationDualRate: rates.translationDual.toString(),
+    qaRate: rates.qa.toString(),
     bonusThreshold: (rates.bonusThreshold || DEFAULT_RATES.bonusThreshold!).toString(),
     bonusRate: (rates.bonusRate || DEFAULT_RATES.bonusRate!).toString(),
   }
@@ -78,43 +94,62 @@ export function paymentRatesToConfig(rates: PaymentRates): PaymentConfig {
  */
 export function paymentConfigToAppConfig(config: PaymentConfig): Record<string, string> {
   return {
-    [PAYMENT_CONFIG_KEYS.PER_ROW_RATE]: config.perRowRate,
-    [PAYMENT_CONFIG_KEYS.PER_TRANSLATION_RATE]: config.perTranslationRate,
+    [PAYMENT_CONFIG_KEYS.ANNOTATION_RATE]: config.annotationRate,
+    [PAYMENT_CONFIG_KEYS.TRANSLATION_REGULAR_RATE]: config.translationRegularRate,
+    [PAYMENT_CONFIG_KEYS.TRANSLATION_DUAL_RATE]: config.translationDualRate,
+    [PAYMENT_CONFIG_KEYS.QA_RATE]: config.qaRate,
     [PAYMENT_CONFIG_KEYS.BONUS_THRESHOLD]: config.bonusThreshold,
     [PAYMENT_CONFIG_KEYS.BONUS_RATE]: config.bonusRate,
   }
 }
 
+/**
+ * Check if a user is a dual translator based on their language preferences
+ * Dual translator = can translate to multiple languages (has comma in translationLanguages)
+ */
+export function isDualTranslator(translationLanguages?: string): boolean {
+  if (!translationLanguages) return false
+  const languages = translationLanguages.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0)
+  return languages.length > 1
+}
+
 export function calculatePayment(
-  totalRows: number,
-  translations: number,
+  totalAnnotations: number,
+  totalTranslations: number,
+  totalQA: number,
   totalHours: number,
   rates: PaymentRates = DEFAULT_RATES,
+  userTranslationLanguages?: string,
 ): PaymentCalculation {
-  const basePayment = totalRows * rates.perRow
-  const translationPayment = translations * rates.perTranslation
+  const annotationPayment = totalAnnotations * rates.annotation
+  const translationRate = isDualTranslator(userTranslationLanguages) ? rates.translationDual : rates.translationRegular
+  const translationPayment = totalTranslations * translationRate
+  const qaPayment = totalQA * rates.qa
 
-  // Calculate bonus if threshold is met
+  // Calculate bonus if threshold is met (based on total annotations)
   let bonusPayment = 0
-  if (rates.bonusThreshold && rates.bonusRate && totalRows >= rates.bonusThreshold) {
-    bonusPayment = basePayment * rates.bonusRate
+  if (rates.bonusThreshold && rates.bonusRate && totalAnnotations >= rates.bonusThreshold) {
+    bonusPayment = annotationPayment * rates.bonusRate
   }
 
-  const totalPayment = basePayment + translationPayment + bonusPayment
-  const avgRowsPerHour = totalHours > 0 ? totalRows / totalHours : 0
+  const totalPayment = annotationPayment + translationPayment + qaPayment + bonusPayment
+  const avgAnnotationsPerHour = totalHours > 0 ? totalAnnotations / totalHours : 0
 
   return {
-    totalRows,
-    translations,
+    totalAnnotations,
+    totalTranslations,
+    totalQA,
     totalHours,
-    avgRowsPerHour,
-    basePayment,
+    avgAnnotationsPerHour,
+    annotationPayment,
     translationPayment,
+    qaPayment,
     bonusPayment,
     totalPayment,
     breakdown: {
-      rowPayment: basePayment,
+      annotationPayment,
       translationPayment,
+      qaPayment,
       bonus: bonusPayment,
     },
   }
@@ -124,9 +159,9 @@ export function formatCurrency(amount: number, currency = "₦"): string {
   return formatMoney(currency, amount)
 }
 
-export function calculateEfficiencyMetrics(totalRows: number, totalHours: number, targetRowsPerHour = 5) {
-  const avgRowsPerHour = totalHours > 0 ? totalRows / totalHours : 0
-  const efficiency = (avgRowsPerHour / targetRowsPerHour) * 100
+export function calculateEfficiencyMetrics(totalAnnotations: number, totalHours: number, targetAnnotationsPerHour = 5) {
+  const avgAnnotationsPerHour = totalHours > 0 ? totalAnnotations / totalHours : 0
+  const efficiency = (avgAnnotationsPerHour / targetAnnotationsPerHour) * 100
 
   let status: "excellent" | "good" | "average" | "below-average" | "not-started"
   let recommendation: string

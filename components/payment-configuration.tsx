@@ -16,17 +16,29 @@ import type { PaymentConfig } from "@/lib/payment-calculator"
 
 // Zod schema for payment configuration validation
 const paymentConfigSchema = z.object({
-  perRowRate: z
+  annotationRate: z
     .string()
-    .min(1, "Per row rate is required")
+    .min(1, "Annotation rate is required")
     .refine(val => !isNaN(Number(val)) && Number(val) > 0, {
-      message: "Per row rate must be a positive number",
+      message: "Annotation rate must be a positive number",
     }),
-  perTranslationRate: z
+  translationRegularRate: z
     .string()
-    .min(1, "Per translation rate is required")
+    .min(1, "Translation regular rate is required")
     .refine(val => !isNaN(Number(val)) && Number(val) > 0, {
-      message: "Per translation rate must be a positive number",
+      message: "Translation regular rate must be a positive number",
+    }),
+  translationDualRate: z
+    .string()
+    .min(1, "Translation dual rate is required")
+    .refine(val => !isNaN(Number(val)) && Number(val) > 0, {
+      message: "Translation dual rate must be a positive number",
+    }),
+  qaRate: z
+    .string()
+    .min(1, "QA rate is required")
+    .refine(val => !isNaN(Number(val)) && Number(val) > 0, {
+      message: "QA rate must be a positive number",
     }),
   bonusThreshold: z
     .string()
@@ -54,8 +66,10 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
   const form = useForm<PaymentConfigFormData>({
     resolver: zodResolver(paymentConfigSchema),
     defaultValues: {
-      perRowRate: "",
-      perTranslationRate: "",
+      annotationRate: "",
+      translationRegularRate: "",
+      translationDualRate: "",
+      qaRate: "",
       bonusThreshold: "",
       bonusRate: "",
     },
@@ -73,8 +87,10 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
   React.useEffect(() => {
     if (paymentConfig && !isLoading) {
       reset({
-        perRowRate: paymentConfig.perRowRate,
-        perTranslationRate: paymentConfig.perTranslationRate,
+        annotationRate: paymentConfig.annotationRate,
+        translationRegularRate: paymentConfig.translationRegularRate,
+        translationDualRate: paymentConfig.translationDualRate,
+        qaRate: paymentConfig.qaRate,
         bonusThreshold: paymentConfig.bonusThreshold,
         bonusRate: paymentConfig.bonusRate,
       })
@@ -109,8 +125,10 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
 
   const handleReset = () => {
     reset({
-      perRowRate: paymentConfig?.perRowRate || "",
-      perTranslationRate: paymentConfig?.perTranslationRate || "",
+      annotationRate: paymentConfig?.annotationRate || "",
+      translationRegularRate: paymentConfig?.translationRegularRate || "",
+      translationDualRate: paymentConfig?.translationDualRate || "",
+      qaRate: paymentConfig?.qaRate || "",
       bonusThreshold: paymentConfig?.bonusThreshold || "",
       bonusRate: paymentConfig?.bonusRate || "",
     })
@@ -147,36 +165,68 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Per Row Rate */}
+            {/* Annotation Rate */}
             <div className="space-y-2">
-              <Label htmlFor="perRowRate">Payment Per Row (₦)</Label>
+              <Label htmlFor="annotationRate">Payment Per Annotation (₦)</Label>
               <Input
-                id="perRowRate"
+                id="annotationRate"
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder={defaultRates.perRow.toString()}
-                {...register("perRowRate")}
+                placeholder={defaultRates.annotation.toString()}
+                {...register("annotationRate")}
               />
-              {errors.perRowRate && <p className="text-sm text-destructive">{errors.perRowRate.message}</p>}
-              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.perRow)}</p>
+              {errors.annotationRate && <p className="text-sm text-destructive">{errors.annotationRate.message}</p>}
+              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.annotation)}</p>
             </div>
 
-            {/* Per Translation Rate */}
+            {/* Translation Regular Rate */}
             <div className="space-y-2">
-              <Label htmlFor="perTranslationRate">Payment Per Translation (₦)</Label>
+              <Label htmlFor="translationRegularRate">Translation Rate - Regular (₦)</Label>
               <Input
-                id="perTranslationRate"
+                id="translationRegularRate"
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder={defaultRates.perTranslation.toString()}
-                {...register("perTranslationRate")}
+                placeholder={defaultRates.translationRegular.toString()}
+                {...register("translationRegularRate")}
               />
-              {errors.perTranslationRate && (
-                <p className="text-sm text-destructive">{errors.perTranslationRate.message}</p>
+              {errors.translationRegularRate && (
+                <p className="text-sm text-destructive">{errors.translationRegularRate.message}</p>
               )}
-              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.perTranslation)}</p>
+              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.translationRegular)}</p>
+            </div>
+
+            {/* Translation Dual Rate */}
+            <div className="space-y-2">
+              <Label htmlFor="translationDualRate">Translation Rate - Dual (₦)</Label>
+              <Input
+                id="translationDualRate"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={defaultRates.translationDual.toString()}
+                {...register("translationDualRate")}
+              />
+              {errors.translationDualRate && (
+                <p className="text-sm text-destructive">{errors.translationDualRate.message}</p>
+              )}
+              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.translationDual)}</p>
+            </div>
+
+            {/* QA Rate */}
+            <div className="space-y-2">
+              <Label htmlFor="qaRate">QA Review Rate (₦)</Label>
+              <Input
+                id="qaRate"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={defaultRates.qa.toString()}
+                {...register("qaRate")}
+              />
+              {errors.qaRate && <p className="text-sm text-destructive">{errors.qaRate.message}</p>}
+              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.qa)}</p>
             </div>
 
             {/* Bonus Threshold */}
@@ -219,13 +269,18 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
           <div className="border rounded-lg p-4 bg-muted/50">
             <h4 className="font-medium mb-2">Preview</h4>
             <div className="text-sm space-y-1">
-              <p>Per Row: {formatCurrency(parseFloat(watchedValues.perRowRate) || defaultRates.perRow)}</p>
+              <p>Per Annotation: {formatCurrency(parseFloat(watchedValues.annotationRate) || defaultRates.annotation)}</p>
               <p>
-                Per Translation:{" "}
-                {formatCurrency(parseFloat(watchedValues.perTranslationRate) || defaultRates.perTranslation)}
+                Translation Regular:{" "}
+                {formatCurrency(parseFloat(watchedValues.translationRegularRate) || defaultRates.translationRegular)}
               </p>
               <p>
-                Bonus after {parseInt(watchedValues.bonusThreshold) || defaultRates.bonusThreshold} rows:{" "}
+                Translation Dual:{" "}
+                {formatCurrency(parseFloat(watchedValues.translationDualRate) || defaultRates.translationDual)}
+              </p>
+              <p>QA Rate: {formatCurrency(parseFloat(watchedValues.qaRate) || defaultRates.qa)}</p>
+              <p>
+                Bonus after {parseInt(watchedValues.bonusThreshold) || defaultRates.bonusThreshold} annotations:{" "}
                 {((parseFloat(watchedValues.bonusRate) || defaultRates.bonusRate!) * 100).toFixed(0)}%
               </p>
             </div>

@@ -177,14 +177,6 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     setCurrentTaskState(null)
   }
 
-  if (currentTask) {
-    return (
-      <div className="min-h-screen bg-background">
-        <AnnotationForm task={currentTask} user={user} onComplete={handleTaskComplete} onCancel={handleTaskCancel} />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -240,28 +232,70 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
           </TabsList>
 
           <TabsContent value="annotation">
-            <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-              <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
-                <CardTitle className="text-slate-900 dark:text-slate-100 text-lg md:text-xl">
-                  Ready to Start Annotating?
-                </CardTitle>
-                <CardDescription className="text-sm md:text-base">
-                  Click below to begin your next annotation task. The system will automatically track your time and
-                  progress.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 md:p-6">
-                <Button
-                  size="lg"
-                  className="w-full h-12 gap-2 bg-primary hover:bg-primary/90 text-base md:text-lg"
-                  onClick={() => tasks[0] && startTaskFromRow(tasks[0])}
-                  disabled={isLoading}
-                >
-                  <Play className="h-4 w-4" />
-                  {isLoading ? "Loading Task..." : "Start First Task on Page"}
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="grid w-full gap-[24px] grid-cols-2">
+              <Card className="shadow-sm border-slate-200 dark:border-slate-700">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
+                  <CardTitle className="text-slate-900 dark:text-slate-100 text-md md:text-lg">
+                    Ready to Start Annotating?
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    Click below to begin your next annotation task. The system will automatically track your time and
+                    progress.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6">
+                  <Button
+                    size="lg"
+                    className="w-full h-12 gap-2 bg-primary hover:bg-primary/90 text-base md:text-lg"
+                    onClick={() => tasks[0] && startTaskFromRow(tasks[0])}
+                    disabled={isLoading}
+                  >
+                    <Play className="h-4 w-4" />
+                    {isLoading ? "Loading Task..." : "Start First Task"}
+                  </Button>
+                </CardContent>
+              </Card>
+              {/* Minimal QA section */}
+              <Card className="shadow-sm border-slate-200 dark:border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5" /> Quality Assurance
+                  </CardTitle>
+                  <CardDescription>Verify recently completed annotations</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {qaItems.map(item => (
+                    <div key={item.rowId} className="p-3 border rounded-lg flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-muted-foreground truncate">{item.claimText}</div>
+                        <div className="text-xs text-muted-foreground">
+                          By: {item.annotatorId} · Status: {item.status}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            if (!spreadsheetId) return
+                            const res = await verifyAnnotation({ spreadsheetId: spreadsheetId!, rowId: item.rowId })
+                            if ((res as any)?.success !== false) {
+                              await mutateAnnotations()
+                              toast({ title: "Verified", description: "Annotation marked as verified." })
+                            }
+                          } catch {}
+                        }}
+                      >
+                        Mark Verified
+                      </Button>
+                    </div>
+                  ))}
+                  {qaItems.length === 0 && (
+                    <div className="text-sm text-muted-foreground">No items pending verification.</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="payments">
@@ -317,49 +351,6 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                   Next <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Minimal QA section */}
-        <div className="mt-8">
-          <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5" /> Quality Assurance
-              </CardTitle>
-              <CardDescription>Verify recently completed annotations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {qaItems.map(item => (
-                <div key={item.rowId} className="p-3 border rounded-lg flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-muted-foreground truncate">{item.claimText}</div>
-                    <div className="text-xs text-muted-foreground">
-                      By: {item.annotatorId} · Status: {item.status}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      try {
-                        if (!spreadsheetId) return
-                        const res = await verifyAnnotation({ spreadsheetId: spreadsheetId!, rowId: item.rowId })
-                        if ((res as any)?.success !== false) {
-                          await mutateAnnotations()
-                          toast({ title: "Verified", description: "Annotation marked as verified." })
-                        }
-                      } catch {}
-                    }}
-                  >
-                    Mark Verified
-                  </Button>
-                </div>
-              ))}
-              {qaItems.length === 0 && (
-                <div className="text-sm text-muted-foreground">No items pending verification.</div>
-              )}
             </CardContent>
           </Card>
         </div>

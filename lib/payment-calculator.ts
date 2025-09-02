@@ -51,8 +51,8 @@ export interface PaymentCalculation {
 
 export const DEFAULT_RATES: PaymentRates = {
   annotation: 100, // ₦100 per annotation
-  translationRegular: 70, // ₦80 per translation (regular translator)
-  translationDual: 80, // ₦70 per translation (dual translator)
+  translationRegular: 70, // ₦70 per translation (regular translator)
+  translationDual: 80, // ₦80 per translation (dual translator)
   qa: 20, // ₦20 per QA
   bonusThreshold: 50, // bonus after 50 annotations
   bonusRate: 0.1, // 10% bonus

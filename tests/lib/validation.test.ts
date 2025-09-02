@@ -143,9 +143,7 @@ describe("Enhanced Validation Schema", () => {
 
       const result = annotationFormSchema.safeParse(data)
       expect(result.success).toBe(false)
-      expect(result.error?.issues.some((issue: any) =>
-        issue.path.includes("invalidityReason")
-      )).toBe(true)
+      expect(result.error?.issues.some((issue: any) => issue.path.includes("invalidityReason"))).toBe(true)
     })
 
     it("validates time fields", () => {

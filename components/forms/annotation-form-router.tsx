@@ -20,33 +20,12 @@ export function AnnotationFormRouter({ task, user, onComplete, onCancel, mode }:
 
   // Determine the appropriate form based on mode or language
   if (mode === "qa") {
-    return (
-      <QAAnnotationForm
-        task={task}
-        user={user}
-        onComplete={onComplete}
-        onCancel={onCancel}
-      />
-    )
+    return <QAAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} />
   }
 
   if (needsTranslation) {
-    return (
-      <TranslationAnnotationForm
-        task={task}
-        user={user}
-        onComplete={onComplete}
-        onCancel={onCancel}
-      />
-    )
+    return <TranslationAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} />
   }
 
-  return (
-    <RegularAnnotationForm
-      task={task}
-      user={user}
-      onComplete={onComplete}
-      onCancel={onCancel}
-    />
-  )
+  return <RegularAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} />
 }

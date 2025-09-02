@@ -35,7 +35,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     while (attempt < maxAttempts) {
       try {
         const r = await fetch(url)
-        if (!r.ok) throw r
+        if (!r.ok) {
+          // Handle authentication errors by redirecting to login
+          if (r.status === 401) {
+            // Session is expired, redirect to auth page only if not already there
+            if (typeof window !== "undefined" && window.location.pathname !== "/") {
+              window.location.href = "/?error=session_expired"
+            }
+            throw new Error("Session expired") // Still throw to stop SWR
+          }
+          throw r
+        }
         return await r.json()
       } catch (e) {
         lastErr = e

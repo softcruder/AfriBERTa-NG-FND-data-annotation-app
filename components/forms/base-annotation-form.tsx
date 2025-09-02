@@ -49,7 +49,10 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     if (typeof input === "string") {
       const s = input.trim()
       if (!s) return []
-      return s.split(/[;\n,]\s*/).map(t => t.trim()).filter(Boolean)
+      return s
+        .split(/[;\n,]\s*/)
+        .map(t => t.trim())
+        .filter(Boolean)
     }
     return []
   }
@@ -78,7 +81,13 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     },
   })
 
-  const { watch, setValue, getValues, handleSubmit, formState: { errors, isValid } } = form
+  const {
+    watch,
+    setValue,
+    getValues,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = form
   const watchedValues = watch()
 
   const timeTracking = useTimeTracking({
@@ -204,16 +213,19 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
 
   const getModeTitle = () => {
     switch (mode) {
-      case "translation": return "Translation & Annotation"
-      case "qa": return "Quality Assurance Review"
-      default: return "Annotation Task"
+      case "translation":
+        return "Translation & Annotation"
+      case "qa":
+        return "Quality Assurance Review"
+      default:
+        return "Annotation Task"
     }
   }
 
   const getPaymentInfo = () => {
     switch (mode) {
       case "translation":
-        const translationLanguagesStr = user.translationLanguages?.join(',') || ''
+        const translationLanguagesStr = user.translationLanguages?.join(",") || ""
         const rate = isDualTranslator(translationLanguagesStr) ? "₦80" : "₦70"
         return `Translation: ${rate} + Annotation: ₦100`
       case "qa":
@@ -233,7 +245,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
               <h1 className="text-[16px] md:text-2xl font-bold text-slate-900 dark:text-slate-100">{getModeTitle()}</h1>
               <div className="flex items-center gap-4 mt-1">
                 <p className="text-sm text-slate-600 break-all dark:text-slate-400 max-w-full">Row ID: {task.rowId}</p>
-                <Badge variant="outline" className="text-xs">{getPaymentInfo()}</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {getPaymentInfo()}
+                </Badge>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -248,7 +262,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
               <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
           </div>
-          
+
           <div className="flex flex-wrap md:flex-nowrap items-center gap-4 justify-end w-full md:w-auto">
             <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
               <ArrowLeft className="h-4 w-4" />
@@ -302,7 +316,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className={`grid grid-cols-1 gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}>
+          <div
+            className={`grid grid-cols-1 gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}
+          >
             {/* Original Data Sidebar */}
             <div className="hidden lg:block">
               <Card className="shadow-sm border-slate-200 dark:border-slate-700">
@@ -327,8 +343,12 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                   <CardContent className="space-y-4 p-6">
                     <div className="space-y-3">
                       <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Extracted Claim Text</Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap break-all">{task.csvRow.data[1] || "(empty)"}</div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Extracted Claim Text
+                        </Label>
+                        <div className="mt-1 text-sm whitespace-pre-wrap break-all">
+                          {task.csvRow.data[1] || "(empty)"}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Language</Label>
@@ -340,7 +360,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Article Body</Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap break-all line-clamp-6">{task.csvRow.data[9] || "(empty)"}</div>
+                        <div className="mt-1 text-sm whitespace-pre-wrap break-all line-clamp-6">
+                          {task.csvRow.data[9] || "(empty)"}
+                        </div>
                       </div>
                     </div>
 
@@ -380,21 +402,18 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                       <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Task Validity</Label>
                       <div className="flex items-center space-x-2">
                         <span className="text-sm text-slate-600 dark:text-slate-400">Valid</span>
-                        <Switch
-                          checked={markAsInvalid}
-                          onCheckedChange={setMarkAsInvalid}
-                        />
+                        <Switch checked={markAsInvalid} onCheckedChange={setMarkAsInvalid} />
                         <span className="text-sm text-slate-600 dark:text-slate-400">Not Valid</span>
                       </div>
                     </div>
-                    
+
                     {markAsInvalid && (
                       <div className="space-y-2">
                         <Alert>
                           <AlertTriangle className="h-4 w-4" />
                           <AlertDescription>
-                            Please provide a detailed reason for marking this task as not valid. 
-                            This will be reviewed by QA and admin teams.
+                            Please provide a detailed reason for marking this task as not valid. This will be reviewed
+                            by QA and admin teams.
                           </AlertDescription>
                         </Alert>
                         <Textarea

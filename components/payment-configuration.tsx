@@ -194,7 +194,9 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
               {errors.translationRegularRate && (
                 <p className="text-sm text-destructive">{errors.translationRegularRate.message}</p>
               )}
-              <p className="text-sm text-muted-foreground">Current: {formatCurrency(paymentRates.translationRegular)}</p>
+              <p className="text-sm text-muted-foreground">
+                Current: {formatCurrency(paymentRates.translationRegular)}
+              </p>
             </div>
 
             {/* Translation Dual Rate */}
@@ -269,7 +271,9 @@ export function PaymentConfiguration({ className }: PaymentConfigurationProps) {
           <div className="border rounded-lg p-4 bg-muted/50">
             <h4 className="font-medium mb-2">Preview</h4>
             <div className="text-sm space-y-1">
-              <p>Per Annotation: {formatCurrency(parseFloat(watchedValues.annotationRate) || defaultRates.annotation)}</p>
+              <p>
+                Per Annotation: {formatCurrency(parseFloat(watchedValues.annotationRate) || defaultRates.annotation)}
+              </p>
               <p>
                 Translation Regular:{" "}
                 {formatCurrency(parseFloat(watchedValues.translationRegularRate) || defaultRates.translationRegular)}

@@ -39,6 +39,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         return "Authentication failed. Please try again."
       case "no_code":
         return "Authorization code not received. Please try again."
+      case "session_expired":
+        return "Your session has expired. Please log in again."
       default:
         return "An error occurred during login. Please try again."
     }

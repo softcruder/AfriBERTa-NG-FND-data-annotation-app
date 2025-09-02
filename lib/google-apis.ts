@@ -857,7 +857,9 @@ export async function updateAnnotationStatus(
   accessToken: string,
   spreadsheetId: string,
   rowId: string,
-  updates: Partial<Pick<AnnotationRow, "status" | "verifiedBy" | "qaComments" | "adminComments" | "isValid" | "invalidityReason">>,
+  updates: Partial<
+    Pick<AnnotationRow, "status" | "verifiedBy" | "qaComments" | "adminComments" | "isValid" | "invalidityReason">
+  >,
 ): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
   // Read annotations to find row
@@ -868,9 +870,9 @@ export async function updateAnnotationStatus(
 
   const rowNum = idx + 2
   const row = rows[idx]
-  
+
   // Column mapping (extending to support new fields):
-  // I=Status(8), J=Verified_By(9), K=QA_Comments(10), L=Admin_Comments(11), 
+  // I=Status(8), J=Verified_By(9), K=QA_Comments(10), L=Admin_Comments(11),
   // M=Is_Valid(12), N=Invalidity_Reason(13)
   const status = updates.status ?? row[8] ?? "in-progress"
   const verifiedBy = updates.verifiedBy ?? row[9] ?? ""
@@ -881,12 +883,18 @@ export async function updateAnnotationStatus(
 
   // Update all relevant columns
   const updateData = []
-  if (updates.status !== undefined) updateData.push({ range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] })
-  if (updates.verifiedBy !== undefined) updateData.push({ range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] })
-  if (updates.qaComments !== undefined) updateData.push({ range: `Annotations_Log!K${rowNum}:K${rowNum}`, values: [[qaComments]] })
-  if (updates.adminComments !== undefined) updateData.push({ range: `Annotations_Log!L${rowNum}:L${rowNum}`, values: [[adminComments]] })
-  if (updates.isValid !== undefined) updateData.push({ range: `Annotations_Log!M${rowNum}:M${rowNum}`, values: [[isValid]] })
-  if (updates.invalidityReason !== undefined) updateData.push({ range: `Annotations_Log!N${rowNum}:N${rowNum}`, values: [[invalidityReason]] })
+  if (updates.status !== undefined)
+    updateData.push({ range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] })
+  if (updates.verifiedBy !== undefined)
+    updateData.push({ range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] })
+  if (updates.qaComments !== undefined)
+    updateData.push({ range: `Annotations_Log!K${rowNum}:K${rowNum}`, values: [[qaComments]] })
+  if (updates.adminComments !== undefined)
+    updateData.push({ range: `Annotations_Log!L${rowNum}:L${rowNum}`, values: [[adminComments]] })
+  if (updates.isValid !== undefined)
+    updateData.push({ range: `Annotations_Log!M${rowNum}:M${rowNum}`, values: [[isValid]] })
+  if (updates.invalidityReason !== undefined)
+    updateData.push({ range: `Annotations_Log!N${rowNum}:N${rowNum}`, values: [[invalidityReason]] })
 
   if (updateData.length > 0) {
     await sheets.spreadsheets.values.batchUpdate({

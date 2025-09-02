@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
     // Update the annotation status
     await updateAnnotationStatus(session.accessToken, spreadsheetId, rowId, updates)
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Annotation ${action === "mark-invalid" ? "marked as invalid" : action === "approve" ? "approved" : "sent for revision"}` 
+    return NextResponse.json({
+      success: true,
+      message: `Annotation ${action === "mark-invalid" ? "marked as invalid" : action === "approve" ? "approved" : "sent for revision"}`,
     })
   } catch (error) {
     console.error("Admin verify error:", error)

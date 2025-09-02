@@ -59,7 +59,12 @@ requestService.interceptors.response.use(
         await refreshSession()
         return requestService(config)
       } catch {
-        // fallthrough to original error
+        // Session refresh failed, redirect to login only if not already there
+        if (typeof window !== "undefined" && window.location.pathname !== "/") {
+          window.location.href = "/?error=session_expired"
+        }
+        // Still reject to prevent further processing
+        return Promise.reject(error)
       }
     }
     return Promise.reject(error)

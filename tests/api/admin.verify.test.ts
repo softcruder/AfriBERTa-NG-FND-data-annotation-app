@@ -22,27 +22,27 @@ function makeReq(url: string, body?: any): NextRequest {
 describe("/api/admin/verify", () => {
   it("returns 401 when not authenticated", async () => {
     mockRequireSession.mockResolvedValue({ response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) })
-    
+
     const req = makeReq("http://localhost/api/admin/verify", {
       spreadsheetId: "123",
       rowId: "row1",
       action: "approve",
     })
     const res = await POST(req)
-    
+
     expect(res.status).toBe(401)
   })
 
   it("returns 403 when user is not admin", async () => {
     mockRequireSession.mockResolvedValue({ response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) })
-    
+
     const req = makeReq("http://localhost/api/admin/verify", {
       spreadsheetId: "123",
       rowId: "row1",
       action: "approve",
     })
     const res = await POST(req)
-    
+
     expect(res.status).toBe(403)
   })
 
@@ -54,14 +54,14 @@ describe("/api/admin/verify", () => {
         expiresAt: Date.now() + 3600000,
       },
     })
-    
+
     const req = makeReq("http://localhost/api/admin/verify", {
       spreadsheetId: "123",
       rowId: "row1",
       action: "invalid-action",
     })
     const res = await POST(req)
-    
+
     expect(res.status).toBe(400)
   })
 
@@ -74,7 +74,7 @@ describe("/api/admin/verify", () => {
       },
     })
     mockUpdateAnnotationStatus.mockResolvedValue()
-    
+
     const req = makeReq("http://localhost/api/admin/verify", {
       spreadsheetId: "123",
       rowId: "row1",
@@ -82,12 +82,12 @@ describe("/api/admin/verify", () => {
       comments: "Looks good",
     })
     const res = await POST(req)
-    
+
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.success).toBe(true)
     expect(json.message).toMatch(/approved/)
-    
+
     expect(mockUpdateAnnotationStatus).toHaveBeenCalledWith("token123", "123", "row1", {
       status: "approved",
       adminComments: "Looks good",
@@ -103,7 +103,7 @@ describe("/api/admin/verify", () => {
       },
     })
     mockUpdateAnnotationStatus.mockResolvedValue()
-    
+
     const req = makeReq("http://localhost/api/admin/verify", {
       spreadsheetId: "123",
       rowId: "row1",
@@ -112,12 +112,12 @@ describe("/api/admin/verify", () => {
       invalidityReason: "Incorrect classification",
     })
     const res = await POST(req)
-    
+
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.success).toBe(true)
     expect(json.message).toMatch(/invalid/)
-    
+
     expect(mockUpdateAnnotationStatus).toHaveBeenCalledWith("token123", "123", "row1", {
       status: "invalid",
       adminComments: "Poor quality",
@@ -135,7 +135,7 @@ describe("/api/admin/verify", () => {
       },
     })
     mockUpdateAnnotationStatus.mockResolvedValue()
-    
+
     const req = makeReq("http://localhost/api/admin/verify", {
       spreadsheetId: "123",
       rowId: "row1",
@@ -143,12 +143,12 @@ describe("/api/admin/verify", () => {
       comments: "Please fix the verdict",
     })
     const res = await POST(req)
-    
+
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.success).toBe(true)
     expect(json.message).toMatch(/revision/)
-    
+
     expect(mockUpdateAnnotationStatus).toHaveBeenCalledWith("token123", "123", "row1", {
       status: "needs-revision",
       adminComments: "Please fix the verdict",

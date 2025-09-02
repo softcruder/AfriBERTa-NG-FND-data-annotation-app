@@ -41,23 +41,23 @@ describe("/api/qa/verify POST", () => {
     vi.clearAllMocks()
     // Mock a different annotation to prevent self-verification error
     getAnnotationsMock.mockResolvedValue([
-      { 
-        rowId: "5", 
+      {
+        rowId: "5",
         annotatorId: "different-user",
         status: "completed",
         annotation: {},
-        csvRow: { data: [] }
-      }
+        csvRow: { data: [] },
+      },
     ])
   })
 
   it("verifies successfully", async () => {
     updateMock.mockResolvedValueOnce(undefined)
-    const req = makeRequest({ 
-      spreadsheetId: "sheet1", 
+    const req = makeRequest({
+      spreadsheetId: "sheet1",
       rowId: "5",
       qaComments: "Looks good",
-      isApproved: true
+      isApproved: true,
     })
     const res = await verifyPOST(req)
     const json = await res.json()
@@ -74,11 +74,11 @@ describe("/api/qa/verify POST", () => {
 
   it("returns 500 on update error", async () => {
     updateMock.mockRejectedValueOnce(new Error("boom"))
-    const req = makeRequest({ 
-      spreadsheetId: "sheet1", 
+    const req = makeRequest({
+      spreadsheetId: "sheet1",
       rowId: "5",
       qaComments: "Error test",
-      isApproved: true
+      isApproved: true,
     })
     const res = await verifyPOST(req)
     expect(res.status).toBe(500)

@@ -109,7 +109,10 @@ export function paymentConfigToAppConfig(config: PaymentConfig): Record<string, 
  */
 export function isDualTranslator(translationLanguages?: string): boolean {
   if (!translationLanguages) return false
-  const languages = translationLanguages.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0)
+  const languages = translationLanguages
+    .split(",")
+    .map(lang => lang.trim())
+    .filter(lang => lang.length > 0)
   return languages.length > 1
 }
 

@@ -8,7 +8,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Clock, CheckCircle, AlertCircle, RefreshCw, ThumbsUp, ThumbsDown, Ban } from "lucide-react"
@@ -157,7 +164,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
   const handleAdminAction = async (action: "approve" | "needs-revision" | "mark-invalid") => {
     try {
       if (!spreadsheetId || !selectedRowId) return
-      
+
       await adminVerify({
         spreadsheetId,
         rowId: selectedRowId,
@@ -165,7 +172,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
         comments: adminComments,
         invalidityReason: action === "mark-invalid" ? invalidityReason : undefined,
       })
-      
+
       mutate()
       setAdminDialogOpen(false)
       setAdminComments("")
@@ -268,18 +275,14 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                             QA Review
                           </Button>
                         )}
-                        
+
                         {/* Admin Actions */}
-                        {user?.role === "admin" && 
-                         (activity.status === "verified" || activity.status === "qa-review") && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openAdminDialog(activity.rowId)}
-                          >
-                            Admin Review
-                          </Button>
-                        )}
+                        {user?.role === "admin" &&
+                          (activity.status === "verified" || activity.status === "qa-review") && (
+                            <Button variant="outline" size="sm" onClick={() => openAdminDialog(activity.rowId)}>
+                              Admin Review
+                            </Button>
+                          )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -327,7 +330,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                   {
                     activities.filter(
                       a =>
-                        (a.status === "verified" || a.status === "qa-review") && 
+                        (a.status === "verified" || a.status === "qa-review") &&
                         new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
                   }
@@ -339,8 +342,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                   {
                     activities.filter(
                       a =>
-                        a.status === "approved" && 
-                        new Date(a.startTime).toDateString() === new Date().toDateString(),
+                        a.status === "approved" && new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
                   }
                 </span>
@@ -350,9 +352,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {
                     activities.filter(
-                      a =>
-                        a.status === "invalid" && 
-                        new Date(a.startTime).toDateString() === new Date().toDateString(),
+                      a => a.status === "invalid" && new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
                   }
                 </span>
@@ -408,7 +408,11 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="text-sm text-muted-foreground">QA Review Rate</span>
                 <span className="font-medium">
                   {activities.length > 0
-                    ? Math.round((activities.filter(a => a.status === "verified" || a.status === "qa-review").length / activities.length) * 100)
+                    ? Math.round(
+                        (activities.filter(a => a.status === "verified" || a.status === "qa-review").length /
+                          activities.length) *
+                          100,
+                      )
                     : 0}
                   %
                 </span>
@@ -436,12 +440,15 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {activities.length > 0
                     ? Math.round(
-                        (activities.filter(a => 
-                          a.status === "completed" || 
-                          a.status === "verified" || 
-                          a.status === "qa-review" || 
-                          a.status === "approved"
-                        ).length / activities.length) * 100,
+                        (activities.filter(
+                          a =>
+                            a.status === "completed" ||
+                            a.status === "verified" ||
+                            a.status === "qa-review" ||
+                            a.status === "approved",
+                        ).length /
+                          activities.length) *
+                          100,
                       )
                     : 0}
                   %
@@ -457,9 +464,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Admin Review</DialogTitle>
-            <DialogDescription>
-              Review and take action on this annotation (Row ID: {selectedRowId})
-            </DialogDescription>
+            <DialogDescription>Review and take action on this annotation (Row ID: {selectedRowId})</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -467,18 +472,18 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
               <Textarea
                 id="admin-comments"
                 value={adminComments}
-                onChange={(e) => setAdminComments(e.target.value)}
+                onChange={e => setAdminComments(e.target.value)}
                 placeholder="Enter comments for this review..."
                 className="mt-1"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="invalidity-reason">Invalidity Reason (if marking invalid)</Label>
               <Textarea
                 id="invalidity-reason"
                 value={invalidityReason}
-                onChange={(e) => setInvalidityReason(e.target.value)}
+                onChange={e => setInvalidityReason(e.target.value)}
                 placeholder="Explain why this annotation is invalid..."
                 className="mt-1"
               />

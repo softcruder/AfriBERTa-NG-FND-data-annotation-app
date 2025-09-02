@@ -13,13 +13,5 @@ interface AnnotationFormProps {
 }
 
 export function AnnotationForm({ task, user, onComplete, onCancel, mode }: AnnotationFormProps) {
-  return (
-    <AnnotationFormRouter
-      task={task}
-      user={user}
-      onComplete={onComplete}
-      onCancel={onCancel}
-      mode={mode}
-    />
-  )
+  return <AnnotationFormRouter task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode={mode} />
 }

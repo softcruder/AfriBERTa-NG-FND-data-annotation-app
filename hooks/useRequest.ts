@@ -43,6 +43,15 @@ async function swrFetcher<T = any>(url: string): Promise<T> {
   const fullUrl = `/api/${url}`
   const res = await fetch(fullUrl, { credentials: "same-origin" })
   if (!res.ok) {
+    // Handle authentication errors by redirecting to login
+    if (res.status === 401) {
+      // Only redirect if not already on the auth page
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.href = "/?error=session_expired"
+      }
+      throw new Error("Session expired")
+    }
+
     // Try to parse error body for better diagnostics
     let details: unknown = undefined
     try {

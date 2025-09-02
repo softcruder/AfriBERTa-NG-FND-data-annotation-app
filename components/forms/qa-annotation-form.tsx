@@ -25,7 +25,11 @@ interface QAAnnotationFormProps {
 }
 
 function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: User }) {
-  const { watch, setValue, formState: { errors } } = useFormContext<AnnotationFormData>()
+  const {
+    watch,
+    setValue,
+    formState: { errors },
+  } = useFormContext<AnnotationFormData>()
   const watchedValues = watch()
   const [editMode, setEditMode] = useState(false)
   const [showSelfVerificationWarning, setShowSelfVerificationWarning] = useState(false)
@@ -45,7 +49,8 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
         <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800 dark:text-amber-200">
-            Warning: You cannot perform QA on your own annotation. This task should be assigned to a different annotator for quality assurance.
+            Warning: You cannot perform QA on your own annotation. This task should be assigned to a different annotator
+            for quality assurance.
           </AlertDescription>
         </Alert>
       )}
@@ -56,15 +61,9 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
           <Label className="text-base font-medium text-slate-900 dark:text-slate-100">QA Review Mode</Label>
           <div className="flex items-center space-x-2">
             <EyeOff className="h-4 w-4 text-slate-500" />
-            <Switch
-              checked={editMode}
-              onCheckedChange={setEditMode}
-              disabled={showSelfVerificationWarning}
-            />
+            <Switch checked={editMode} onCheckedChange={setEditMode} disabled={showSelfVerificationWarning} />
             <Eye className="h-4 w-4 text-slate-500" />
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              {editMode ? "Edit Mode" : "Review Mode"}
-            </span>
+            <span className="text-sm text-slate-600 dark:text-slate-400">{editMode ? "Edit Mode" : "Review Mode"}</span>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -76,9 +75,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
       {needsTranslation ? (
         <div className="space-y-4">
           <div>
-            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-              Original Claim (English)
-            </Label>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Original Claim (English)</Label>
             <Textarea
               value={task.csvRow.data[1] || ""}
               disabled
@@ -99,9 +96,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
         </div>
       ) : (
         <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-            Claims
-          </Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claims</Label>
           <div className="space-y-3 mt-2">
             {watchedValues.claims.map((claim, index) => (
               <Textarea
@@ -125,41 +120,34 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
 
       {/* Current Verdict Display */}
       <div className="space-y-2">
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-          Current Verdict
-        </Label>
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Current Verdict</Label>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-sm">
             {watchedValues.verdict || "Not Set"}
           </Badge>
           {editMode && (
-            <Select
-              value={watchedValues.verdict || undefined}
-              onValueChange={val => setValue("verdict", val as any)}
-            >
+            <Select value={watchedValues.verdict || undefined} onValueChange={val => setValue("verdict", val as any)}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Change verdict" />
               </SelectTrigger>
               <SelectContent>
                 {/* Show only core verdicts if current verdict is not a core verdict */}
-                {!isCoreVerdict(watchedValues.verdict || '') ? (
-                  CoreVerdictEnum.options.map(v => (
-                    <SelectItem key={v} value={v}>
-                      {v}
-                    </SelectItem>
-                  ))
-                ) : (
-                  VerdictEnum.options.map(v => (
-                    <SelectItem key={v} value={v}>
-                      {v}
-                    </SelectItem>
-                  ))
-                )}
+                {!isCoreVerdict(watchedValues.verdict || "")
+                  ? CoreVerdictEnum.options.map(v => (
+                      <SelectItem key={v} value={v}>
+                        {v}
+                      </SelectItem>
+                    ))
+                  : VerdictEnum.options.map(v => (
+                      <SelectItem key={v} value={v}>
+                        {v}
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
           )}
         </div>
-        {editMode && !isCoreVerdict(watchedValues.verdict || '') && (
+        {editMode && !isCoreVerdict(watchedValues.verdict || "") && (
           <p className="text-xs text-orange-600">
             Current verdict requires correction. Please select TRUE, FALSE, or MISLEADING.
           </p>
@@ -171,11 +159,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
         <div>
           <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Source URL</Label>
           <div className="flex gap-2 mt-2">
-            <Input 
-              value={watchedValues.sourceUrl || ""} 
-              disabled 
-              className="break-all bg-slate-50 dark:bg-slate-800" 
-            />
+            <Input value={watchedValues.sourceUrl || ""} disabled className="break-all bg-slate-50 dark:bg-slate-800" />
             {!!watchedValues.sourceUrl && (
               <Button
                 type="button"
@@ -239,13 +223,8 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
 
       {/* QA Comments */}
       <div>
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-          QA Comments
-        </Label>
-        <Textarea
-          placeholder="Add your review comments..."
-          className="min-h-[100px] mt-2"
-        />
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">QA Comments</Label>
+        <Textarea placeholder="Add your review comments..." className="min-h-[100px] mt-2" />
         <p className="text-xs text-muted-foreground mt-1">
           Provide feedback for the annotator and any recommendations for improvement.
         </p>
@@ -256,13 +235,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
 
 export function QAAnnotationForm({ task, user, onComplete, onCancel }: QAAnnotationFormProps) {
   return (
-    <BaseAnnotationForm
-      task={task}
-      user={user}
-      onComplete={onComplete}
-      onCancel={onCancel}
-      mode="qa"
-    >
+    <BaseAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode="qa">
       <QAAnnotationFormContent task={task} user={user} />
     </BaseAnnotationForm>
   )

@@ -22,7 +22,12 @@ interface RegularAnnotationFormProps {
 }
 
 function RegularAnnotationFormContent() {
-  const { watch, setValue, getValues, formState: { errors } } = useFormContext<AnnotationFormData>()
+  const {
+    watch,
+    setValue,
+    getValues,
+    formState: { errors },
+  } = useFormContext<AnnotationFormData>()
   const watchedValues = watch()
   const [canEditClaim, setCanEditClaim] = useState(false)
   const [canEditVerdict, setCanEditVerdict] = useState(false)
@@ -31,11 +36,11 @@ function RegularAnnotationFormContent() {
   useEffect(() => {
     const currentVerdict = watchedValues.verdict || ""
     const ratingStatus = currentVerdict.toLowerCase()
-    
+
     // Claims are editable if unrated or empty
     const isUnrated = ratingStatus === "unrated" || currentVerdict === ""
     setCanEditClaim(isUnrated)
-    
+
     // Verdict is editable if unrated or not a core verdict (TRUE/FALSE/MISLEADING)
     const isNonCoreVerdict = !isCoreVerdict(currentVerdict)
     setCanEditVerdict(isUnrated || isNonCoreVerdict)
@@ -55,7 +60,10 @@ function RegularAnnotationFormContent() {
   const removeClaim = (index: number) => {
     const currentClaims = getValues("claims")
     if (currentClaims.length > 1) {
-      setValue("claims", currentClaims.filter((_, i) => i !== index))
+      setValue(
+        "claims",
+        currentClaims.filter((_, i) => i !== index),
+      )
     }
   }
 
@@ -72,7 +80,10 @@ function RegularAnnotationFormContent() {
 
   const removeClaimLink = (index: number) => {
     const currentLinks = getValues("claimLinks")
-    setValue("claimLinks", currentLinks.filter((_, i) => i !== index))
+    setValue(
+      "claimLinks",
+      currentLinks.filter((_, i) => i !== index),
+    )
   }
 
   return (
@@ -80,9 +91,7 @@ function RegularAnnotationFormContent() {
       {/* Verdict Selection */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-            Rating / Verdict
-          </Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Rating / Verdict</Label>
           {canEditVerdict ? (
             <Badge variant="secondary" className="gap-1">
               <Edit3 className="h-3 w-3" /> Editable
@@ -99,19 +108,17 @@ function RegularAnnotationFormContent() {
           </SelectTrigger>
           <SelectContent>
             {/* Show only core verdicts if current verdict is not a core verdict */}
-            {!isCoreVerdict(watchedValues.verdict ?? '') && canEditVerdict ? (
-              CoreVerdictEnum.options.map(v => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))
-            ) : (
-              VerdictEnum.options.map(v => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))
-            )}
+            {!isCoreVerdict(watchedValues.verdict ?? "") && canEditVerdict
+              ? CoreVerdictEnum.options.map(v => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))
+              : VerdictEnum.options.map(v => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
           </SelectContent>
         </Select>
         {!canEditVerdict && (
@@ -119,7 +126,7 @@ function RegularAnnotationFormContent() {
             Verdict is set to a final value (TRUE/FALSE/MISLEADING). No further editing allowed.
           </p>
         )}
-        {canEditVerdict && !isCoreVerdict(watchedValues.verdict ?? '') && (
+        {canEditVerdict && !isCoreVerdict(watchedValues.verdict ?? "") && (
           <p className="text-xs text-orange-600">
             Current verdict requires correction. Please select TRUE, FALSE, or MISLEADING.
           </p>
@@ -133,13 +140,7 @@ function RegularAnnotationFormContent() {
             {canEditClaim ? "Extracted Claim Text (Editable)" : "Claims"}
           </Label>
           {!canEditClaim && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addClaim}
-              className="gap-2 bg-transparent"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={addClaim} className="gap-2 bg-transparent">
               <Plus className="h-4 w-4" />
               Add Claim
             </Button>
@@ -195,13 +196,7 @@ function RegularAnnotationFormContent() {
         <div>
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claim Links</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addClaimLink}
-              className="gap-2 bg-transparent"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={addClaimLink} className="gap-2 bg-transparent">
               <Plus className="h-4 w-4" /> Add Link
             </Button>
           </div>
@@ -237,9 +232,7 @@ function RegularAnnotationFormContent() {
               </div>
             ))}
           </div>
-          {errors.claimLinks && (
-            <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>
-          )}
+          {errors.claimLinks && <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>}
         </div>
       </div>
 
@@ -259,13 +252,7 @@ function RegularAnnotationFormContent() {
 
 export function RegularAnnotationForm({ task, user, onComplete, onCancel }: RegularAnnotationFormProps) {
   return (
-    <BaseAnnotationForm
-      task={task}
-      user={user}
-      onComplete={onComplete}
-      onCancel={onCancel}
-      mode="annotation"
-    >
+    <BaseAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode="annotation">
       <RegularAnnotationFormContent />
     </BaseAnnotationForm>
   )

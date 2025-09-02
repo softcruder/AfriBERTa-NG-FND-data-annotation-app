@@ -22,7 +22,12 @@ interface TranslationAnnotationFormProps {
 }
 
 function TranslationAnnotationFormContent() {
-  const { watch, setValue, getValues, formState: { errors } } = useFormContext<AnnotationFormData>()
+  const {
+    watch,
+    setValue,
+    getValues,
+    formState: { errors },
+  } = useFormContext<AnnotationFormData>()
   const watchedValues = watch()
 
   const addClaimLink = () => {
@@ -38,16 +43,17 @@ function TranslationAnnotationFormContent() {
 
   const removeClaimLink = (index: number) => {
     const currentLinks = getValues("claimLinks")
-    setValue("claimLinks", currentLinks.filter((_, i) => i !== index))
+    setValue(
+      "claimLinks",
+      currentLinks.filter((_, i) => i !== index),
+    )
   }
 
   return (
     <>
       {/* Original Claim (Read-only) */}
       <div>
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-          Original Claim (English)
-        </Label>
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Original Claim (English)</Label>
         <Textarea
           value={watchedValues.claims[0] || ""}
           disabled
@@ -58,9 +64,7 @@ function TranslationAnnotationFormContent() {
       {/* Translation Section */}
       <div className="space-y-3">
         <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-            Target Language
-          </Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Target Language</Label>
           <Tabs
             value={watchedValues.translationLanguage || undefined}
             onValueChange={val => setValue("translationLanguage", val as any)}
@@ -73,51 +77,40 @@ function TranslationAnnotationFormContent() {
           </Tabs>
         </div>
         <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-            Translated Claim Text
-          </Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Claim Text</Label>
           <Textarea
             placeholder="Enter translated claim text..."
             value={watchedValues.translation || ""}
             onChange={e => setValue("translation", e.target.value)}
             className="min-h-[120px] mt-2 break-all"
           />
-          {errors.translation && (
-            <p className="text-sm text-red-600 mt-2">{errors.translation.message}</p>
-          )}
+          {errors.translation && <p className="text-sm text-red-600 mt-2">{errors.translation.message}</p>}
         </div>
       </div>
 
       {/* Verdict Selection */}
       <div className="space-y-2">
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-          Rating / Verdict
-        </Label>
-        <Select
-          value={watchedValues.verdict || undefined}
-          onValueChange={val => setValue("verdict", val as any)}
-        >
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Rating / Verdict</Label>
+        <Select value={watchedValues.verdict || undefined} onValueChange={val => setValue("verdict", val as any)}>
           <SelectTrigger>
             <SelectValue placeholder="Select verdict" />
           </SelectTrigger>
           <SelectContent>
             {/* Show only core verdicts if current verdict is not a core verdict */}
-            {!isCoreVerdict(watchedValues.verdict || '') ? (
-              CoreVerdictEnum.options.map(v => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))
-            ) : (
-              VerdictEnum.options.map(v => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))
-            )}
+            {!isCoreVerdict(watchedValues.verdict || "")
+              ? CoreVerdictEnum.options.map(v => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))
+              : VerdictEnum.options.map(v => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
           </SelectContent>
         </Select>
-        {!isCoreVerdict(watchedValues.verdict || '') && (
+        {!isCoreVerdict(watchedValues.verdict || "") && (
           <p className="text-xs text-orange-600">
             Current verdict requires correction. Please select TRUE, FALSE, or MISLEADING.
           </p>
@@ -147,13 +140,7 @@ function TranslationAnnotationFormContent() {
         <div>
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claim Links</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addClaimLink}
-              className="gap-2 bg-transparent"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={addClaimLink} className="gap-2 bg-transparent">
               <Plus className="h-4 w-4" /> Add Link
             </Button>
           </div>
@@ -189,17 +176,13 @@ function TranslationAnnotationFormContent() {
               </div>
             ))}
           </div>
-          {errors.claimLinks && (
-            <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>
-          )}
+          {errors.claimLinks && <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>}
         </div>
       </div>
 
       {/* Article Body Translation */}
       <div>
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-          Translated Article Body
-        </Label>
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Article Body</Label>
         <Textarea
           placeholder="Enter translated article body..."
           value={watchedValues.articleBody || ""}
@@ -213,13 +196,7 @@ function TranslationAnnotationFormContent() {
 
 export function TranslationAnnotationForm({ task, user, onComplete, onCancel }: TranslationAnnotationFormProps) {
   return (
-    <BaseAnnotationForm
-      task={task}
-      user={user}
-      onComplete={onComplete}
-      onCancel={onCancel}
-      mode="translation"
-    >
+    <BaseAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode="translation">
       <TranslationAnnotationFormContent />
     </BaseAnnotationForm>
   )

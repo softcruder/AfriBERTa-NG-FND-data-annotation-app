@@ -53,8 +53,15 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
   }, [annotations, user.id])
 
   // Calculate payment with new signature: (annotations, translations, qa, hours, rates, userLanguages)
-  const userLanguagesString = user.translationLanguages?.join(',') || ''
-  const payment = calculatePayment(stats.totalRows, stats.translations, 0, stats.totalHours, paymentRates, userLanguagesString)
+  const userLanguagesString = user.translationLanguages?.join(",") || ""
+  const payment = calculatePayment(
+    stats.totalRows,
+    stats.translations,
+    0,
+    stats.totalHours,
+    paymentRates,
+    userLanguagesString,
+  )
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
   const todayPayment = calculatePayment(stats.completedToday, 0, 0, stats.hoursToday, paymentRates, userLanguagesString)
 

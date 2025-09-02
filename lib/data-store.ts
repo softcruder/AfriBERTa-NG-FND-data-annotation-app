@@ -20,6 +20,11 @@ export interface AnnotationTask {
   translation?: string
   verdict?: string
   translationLanguage?: "ha" | "yo"
+  // Dual translation fields
+  translationHausa?: string
+  translationYoruba?: string
+  articleBodyHausa?: string
+  articleBodyYoruba?: string
   articleBody?: string
   sourceUrl?: string
   claimLinks?: string[]

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "AfriBERTa NG | Data Annotation Platform",
   description: "Professional fake news detection annotation system",
   icons: {
-    icon: "/logo.png",
+    icon: "/logo.ico",
     apple: "/logo.png",
   },
 }

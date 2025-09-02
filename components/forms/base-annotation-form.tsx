@@ -40,6 +40,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
   const isQAMode = mode === "qa"
+  
+  // Check if user is a dual translator
+  const userIsDualTranslator = isDualTranslator(user.translationLanguages?.join(",") || "")
 
   // Parse source links
   const parseLinks = (input: unknown): string[] => {
@@ -99,11 +102,18 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       articleBody: initialArticleBody,
       translation: task.translation || "",
       translationLanguage: task.translationLanguage,
+      // Dual translation fields
+      translationHausa: task.translationHausa || "",
+      translationYoruba: task.translationYoruba || "",
+      isDualTranslator: userIsDualTranslator,
+      articleBodyHausa: task.articleBodyHausa || "",
+      articleBodyYoruba: task.articleBodyYoruba || "",
       needsTranslation,
       verdict: (task.verdict as any) || undefined,
       isValid: task.isValid ?? true,
       invalidityReason: task.invalidityReason || "",
       isQAMode,
+      qaComments: "",
     },
   })
 
@@ -112,7 +122,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     setValue,
     getValues,
     handleSubmit,
-    formState: { errors, isValid },
+    formState: { errors, isValid: formIsValid },
   } = form
   const watchedValues = watch()
 
@@ -147,6 +157,12 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       claims: currentFormData.claims,
       sourceLinks: [currentFormData.sourceUrl, ...currentFormData.claimLinks].filter(Boolean),
       translation: currentFormData.translation,
+      translationLanguage: currentFormData.translationLanguage,
+      // Include dual translation fields
+      translationHausa: currentFormData.translationHausa,
+      translationYoruba: currentFormData.translationYoruba,
+      articleBodyHausa: currentFormData.articleBodyHausa,
+      articleBodyYoruba: currentFormData.articleBodyYoruba,
       verdict: currentFormData.verdict,
       isValid: currentFormData.isValid,
       invalidityReason: currentFormData.invalidityReason,
@@ -189,15 +205,46 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
 
   const onSubmit = (data: AnnotationFormData) => {
     if (submitting) return
+
+    // Prevent self-verification in QA mode
+    if (isQAMode && task.annotatorId === user.id) {
+      toast({
+        title: "Self-verification Not Allowed",
+        description: "You cannot perform QA on your own annotation. Please assign this task to another annotator.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setSubmitting(true)
     timeTracking.stop()
 
+    // Handle translation logic for dual translators
+    let finalTranslation = data.translation
+    let finalTranslationLanguage = data.translationLanguage
+    let finalClaims = data.claims
+
+    if (needsTranslation && data.isDualTranslator) {
+      // For dual translators, use both translations combined
+      finalTranslation = `Hausa: ${data.translationHausa || ""}\nYoruba: ${data.translationYoruba || ""}`
+      finalTranslationLanguage = "ha" // Set a default, but we have both
+      // Update claims to reflect both translations
+      finalClaims = [data.translationHausa || "", data.translationYoruba || ""].filter(Boolean)
+    } else if (needsTranslation && data.translation) {
+      finalClaims = [data.translation]
+    }
+
     const completedTask: AnnotationTask = {
       ...task,
-      claims: needsTranslation && data.translation ? [data.translation] : data.claims,
+      claims: finalClaims,
       sourceLinks: [data.sourceUrl, ...data.claimLinks].filter(Boolean),
-      translation: data.translation,
-      translationLanguage: data.translationLanguage,
+      translation: finalTranslation,
+      translationLanguage: finalTranslationLanguage,
+      // Include dual translation fields
+      translationHausa: data.translationHausa,
+      translationYoruba: data.translationYoruba,
+      articleBodyHausa: data.articleBodyHausa,
+      articleBodyYoruba: data.articleBodyYoruba,
       articleBody: data.articleBody,
       sourceUrl: data.sourceUrl,
       claimLinks: data.claimLinks,
@@ -260,8 +307,12 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     switch (mode) {
       case "translation":
         const translationLanguagesStr = user.translationLanguages?.join(",") || ""
-        const rate = isDualTranslator(translationLanguagesStr) ? "NGN80" : "NGN70"
-        return `Translation: ${rate} + Annotation: NGN100`
+        const isDual = isDualTranslator(translationLanguagesStr)
+        if (isDual) {
+          return "Dual Translation: NGN80 + Annotation: NGN100"
+        } else {
+          return "Translation: NGN70 + Annotation: NGN100"
+        }
       case "qa":
         return "QA Review: NGN20"
       default:
@@ -274,45 +325,57 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="container mx-auto p-6 max-w-6xl">
           {/* Header */}
-          <div className="flex items-start md:items-center flex-wrap md:flex-nowrap justify-between gap-4 mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center flex-wrap md:flex-nowrap gap-6 min-w-0 flex-1">
-              <div className="min-w-0">
-                <h1 className="text-[16px] md:text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <div className="mb-8 bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            {/* Top Row: Title, User & Time */}
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
                   {getModeTitle()}
                 </h1>
-                <div className="flex items-center gap-4 mt-1">
-                  <p className="text-sm text-slate-600 break-all dark:text-slate-400 max-w-full">
-                    Row ID: {task.rowId}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    Row ID: <span className="font-medium">{task.rowId}</span>
                   </p>
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs w-fit">
                     {getPaymentInfo()}
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Clock className="h-4 w-4 text-slate-500" />
-                <Badge variant={timeTracking.isIdle ? "destructive" : "secondary"} className="font-mono">
-                  {timeTracking.formatTime()}
-                  {timeTracking.isIdle && " (IDLE)"}
-                </Badge>
+
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Time Tracking */}
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-slate-500" />
+                  <Badge variant={timeTracking.isIdle ? "destructive" : "secondary"} className="font-mono text-xs">
+                    {timeTracking.formatTime()}
+                    {timeTracking.isIdle && " (IDLE)"}
+                  </Badge>
+                </div>
+
+                {/* User Avatar */}
+                <Avatar className="h-8 w-8 ring-2 ring-slate-200 dark:ring-slate-700">
+                  <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    {user.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
               </div>
-              <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700 shrink-0">
-                <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
-                <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
-              </Avatar>
             </div>
 
-            <div className="flex flex-wrap md:flex-nowrap items-center gap-4 justify-end w-full md:w-auto">
-              <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
+            {/* Bottom Row: Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+              <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
-                Go Back
+                <span className="hidden sm:inline">Go Back</span>
+                <span className="sm:hidden">Back</span>
               </Button>
 
               {/* Mobile original data sheet */}
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="outline" size="sm" className="lg:hidden gap-2">
-                    Original Data
+                    <span className="hidden sm:inline">Original Data</span>
+                    <span className="sm:hidden">Data</span>
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="bottom" className="lg:hidden">
@@ -338,19 +401,29 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                 </SheetContent>
               </Sheet>
 
-              <Button variant="outline" size="sm" onClick={handlePauseResume} className="gap-2 bg-transparent">
+              <Button variant="outline" size="sm" onClick={handlePauseResume} className="gap-2">
                 {timeTracking.isActive ? (
                   <>
                     <Pause className="h-4 w-4" />
-                    Pause
+                    <span className="hidden sm:inline">Pause</span>
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4" />
-                    Resume
+                    <span className="hidden sm:inline">Resume</span>
                   </>
                 )}
               </Button>
+
+              {/* Spacer */}
+              <div className="flex-1"></div>
+
+              {/* Status indicator for mobile */}
+              <div className="sm:hidden">
+                <Badge variant={timeTracking.isActive ? "default" : "secondary"} className="text-xs">
+                  {timeTracking.isActive ? "Active" : "Paused"}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -478,7 +551,12 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                         <Button
                           type="submit"
                           className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
-                          disabled={timeTracking.isIdle || !isValid || submitting}
+                          disabled={
+                            timeTracking.isIdle ||
+                            !formIsValid ||
+                            submitting ||
+                            (isQAMode && task.annotatorId === user.id)
+                          }
                         >
                           <Save className="h-4 w-4" />
                           {submitting ? "Submitting..." : "Complete & Submit"}
@@ -486,6 +564,11 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                         {timeTracking.isIdle && (
                           <div className="absolute -top-8 left-0 right-0 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
                             Resume activity to enable submission
+                          </div>
+                        )}
+                        {isQAMode && task.annotatorId === user.id && (
+                          <div className="absolute -top-8 left-0 right-0 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded px-2 py-1">
+                            Self-verification not allowed
                           </div>
                         )}
                       </div>

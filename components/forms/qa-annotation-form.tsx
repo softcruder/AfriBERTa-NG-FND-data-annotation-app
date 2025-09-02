@@ -147,6 +147,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
             </Select>
           )}
         </div>
+        {errors.verdict && <p className="text-sm text-red-600 mt-2">{errors.verdict.message}</p>}
         {editMode && !isCoreVerdict(watchedValues.verdict || "") && (
           <p className="text-xs text-orange-600">
             Current verdict requires correction. Please select TRUE, FALSE, or MISLEADING.
@@ -224,7 +225,13 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
       {/* QA Comments */}
       <div>
         <Label className="text-base font-medium text-slate-900 dark:text-slate-100">QA Comments</Label>
-        <Textarea placeholder="Add your review comments..." className="min-h-[100px] mt-2" />
+        <Textarea
+          placeholder="Add your review comments..."
+          value={watchedValues.qaComments || ""}
+          onChange={e => setValue("qaComments", e.target.value)}
+          className="min-h-[100px] mt-2"
+        />
+        {errors.qaComments && <p className="text-sm text-red-600 mt-2">{errors.qaComments.message}</p>}
         <p className="text-xs text-muted-foreground mt-1">
           Provide feedback for the annotator and any recommendations for improvement.
         </p>

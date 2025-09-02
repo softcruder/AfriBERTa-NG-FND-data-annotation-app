@@ -48,6 +48,64 @@ describe("Enhanced Validation Schema", () => {
       expect(result.success).toBe(true)
     })
 
+    it("validates dual translation annotation form", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        translationHausa: "Test Hausa translation",
+        translationYoruba: "Test Yoruba translation",
+        isDualTranslator: true,
+        needsTranslation: true,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(true)
+    })
+
+    it("fails validation when dual translator missing Hausa translation", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        translationYoruba: "Test Yoruba translation",
+        isDualTranslator: true,
+        needsTranslation: true,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.some(issue => issue.path.includes("translationHausa"))).toBe(true)
+      }
+    })
+
+    it("fails validation when dual translator missing Yoruba translation", () => {
+      const data = {
+        claims: ["Test claim"],
+        sourceUrl: "https://example.com",
+        claimLinks: [],
+        translationHausa: "Test Hausa translation",
+        isDualTranslator: true,
+        needsTranslation: true,
+        verdict: "True",
+        isValid: true,
+        isQAMode: false,
+      }
+
+      const result = annotationFormSchema.safeParse(data)
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.some(issue => issue.path.includes("translationYoruba"))).toBe(true)
+      }
+    })
+
     it("validates QA annotation form", () => {
       const data = {
         claims: ["Test claim"],

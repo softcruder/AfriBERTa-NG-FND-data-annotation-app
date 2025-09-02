@@ -96,7 +96,7 @@ export function SiteHeader() {
                 className="p-0 rounded-full hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-transparent"
               >
                 <Avatar className="size-8">
-                  <AvatarImage src={user?.picture || "/placeholder.svg"} alt={user?.name || "User"} />
+                  <AvatarImage src={user?.picture || "/placeholder-user.png"} alt={user?.name || "User"} />
                   <AvatarFallback>{initial}</AvatarFallback>
                 </Avatar>
               </Button>
@@ -162,7 +162,10 @@ export function SiteHeader() {
                 <Trash2 className="h-4 w-4" /> Delete my data
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600 hover:bg-red-500 hover:text-white gap-2">
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-red-600 hover:bg-red-500 active:bg-red-500 active:text-white hover:text-white gap-2"
+              >
                 <LogOut className="h-4 w-4" /> Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

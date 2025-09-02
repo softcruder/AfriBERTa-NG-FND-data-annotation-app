@@ -33,6 +33,14 @@ export interface AnnotationTask {
   adminId?: string
   qaComments?: string
   adminComments?: string
+  // Additional CSV data for export
+  csvData?: {
+    originalClaim: string
+    language: string
+    originalSourceUrl: string
+    domain: string
+    id_in_source: string
+  }
 }
 
 // Local storage keys

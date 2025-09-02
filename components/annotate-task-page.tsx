@@ -13,7 +13,7 @@ type Role = "annotator" | "admin"
 
 interface AnnotateTaskPageProps {
   rowId: string // This is the CSV ID from column A
-  role: Role;
+  role: Role
 }
 
 export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
@@ -25,7 +25,22 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
   const { create: createAnnotation } = useCreateAnnotation()
 
   const targetAfterComplete = useMemo(() => {
-    return role === "admin" ? "/dashboard/admin" : "/dashboard/annotator/tasks"
+    const baseUrl = role === "admin" ? "/dashboard/admin" : "/dashboard/annotator/tasks"
+
+    // Try to preserve the page number from the current URL or document referrer
+    if (typeof window !== "undefined") {
+      const currentUrl = new URL(window.location.href)
+      const referrerUrl = document.referrer ? new URL(document.referrer) : null
+
+      // Check for page parameter in current URL or referrer
+      const pageParam = currentUrl.searchParams.get("page") || referrerUrl?.searchParams.get("page")
+
+      if (pageParam && pageParam !== "1") {
+        return `${baseUrl}?page=${pageParam}`
+      }
+    }
+
+    return baseUrl
   }, [role])
 
   useEffect(() => {

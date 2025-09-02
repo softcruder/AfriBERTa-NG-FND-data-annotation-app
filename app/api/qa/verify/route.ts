@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { updateAnnotationStatus, getAnnotations } from "@/lib/google-apis"
+import {
+  updateAnnotationStatus,
+  getAnnotations,
+  createFinalDatasetEntries,
+  getAppConfig,
+  downloadCSVFile,
+} from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
@@ -52,6 +58,33 @@ export async function POST(request: NextRequest) {
       verifiedBy: session!.user.email,
       qaComments: qaComments || "",
     })
+
+    // If approved, create final dataset entries
+    if (isApproved) {
+      try {
+        const cfg = await getAppConfig(session!.accessToken)
+        const finalSpreadsheetId = cfg["FINAL_DATASET_SPREADSHEET_ID"]
+        const csvFileId = cfg["CSV_FILE_ID"]
+
+        if (finalSpreadsheetId && csvFileId) {
+          // Get the original CSV data for additional context
+          let originalCsvData: string[] | undefined
+          try {
+            const csvData = await downloadCSVFile(session!.accessToken, csvFileId)
+            // Find the row that matches the annotation rowId
+            const matchingRow = csvData.find(row => (row[0] || "").trim() === annotation.rowId)
+            originalCsvData = matchingRow
+          } catch (csvError) {
+            console.warn("Could not fetch original CSV data:", csvError)
+          }
+
+          await createFinalDatasetEntries(session!.accessToken, finalSpreadsheetId, annotation, originalCsvData)
+        }
+      } catch (finalDatasetError) {
+        // Don't fail the approval if final dataset creation fails
+        console.warn("Failed to create final dataset entries:", finalDatasetError)
+      }
+    }
 
     return NextResponse.json({
       success: true,

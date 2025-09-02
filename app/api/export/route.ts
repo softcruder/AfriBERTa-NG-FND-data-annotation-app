@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
 import { exportConfigSchema } from "@/lib/validation"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { getFinalDataset, getAppConfig } from "@/lib/google-apis"
 
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, { route: "export:POST", limit: 2, windowMs: 3000 })
@@ -13,23 +14,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const config = exportConfigSchema.parse(body)
 
-    // In production, this would:
-    // 1. Query the Google Sheets for annotation data
-    // 2. Filter by date range and annotators if specified
-    // 3. Include payment and time tracking data if requested
-    // 4. Format data according to the specified format
-    // 5. Return the formatted data
+    // Get the final dataset spreadsheet ID from config
+    const cfg = await getAppConfig(session!.accessToken)
+    const finalDatasetSpreadsheetId = cfg["FINAL_DATASET_SPREADSHEET_ID"]
 
-    // For now, return a basic structure for frontend compatibility
-    // This should be implemented to fetch real data from Google Sheets
+    if (!finalDatasetSpreadsheetId) {
+      return NextResponse.json({ error: "Final dataset spreadsheet not configured" }, { status: 400 })
+    }
+
+    // Fetch the final dataset
+    const finalDataset = await getFinalDataset(session!.accessToken, finalDatasetSpreadsheetId)
+
+    // Build export data with proper structure
     const exportData = {
-      annotations: [],
+      annotations: finalDataset,
       summary: {
-        totalAnnotations: 0,
-        totalTimeSpent: 0,
+        totalAnnotations: finalDataset.length,
+        totalTimeSpent: 0, // Could be calculated if we track this
         totalPayment: config.includePayments ? 0 : undefined,
       },
-      message: "Export functionality requires Google Sheets integration to be fully implemented",
     }
 
     // Format data based on requested format
@@ -71,40 +74,21 @@ export async function POST(request: NextRequest) {
 }
 
 function convertToCSV(data: any): string {
-  const headers = [
-    "ID",
-    "Annotator",
-    "Row ID",
-    "Claims",
-    "Source Links",
-    "Translation",
-    "Start Time",
-    "End Time",
-    "Time Spent (min)",
-  ]
-
-  if (data.annotations[0]?.payment !== undefined) {
-    headers.push("Payment ($)")
-  }
+  // Required CSV fields: [id, claim, label, language, reasoning, sources, claim_source, domain, id_in_source]
+  const headers = ["id", "claim", "label", "language", "reasoning", "sources", "claim_source", "domain", "id_in_source"]
 
   const rows = data.annotations.map((annotation: any) => {
-    const row = [
+    return [
       annotation.id || "",
-      annotation.annotator || "",
-      annotation.rowId || "",
-      `"${(annotation.claims || []).join("; ")}"`,
-      `"${(annotation.sourceLinks || []).join("; ")}"`,
-      `"${annotation.translation || ""}"`,
-      annotation.startTime || "",
-      annotation.endTime || "",
-      annotation.timeSpent || "",
+      `"${(annotation.claim || "").replace(/"/g, '""')}"`, // Escape quotes in CSV
+      annotation.label || "",
+      annotation.language || "",
+      `"${(annotation.reasoning || "").replace(/"/g, '""')}"`, // Escape quotes in CSV
+      `"${(annotation.sources || "").replace(/"/g, '""')}"`, // Escape quotes in CSV
+      annotation.claim_source || "",
+      annotation.domain || "",
+      annotation.id_in_source || "",
     ]
-
-    if (annotation.payment !== undefined) {
-      row.push(annotation.payment.toString())
-    }
-
-    return row
   })
 
   // If no annotations, add a note

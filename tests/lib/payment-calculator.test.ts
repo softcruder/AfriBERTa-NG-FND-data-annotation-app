@@ -99,8 +99,8 @@ describe("Payment Calculator", () => {
       const efficiency = calculateEfficiencyMetrics(payment.totalAnnotations, payment.totalHours)
 
       expect(payment.avgAnnotationsPerHour).toBe(5)
-      expect(efficiency.efficiency).toBe(100)
-      expect(efficiency.status).toBe("good")
+      expect(efficiency.efficiency).toBe(62.5) // 5/8 * 100 = 62.5% with new target of 8
+      expect(efficiency.status).toBe("below-average") // 62.5% is below the 75% threshold
     })
 
     it("should handle zero hours gracefully in payment calculation", () => {

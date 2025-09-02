@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/custom-hooks"
 import { useTasks } from "@/custom-hooks/useTasks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +16,8 @@ interface TasksListPageProps {
 
 export function TasksListPage({ basePath }: TasksListPageProps) {
   const search = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const page = search.get("page") ? parseInt(search.get("page") as string, 10) : 1
 
   const { csvFileId } = useAuth()
@@ -37,6 +39,38 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
       mutate()
     }
   }, [mutate, search])
+
+  // Function to update URL with new page number
+  const updatePageInURL = (newPage: number) => {
+    const params = new URLSearchParams(search.toString())
+    if (newPage === 1) {
+      params.delete("page") // Remove page param for page 1
+    } else {
+      params.set("page", newPage.toString())
+    }
+    const newURL = `${pathname}${params.toString() ? `?${params.toString()}` : ""}`
+    router.push(newURL)
+  }
+
+  // Sync currentPage with URL when URL changes
+  useEffect(() => {
+    if (currentPage !== page) {
+      setCurrentPage(page)
+    }
+  }, [currentPage, page])
+
+  // Handle page navigation
+  const handlePreviousPage = () => {
+    const newPage = Math.max(1, currentPage - 1)
+    setCurrentPage(newPage)
+    updatePageInURL(newPage)
+  }
+
+  const handleNextPage = () => {
+    const newPage = currentPage + 1
+    setCurrentPage(newPage)
+    updatePageInURL(newPage)
+  }
 
   return (
     <div className="container mx-auto p-6">
@@ -95,12 +129,7 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
             {!isLoading && tasks.length === 0 && <div className="text-sm text-muted-foreground">No tasks to show.</div>}
           </div>
           <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
+            <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={currentPage === 1}>
               <ChevronLeft className="h-4 w-4" /> Prev
             </Button>
             <div className="text-sm">
@@ -109,7 +138,7 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(p => p + 1)}
+              onClick={handleNextPage}
               disabled={currentPage >= Math.ceil(total / pageSize)}
             >
               Next <ChevronRight className="h-4 w-4" />

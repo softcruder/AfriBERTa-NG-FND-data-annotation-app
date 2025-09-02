@@ -623,12 +623,142 @@ export async function appendFinalDatasetRow(
   row: (string | number)[],
 ): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
+
+  // Ensure the spreadsheet has the correct headers
+  await ensureFinalDatasetHeaders(accessToken, spreadsheetId)
+
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: "Annotated_Dataset!A:Z",
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [row] },
   })
+}
+
+/** Create final dataset entries for approved annotations, handling dual-language scenarios */
+export async function createFinalDatasetEntries(
+  accessToken: string,
+  finalSpreadsheetId: string,
+  annotation: AnnotationRow,
+  originalCsvData?: string[],
+): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  // Ensure the spreadsheet has the correct headers
+  await ensureFinalDatasetHeaders(accessToken, finalSpreadsheetId)
+
+  const baseData = {
+    id: annotation.rowId,
+    claim: annotation.claimText || "",
+    sources: (annotation.sourceLinks || []).join("; "),
+    claim_source: annotation.sourceUrl || "",
+    domain: originalCsvData?.[6] || "", // Assuming domain is in column 6
+    id_in_source: annotation.rowId,
+  }
+
+  const entries: (string | number)[][] = []
+
+  // Determine source language from original CSV data or annotation
+  const sourceLanguage = originalCsvData?.[4]?.trim().toLowerCase()
+
+  if (sourceLanguage === "en" || sourceLanguage === "english") {
+    // For English source, create entries for each available translation
+    if (annotation.claim_text_ha) {
+      entries.push([
+        `${baseData.id}_ha`, // Unique ID for Hausa version
+        annotation.claim_text_ha,
+        annotation.verdict || "",
+        "ha", // language
+        annotation.translation || "", // reasoning
+        baseData.sources,
+        baseData.claim_source,
+        baseData.domain,
+        baseData.id_in_source,
+      ])
+    }
+
+    if (annotation.claim_text_yo) {
+      entries.push([
+        `${baseData.id}_yo`, // Unique ID for Yoruba version
+        annotation.claim_text_yo,
+        annotation.verdict || "",
+        "yo", // language
+        annotation.translation || "", // reasoning
+        baseData.sources,
+        baseData.claim_source,
+        baseData.domain,
+        baseData.id_in_source,
+      ])
+    }
+  } else {
+    // For non-English source, create single entry
+    entries.push([
+      baseData.id,
+      baseData.claim,
+      annotation.verdict || "",
+      sourceLanguage || "",
+      annotation.translation || "", // reasoning
+      baseData.sources,
+      baseData.claim_source,
+      baseData.domain,
+      baseData.id_in_source,
+    ])
+  }
+
+  // Append all entries
+  if (entries.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: finalSpreadsheetId,
+      range: "Annotated_Dataset!A:I",
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: entries },
+    })
+  }
+}
+
+/**
+ * Ensure the final dataset spreadsheet has the correct headers
+ */
+export async function ensureFinalDatasetHeaders(accessToken: string, spreadsheetId: string): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  try {
+    // Check if headers exist
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Annotated_Dataset!A1:I1",
+    })
+
+    const existingHeaders = response.data.values?.[0]
+    const requiredHeaders = [
+      "id",
+      "claim",
+      "label",
+      "language",
+      "reasoning",
+      "sources",
+      "claim_source",
+      "domain",
+      "id_in_source",
+    ]
+
+    // If headers don't exist or are incorrect, set them
+    if (
+      !existingHeaders ||
+      existingHeaders.length === 0 ||
+      !requiredHeaders.every((header, index) => existingHeaders[index] === header)
+    ) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: "Annotated_Dataset!A1:I1",
+        valueInputOption: "RAW",
+        requestBody: { values: [requiredHeaders] },
+      })
+    }
+  } catch (error) {
+    // If sheet doesn't exist, the append operation will create it with headers
+    console.warn("Could not check/set headers for final dataset:", error)
+  }
 }
 
 export async function getAnnotations(accessToken: string, spreadsheetId: string): Promise<AnnotationRow[]> {
@@ -1022,5 +1152,34 @@ export async function updateUser(
     })
   } catch (error) {
     throw new Error(`Failed to update user: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/**
+ * Get final annotated dataset for export
+ */
+export async function getFinalDataset(accessToken: string, spreadsheetId: string): Promise<any[]> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Annotated_Dataset!A:Z",
+    })
+
+    const rows = response.data.values || []
+    if (rows.length === 0) return []
+
+    // First row is header, convert remaining rows to objects
+    const header = rows[0]
+    return rows.slice(1).map(row => {
+      const obj: any = {}
+      header.forEach((col, index) => {
+        obj[col] = row[index] || ""
+      })
+      return obj
+    })
+  } catch (error) {
+    throw new Error(`Failed to fetch final dataset: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }

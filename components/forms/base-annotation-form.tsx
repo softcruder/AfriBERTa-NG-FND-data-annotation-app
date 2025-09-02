@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -49,6 +49,32 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     if (typeof input === "string") {
       const s = input.trim()
       if (!s) return []
+
+      // Try to parse as JSON array first
+      if (s.startsWith("[") && s.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(s)
+          if (Array.isArray(parsed)) {
+            return parsed.map(item => String(item).trim()).filter(Boolean)
+          }
+        } catch {
+          // If JSON parsing fails, continue with string splitting
+        }
+      }
+
+      // Handle malformed JSON array strings like ["url1", "url2", ...]
+      if (s.startsWith("[") && s.includes('"')) {
+        try {
+          // Extract URLs from malformed JSON array string
+          const urlMatches = s.match(/https?:\/\/[^\s"]+/g)
+          if (urlMatches) {
+            return urlMatches.map(url => decodeURIComponent(url)).filter(Boolean)
+          }
+        } catch {
+          // If extraction fails, continue with string splitting
+        }
+      }
+
       return s
         .split(/[;\n,]\s*/)
         .map(t => t.trim())
@@ -182,6 +208,14 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       endTime: new Date(),
       status: data.isValid ? "completed" : "qa-pending",
       annotatorId: user.id,
+      // Include additional CSV fields for export
+      csvData: {
+        originalClaim: task.csvRow.data[1] || "",
+        language: task.csvRow.data[4] || "",
+        originalSourceUrl: task.csvRow.data[7] || "",
+        domain: task.csvRow.data[6] || task.csvRow.data[8] || "", // Try different columns for domain
+        id_in_source: task.csvRow.data[0] || "",
+      },
     }
 
     localStorage.removeItem(`annotation_progress_${task.id}`)
@@ -226,238 +260,246 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     switch (mode) {
       case "translation":
         const translationLanguagesStr = user.translationLanguages?.join(",") || ""
-        const rate = isDualTranslator(translationLanguagesStr) ? "₦80" : "₦70"
-        return `Translation: ${rate} + Annotation: ₦100`
+        const rate = isDualTranslator(translationLanguagesStr) ? "NGN80" : "NGN70"
+        return `Translation: ${rate} + Annotation: NGN100`
       case "qa":
-        return "QA Review: ₦20"
+        return "QA Review: NGN20"
       default:
-        return "Annotation: ₦100"
+        return "Annotation: NGN100"
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="container mx-auto p-6 max-w-6xl">
-        {/* Header */}
-        <div className="flex items-start md:items-center flex-wrap md:flex-nowrap justify-between gap-4 mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center flex-wrap md:flex-nowrap gap-6 min-w-0 flex-1">
-            <div className="min-w-0">
-              <h1 className="text-[16px] md:text-2xl font-bold text-slate-900 dark:text-slate-100">{getModeTitle()}</h1>
-              <div className="flex items-center gap-4 mt-1">
-                <p className="text-sm text-slate-600 break-all dark:text-slate-400 max-w-full">Row ID: {task.rowId}</p>
-                <Badge variant="outline" className="text-xs">
-                  {getPaymentInfo()}
+    <FormProvider {...form}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="container mx-auto p-6 max-w-6xl">
+          {/* Header */}
+          <div className="flex items-start md:items-center flex-wrap md:flex-nowrap justify-between gap-4 mb-8 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center flex-wrap md:flex-nowrap gap-6 min-w-0 flex-1">
+              <div className="min-w-0">
+                <h1 className="text-[16px] md:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {getModeTitle()}
+                </h1>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-sm text-slate-600 break-all dark:text-slate-400 max-w-full">
+                    Row ID: {task.rowId}
+                  </p>
+                  <Badge variant="outline" className="text-xs">
+                    {getPaymentInfo()}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Clock className="h-4 w-4 text-slate-500" />
+                <Badge variant={timeTracking.isIdle ? "destructive" : "secondary"} className="font-mono">
+                  {timeTracking.formatTime()}
+                  {timeTracking.isIdle && " (IDLE)"}
                 </Badge>
               </div>
+              <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700 shrink-0">
+                <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
+                <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
+              </Avatar>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Clock className="h-4 w-4 text-slate-500" />
-              <Badge variant={timeTracking.isIdle ? "destructive" : "secondary"} className="font-mono">
-                {timeTracking.formatTime()}
-                {timeTracking.isIdle && " (IDLE)"}
-              </Badge>
-            </div>
-            <Avatar className="ring-2 ring-slate-200 dark:ring-slate-700 shrink-0">
-              <AvatarImage src={user.picture || "/placeholder.svg"} alt={user.name} />
-              <AvatarFallback className="bg-primary text-primary-foreground">{user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-          </div>
 
-          <div className="flex flex-wrap md:flex-nowrap items-center gap-4 justify-end w-full md:w-auto">
-            <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
-              <ArrowLeft className="h-4 w-4" />
-              Go Back
-            </Button>
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-4 justify-end w-full md:w-auto">
+              <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
+                <ArrowLeft className="h-4 w-4" />
+                Go Back
+              </Button>
 
-            {/* Mobile original data sheet */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="lg:hidden gap-2">
-                  Original Data
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="lg:hidden">
-                <SheetHeader>
-                  <SheetTitle>Original Data</SheetTitle>
-                </SheetHeader>
-                <div className="mt-4 max-h-[60vh] overflow-auto pr-2">
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-sm font-medium">Extracted Claim Text</Label>
-                      <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[1] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Language</Label>
-                      <div className="mt-1 text-sm">{task.csvRow.data[4] || "(empty)"}</div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Source URL</Label>
-                      <div className="mt-1 break-all text-sm">{task.csvRow.data[7] || "(empty)"}</div>
-                    </div>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            <Button variant="outline" size="sm" onClick={handlePauseResume} className="gap-2 bg-transparent">
-              {timeTracking.isActive ? (
-                <>
-                  <Pause className="h-4 w-4" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Resume
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div
-            className={`grid grid-cols-1 gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}
-          >
-            {/* Original Data Sidebar */}
-            <div className="hidden lg:block">
-              <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
-                  {showOriginalDesktop && (
-                    <div>
-                      <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Original Data</CardTitle>
-                      <CardDescription>Reference information from the CSV</CardDescription>
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="bg-transparent"
-                    onClick={() => setShowOriginalDesktop(v => !v)}
-                  >
-                    {showOriginalDesktop ? "Hide" : "Show"}
+              {/* Mobile original data sheet */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="lg:hidden gap-2">
+                    Original Data
                   </Button>
-                </CardHeader>
-                {showOriginalDesktop && (
-                  <CardContent className="space-y-4 p-6">
+                </SheetTrigger>
+                <SheetContent side="bottom" className="lg:hidden">
+                  <SheetHeader>
+                    <SheetTitle>Original Data</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 max-h-[60vh] overflow-auto pr-2">
                     <div className="space-y-3">
                       <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                          Extracted Claim Text
-                        </Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap break-all">
-                          {task.csvRow.data[1] || "(empty)"}
-                        </div>
+                        <Label className="text-sm font-medium">Extracted Claim Text</Label>
+                        <div className="mt-1 text-sm whitespace-pre-wrap">{task.csvRow.data[1] || "(empty)"}</div>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Language</Label>
-                        <div className="mt-1 text-sm break-all">{task.csvRow.data[4] || "(empty)"}</div>
+                        <Label className="text-sm font-medium">Language</Label>
+                        <div className="mt-1 text-sm">{task.csvRow.data[4] || "(empty)"}</div>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source URL</Label>
+                        <Label className="text-sm font-medium">Source URL</Label>
                         <div className="mt-1 break-all text-sm">{task.csvRow.data[7] || "(empty)"}</div>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Article Body</Label>
-                        <div className="mt-1 text-sm whitespace-pre-wrap break-all line-clamp-6">
-                          {task.csvRow.data[9] || "(empty)"}
-                        </div>
-                      </div>
                     </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
 
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Session Stats</Label>
-                      <div className="mt-2 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-600 dark:text-slate-400">Active Time:</span>
-                          <span className="font-mono text-sm font-medium">{timeTracking.formatTime()}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-slate-600 dark:text-slate-400">Status:</span>
-                          <Badge variant={timeTracking.isActive ? "default" : "secondary"} className="text-xs">
-                            {timeTracking.isActive ? "Active" : "Paused"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
+              <Button variant="outline" size="sm" onClick={handlePauseResume} className="gap-2 bg-transparent">
+                {timeTracking.isActive ? (
+                  <>
+                    <Pause className="h-4 w-4" />
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Resume
+                  </>
                 )}
-              </Card>
+              </Button>
             </div>
+          </div>
 
-            {/* Main Form Content */}
-            <div>
-              <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
-                  <CardTitle className="text-lg text-slate-900 dark:text-slate-100">{getModeTitle()}</CardTitle>
-                  <CardDescription>
-                    {mode === "qa" ? "Review and verify the annotation" : "Edit and annotate the claim data"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6 p-6">
-                  {/* Task Validity Toggle */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Task Validity</Label>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Valid</span>
-                        <Switch checked={markAsInvalid} onCheckedChange={setMarkAsInvalid} />
-                        <span className="text-sm text-slate-600 dark:text-slate-400">Not Valid</span>
-                      </div>
-                    </div>
-
-                    {markAsInvalid && (
-                      <div className="space-y-2">
-                        <Alert>
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>
-                            Please provide a detailed reason for marking this task as not valid. This will be reviewed
-                            by QA and admin teams.
-                          </AlertDescription>
-                        </Alert>
-                        <Textarea
-                          placeholder="Explain why this task is not valid..."
-                          value={watchedValues.invalidityReason || ""}
-                          onChange={e => setValue("invalidityReason", e.target.value)}
-                          className="min-h-[80px]"
-                        />
-                        {errors.invalidityReason && (
-                          <p className="text-sm text-red-600">{errors.invalidityReason.message}</p>
-                        )}
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div
+              className={`grid grid-cols-1 gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}
+            >
+              {/* Original Data Sidebar */}
+              <div className="hidden lg:block">
+                <Card className="shadow-sm border-slate-200 dark:border-slate-700">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                    {showOriginalDesktop && (
+                      <div>
+                        <CardTitle className="text-lg text-slate-900 dark:text-slate-100">Original Data</CardTitle>
+                        <CardDescription>Reference information from the CSV</CardDescription>
                       </div>
                     )}
-                  </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="bg-transparent"
+                      onClick={() => setShowOriginalDesktop(v => !v)}
+                    >
+                      {showOriginalDesktop ? "Hide" : "Show"}
+                    </Button>
+                  </CardHeader>
+                  {showOriginalDesktop && (
+                    <CardContent className="space-y-4 p-6">
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Extracted Claim Text
+                          </Label>
+                          <div className="mt-1 text-sm whitespace-pre-wrap break-all">
+                            {task.csvRow.data[1] || "(empty)"}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Language</Label>
+                          <div className="mt-1 text-sm break-all">{task.csvRow.data[4] || "(empty)"}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source URL</Label>
+                          <div className="mt-1 break-all text-sm">{task.csvRow.data[7] || "(empty)"}</div>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Article Body</Label>
+                          <div className="mt-1 text-sm whitespace-pre-wrap break-all line-clamp-6">
+                            {task.csvRow.data[9] || "(empty)"}
+                          </div>
+                        </div>
+                      </div>
 
-                  {/* Form content passed as children */}
-                  {children}
+                      <div>
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Session Stats</Label>
+                        <div className="mt-2 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">Active Time:</span>
+                            <span className="font-mono text-sm font-medium">{timeTracking.formatTime()}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">Status:</span>
+                            <Badge variant={timeTracking.isActive ? "default" : "secondary"} className="text-xs">
+                              {timeTracking.isActive ? "Active" : "Paused"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              </div>
 
-                  <div className="flex gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
-                    <div className="flex-1 relative">
-                      <Button
-                        type="submit"
-                        className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
-                        disabled={timeTracking.isIdle || !isValid || submitting}
-                      >
-                        <Save className="h-4 w-4" />
-                        {submitting ? "Submitting..." : "Complete & Submit"}
-                      </Button>
-                      {timeTracking.isIdle && (
-                        <div className="absolute -top-8 left-0 right-0 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
-                          Resume activity to enable submission
+              {/* Main Form Content */}
+              <div>
+                <Card className="shadow-sm border-slate-200 dark:border-slate-700">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
+                    <CardTitle className="text-lg text-slate-900 dark:text-slate-100">{getModeTitle()}</CardTitle>
+                    <CardDescription>
+                      {mode === "qa" ? "Review and verify the annotation" : "Edit and annotate the claim data"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6 p-6">
+                    {/* Task Validity Toggle */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                          Task Validity
+                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Valid</span>
+                          <Switch checked={markAsInvalid} onCheckedChange={setMarkAsInvalid} />
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Not Valid</span>
+                        </div>
+                      </div>
+
+                      {markAsInvalid && (
+                        <div className="space-y-2">
+                          <Alert>
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                              Please provide a detailed reason for marking this task as not valid. This will be reviewed
+                              by QA and admin teams.
+                            </AlertDescription>
+                          </Alert>
+                          <Textarea
+                            placeholder="Explain why this task is not valid..."
+                            value={watchedValues.invalidityReason || ""}
+                            onChange={e => setValue("invalidityReason", e.target.value)}
+                            className="min-h-[80px]"
+                          />
+                          {errors.invalidityReason && (
+                            <p className="text-sm text-red-600">{errors.invalidityReason.message}</p>
+                          )}
                         </div>
                       )}
                     </div>
-                    <Button type="button" variant="outline" onClick={handleCancel} className="h-11 bg-transparent">
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+
+                    {/* Form content passed as children */}
+                    {children}
+
+                    <div className="flex gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+                      <div className="flex-1 relative">
+                        <Button
+                          type="submit"
+                          className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
+                          disabled={timeTracking.isIdle || !isValid || submitting}
+                        >
+                          <Save className="h-4 w-4" />
+                          {submitting ? "Submitting..." : "Complete & Submit"}
+                        </Button>
+                        {timeTracking.isIdle && (
+                          <div className="absolute -top-8 left-0 right-0 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                            Resume activity to enable submission
+                          </div>
+                        )}
+                      </div>
+                      <Button type="button" variant="outline" onClick={handleCancel} className="h-11 bg-transparent">
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </FormProvider>
   )
 }

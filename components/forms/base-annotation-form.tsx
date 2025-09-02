@@ -433,14 +433,21 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                   {children}
 
                   <div className="flex gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
-                    <Button
-                      type="submit"
-                      className="flex-1 h-11 gap-2 bg-primary hover:bg-primary/90"
-                      disabled={timeTracking.isIdle || !isValid || submitting}
-                    >
-                      <Save className="h-4 w-4" />
-                      {submitting ? "Submitting..." : "Complete & Submit"}
-                    </Button>
+                    <div className="flex-1 relative">
+                      <Button
+                        type="submit"
+                        className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
+                        disabled={timeTracking.isIdle || !isValid || submitting}
+                      >
+                        <Save className="h-4 w-4" />
+                        {submitting ? "Submitting..." : "Complete & Submit"}
+                      </Button>
+                      {timeTracking.isIdle && (
+                        <div className="absolute -top-8 left-0 right-0 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                          Resume activity to enable submission
+                        </div>
+                      )}
+                    </div>
                     <Button type="button" variant="outline" onClick={handleCancel} className="h-11 bg-transparent">
                       Cancel
                     </Button>

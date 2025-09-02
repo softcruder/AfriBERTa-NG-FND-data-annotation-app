@@ -46,9 +46,7 @@ vi.mock("@/components/forms/base-annotation-form", () => ({
         <div>User: {user.name}</div>
         <div>Task: {task.id}</div>
         <div>Is Dual: {user.translationLanguages?.length > 1 ? "Yes" : "No"}</div>
-        <div data-testid="form-provider">
-          {children}
-        </div>
+        <div data-testid="form-provider">{children}</div>
         <button onClick={() => onComplete?.(task)} data-testid="submit-button">
           Submit
         </button>
@@ -114,7 +112,7 @@ describe("TranslationAnnotationForm Integration", () => {
           user={mockSingleTranslatorUser}
           onComplete={vi.fn()}
           onCancel={vi.fn()}
-        />
+        />,
       )
 
       // Should show the original claim
@@ -135,7 +133,7 @@ describe("TranslationAnnotationForm Integration", () => {
           user={mockSingleTranslatorUser}
           onComplete={onComplete}
           onCancel={vi.fn()}
-        />
+        />,
       )
 
       // Submit form
@@ -175,7 +173,7 @@ describe("TranslationAnnotationForm Integration", () => {
           user={mockDualTranslatorUser}
           onComplete={vi.fn()}
           onCancel={vi.fn()}
-        />
+        />,
       )
 
       // Should show the original claim
@@ -183,7 +181,9 @@ describe("TranslationAnnotationForm Integration", () => {
 
       // Should show dual translation message and fields
       expect(screen.getByText("Translations (Both Languages Required)")).toBeInTheDocument()
-      expect(screen.getByText("As a dual translator, please provide translations for both Hausa and Yoruba.")).toBeInTheDocument()
+      expect(
+        screen.getByText("As a dual translator, please provide translations for both Hausa and Yoruba."),
+      ).toBeInTheDocument()
       expect(screen.getByPlaceholderText("Enter Hausa translation of the claim...")).toBeInTheDocument()
       expect(screen.getByPlaceholderText("Enter Yoruba translation of the claim...")).toBeInTheDocument()
     })
@@ -198,7 +198,7 @@ describe("TranslationAnnotationForm Integration", () => {
           user={mockDualTranslatorUser}
           onComplete={onComplete}
           onCancel={vi.fn()}
-        />
+        />,
       )
 
       // Submit form
@@ -217,7 +217,7 @@ describe("TranslationAnnotationForm Integration", () => {
           user={mockSingleTranslatorUser}
           onComplete={vi.fn()}
           onCancel={vi.fn()}
-        />
+        />,
       )
 
       const claimField = screen.getByDisplayValue("Original claim text")
@@ -234,7 +234,7 @@ describe("TranslationAnnotationForm Integration", () => {
           user={mockSingleTranslatorUser}
           onComplete={vi.fn()}
           onCancel={onCancel}
-        />
+        />,
       )
 
       const cancelButton = screen.getByTestId("cancel-button")

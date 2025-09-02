@@ -40,7 +40,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
   const isQAMode = mode === "qa"
-  
+
   // Check if user is a dual translator
   const userIsDualTranslator = isDualTranslator(user.translationLanguages?.join(",") || "")
 

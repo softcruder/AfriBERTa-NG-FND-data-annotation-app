@@ -77,7 +77,7 @@ function TranslationAnnotationFormContent() {
                 As a dual translator, please provide translations for both Hausa and Yoruba.
               </p>
             </div>
-            
+
             {/* Hausa Translation */}
             <div>
               <Label className="text-base font-medium text-slate-900 dark:text-slate-100">

@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
 import type { User } from "@/lib/auth"
-import { calculatePayment, calculateEfficiencyMetrics, formatCurrency, DEFAULT_RATES } from "@/lib/payment-calculator"
-import { useAuth, useAnnotations } from "@/custom-hooks"
+import { calculatePayment, calculateEfficiencyMetrics, formatCurrency } from "@/lib/payment-calculator"
+import { useAuth, useAnnotations, usePaymentConfig } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -24,6 +24,7 @@ interface AnnotatorStats {
 export function PaymentDashboard({ user }: PaymentDashboardProps) {
   const { spreadsheetId } = useAuth()
   const { data: annotations } = useAnnotations(spreadsheetId)
+  const { paymentRates } = usePaymentConfig()
 
   const stats: AnnotatorStats = useMemo(() => {
     const anns = annotations || []
@@ -51,9 +52,18 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
     }
   }, [annotations, user.id])
 
-  const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours)
+  // Calculate payment with new signature: (annotations, translations, qa, hours, rates, userLanguages)
+  const userLanguagesString = user.translationLanguages?.join(",") || ""
+  const payment = calculatePayment(
+    stats.totalRows,
+    stats.translations,
+    0,
+    stats.totalHours,
+    paymentRates,
+    userLanguagesString,
+  )
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
-  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday)
+  const todayPayment = calculatePayment(stats.completedToday, 0, 0, stats.hoursToday, paymentRates, userLanguagesString)
 
   const getEfficiencyColor = (status: string) => {
     switch (status) {
@@ -119,7 +129,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
             <div className={`text-2xl font-bold ${getEfficiencyColor(efficiency.status)}`}>
               {efficiency.efficiency.toFixed(0)}%
             </div>
-            <p className="text-xs text-muted-foreground">{payment.avgRowsPerHour.toFixed(1)} rows/hour</p>
+            <p className="text-xs text-muted-foreground">{payment.avgAnnotationsPerHour.toFixed(1)} rows/hour</p>
           </CardContent>
         </Card>
 
@@ -145,7 +155,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Base Payment ({stats.totalRows} rows)</span>
-              <span className="font-medium">{formatCurrency(payment.breakdown.rowPayment)}</span>
+              <span className="font-medium">{formatCurrency(payment.breakdown.annotationPayment)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">
@@ -187,11 +197,11 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Progress to Bonus</span>
                 <span className="text-sm font-medium">
-                  {stats.totalRows}/{DEFAULT_RATES.bonusThreshold} rows
+                  {stats.totalRows}/{paymentRates.bonusThreshold} rows
                 </span>
               </div>
-              <Progress value={(stats.totalRows / (DEFAULT_RATES.bonusThreshold || 50)) * 100} className="h-2" />
-              {stats.totalRows >= (DEFAULT_RATES.bonusThreshold || 50) && (
+              <Progress value={(stats.totalRows / (paymentRates.bonusThreshold || 50)) * 100} className="h-2" />
+              {stats.totalRows >= (paymentRates.bonusThreshold || 50) && (
                 <div className="flex items-center gap-1 text-orange-600">
                   <Award className="h-4 w-4" />
                   <span className="text-xs font-medium">Bonus Unlocked!</span>
@@ -201,7 +211,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="text-center">
-                <div className="text-lg font-bold">{payment.avgRowsPerHour.toFixed(1)}</div>
+                <div className="text-lg font-bold">{payment.avgAnnotationsPerHour.toFixed(1)}</div>
                 <div className="text-xs text-muted-foreground">Rows/Hour</div>
               </div>
               <div className="text-center">

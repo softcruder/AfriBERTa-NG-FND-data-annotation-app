@@ -1,5 +1,6 @@
 // Google Drive and Sheets API integration utilities
 import { google } from "googleapis"
+import { parsePaymentRatesFromConfig } from "./payment-calculator"
 
 export interface DriveFile {
   id: string
@@ -17,8 +18,12 @@ export interface AnnotationRow {
   startTime: string
   endTime?: string
   durationMinutes?: number
-  status: "in-progress" | "completed" | "verified"
+  status: "in-progress" | "completed" | "verified" | "qa-pending" | "qa-approved" | "admin-review" | "invalid"
   verifiedBy?: string
+  qaComments?: string
+  adminComments?: string
+  isValid?: boolean
+  invalidityReason?: string
   // Extended fields
   verdict?: string
   sourceUrl?: string
@@ -401,51 +406,75 @@ export async function getAppConfigSafe(accessToken: string): Promise<AppConfig |
 }
 
 export async function setAppConfig(accessToken: string, entries: AppConfig): Promise<void> {
+  console.log("Starting setAppConfig with entries:", Object.keys(entries))
   const { sheets } = initializeGoogleAPIs(accessToken)
+
+  console.log("Resolving spreadsheet ID...")
   const spreadsheetId = await resolveAppConfigSpreadsheetId(accessToken, { allowCreate: true })
   if (!spreadsheetId) throw new Error("Config spreadsheet not found and could not be created")
+  console.log("Using spreadsheet ID:", spreadsheetId)
 
-  // Read current config to decide upsert positions
-  const current = await getAppConfig(accessToken)
-  const updates: Array<{ key: string; row: number; value: string }> = []
-  const appends: Array<[string, string, string]> = []
+  try {
+    console.log("Reading existing data...")
+    // Read existing config to determine what to update vs append
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Config!A2:A", // Just get keys to minimize data transfer
+      majorDimension: "ROWS",
+    })
 
-  // Build a map of existing keys to row numbers
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Config!A2:A" })
-  const existingKeys = (res.data.values || []).map(r => (r[0] || "").toString())
+    const existingKeys = (res.data.values || []).map(row => row[0]?.toString()).filter(Boolean)
+    console.log("Existing keys found:", existingKeys.length)
 
-  Object.entries(entries).forEach(([key, value]) => {
-    const idx = existingKeys.findIndex(k => k === key)
-    if (idx >= 0) {
-      // Row number = idx + 2 (skip header)
-      updates.push({ key, row: idx + 2, value })
-    } else {
-      appends.push([key, value, new Date().toISOString()])
+    const updates: Array<{ range: string; values: string[][] }> = []
+    const appends: Array<[string, string, string]> = []
+    const timestamp = new Date().toISOString()
+
+    Object.entries(entries).forEach(([key, value]) => {
+      const existingIndex = existingKeys.indexOf(key)
+      if (existingIndex >= 0) {
+        // Update existing row (existingIndex + 2 because A2 is row 2)
+        const rowNumber = existingIndex + 2
+        updates.push({
+          range: `Config!A${rowNumber}:C${rowNumber}`,
+          values: [[key, value, timestamp]],
+        })
+      } else {
+        // New row to append
+        appends.push([key, value, timestamp])
+      }
+    })
+
+    console.log("Operations to perform:", { updates: updates.length, appends: appends.length })
+
+    // Perform updates sequentially to avoid potential conflicts
+    if (updates.length > 0) {
+      console.log("Performing batch updates...")
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          valueInputOption: "RAW",
+          data: updates,
+        },
+      })
+      console.log("Batch updates completed")
     }
-  })
 
-  // Batch update existing rows
-  if (updates.length > 0) {
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId,
-      requestBody: {
+    if (appends.length > 0) {
+      console.log("Performing appends...")
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: "Config!A:C",
         valueInputOption: "RAW",
-        data: updates.map(u => ({
-          range: `Config!A${u.row}:C${u.row}`,
-          values: [[u.key, u.value, new Date().toISOString()]],
-        })),
-      },
-    })
-  }
+        requestBody: { values: appends },
+      })
+      console.log("Appends completed")
+    }
 
-  // Append new rows
-  if (appends.length > 0) {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: "Config!A:C",
-      valueInputOption: "RAW",
-      requestBody: { values: appends },
-    })
+    console.log("All operations completed successfully")
+  } catch (error) {
+    console.error("Error in setAppConfig:", error)
+    throw error
   }
 }
 
@@ -641,6 +670,10 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   try {
+    // Get current payment configuration
+    const config = await getAppConfigSafe(accessToken)
+    const rates = parsePaymentRatesFromConfig(config)
+
     const annotations = await getAnnotations(accessToken, spreadsheetId)
     const annotatorIds = [...new Set(annotations.map(a => a.annotatorId))]
 
@@ -652,8 +685,8 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
         `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>")`, // Translations
         `=IF(E${rowNum}=0,0,B${rowNum}/E${rowNum})`, // Avg_Rows_Per_Hour
         `=SUMIFS(Annotations_Log!H:H,Annotations_Log!B:B,"${annotatorId}")/60`, // Total_Hours
-        `=B${rowNum}*100`, // Payment_Rows (₦100 per row)
-        `=C${rowNum}*150`, // Payment_Translations (₦150 per translation)
+        `=B${rowNum}*${rates.annotation}`, // Payment_Annotations (configurable per annotation)
+        `=C${rowNum}*${rates.translationRegular}`, // Payment_Translations (configurable per translation)
         `=F${rowNum}+G${rowNum}`, // Total_Payment
       ]
     })
@@ -709,6 +742,7 @@ export interface User {
   avgTimePerRow: number
   lastActive: string
   joinedDate: string
+  translationLanguages?: string // Comma-separated languages (e.g., "ha,yo")
 }
 
 export async function getUsers(accessToken: string, spreadsheetId: string): Promise<User[]> {
@@ -717,7 +751,7 @@ export async function getUsers(accessToken: string, spreadsheetId: string): Prom
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Users!A2:I", // Skip header row
+      range: "Users!A2:J", // Skip header row, include translation languages column
     })
 
     const rows = response.data.values || []
@@ -731,6 +765,7 @@ export async function getUsers(accessToken: string, spreadsheetId: string): Prom
       avgTimePerRow: Number.parseFloat(row[6]) || 0,
       lastActive: row[7] || new Date().toISOString(),
       joinedDate: row[8] || new Date().toISOString(),
+      translationLanguages: row[9] || "", // Comma-separated languages
     }))
   } catch (error) {
     throw new Error(`Failed to get users: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -748,7 +783,7 @@ export async function upsertUserByEmail(
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   // Read emails to find existing row
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!A2:I" })
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!A2:J" })
   const rows = res.data.values || []
 
   let rowIndex = -1
@@ -773,6 +808,7 @@ export async function upsertUserByEmail(
       avgTimePerRow: payload.avgTimePerRow ?? 0,
       lastActive: now,
       joinedDate: now,
+      translationLanguages: payload.translationLanguages ?? "",
     }
     await addUser(accessToken, spreadsheetId, newUser)
   } else {
@@ -789,11 +825,12 @@ export async function upsertUserByEmail(
       avgTimePerRow: Number.parseFloat(existing[6] || "0"),
       lastActive: now,
       joinedDate: existing[8] || now,
+      translationLanguages: payload.translationLanguages ?? existing[9] ?? "",
     }
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Users!A${rowNumber}:I${rowNumber}`,
+      range: `Users!A${rowNumber}:J${rowNumber}`,
       valueInputOption: "RAW",
       requestBody: {
         values: [
@@ -807,6 +844,7 @@ export async function upsertUserByEmail(
             updated.avgTimePerRow,
             updated.lastActive,
             updated.joinedDate,
+            updated.translationLanguages,
           ],
         ],
       },
@@ -819,7 +857,9 @@ export async function updateAnnotationStatus(
   accessToken: string,
   spreadsheetId: string,
   rowId: string,
-  updates: Partial<Pick<AnnotationRow, "status" | "verifiedBy">>,
+  updates: Partial<
+    Pick<AnnotationRow, "status" | "verifiedBy" | "qaComments" | "adminComments" | "isValid" | "invalidityReason">
+  >,
 ): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
   // Read annotations to find row
@@ -830,21 +870,41 @@ export async function updateAnnotationStatus(
 
   const rowNum = idx + 2
   const row = rows[idx]
-  // Columns mapping: A=rowId, ..., I=Status(9th index 8), J=Verified_By (index 9)
-  const status = updates.status ? updates.status : row[8] || "in-progress"
-  const verifiedBy = updates.verifiedBy ?? row[9] ?? ""
 
-  // We only update the two columns to minimize write
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      valueInputOption: "RAW",
-      data: [
-        { range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] },
-        { range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] },
-      ],
-    },
-  })
+  // Column mapping (extending to support new fields):
+  // I=Status(8), J=Verified_By(9), K=QA_Comments(10), L=Admin_Comments(11),
+  // M=Is_Valid(12), N=Invalidity_Reason(13)
+  const status = updates.status ?? row[8] ?? "in-progress"
+  const verifiedBy = updates.verifiedBy ?? row[9] ?? ""
+  const qaComments = updates.qaComments ?? row[10] ?? ""
+  const adminComments = updates.adminComments ?? row[11] ?? ""
+  const isValid = updates.isValid !== undefined ? (updates.isValid ? "true" : "false") : (row[12] ?? "true")
+  const invalidityReason = updates.invalidityReason ?? row[13] ?? ""
+
+  // Update all relevant columns
+  const updateData = []
+  if (updates.status !== undefined)
+    updateData.push({ range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] })
+  if (updates.verifiedBy !== undefined)
+    updateData.push({ range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] })
+  if (updates.qaComments !== undefined)
+    updateData.push({ range: `Annotations_Log!K${rowNum}:K${rowNum}`, values: [[qaComments]] })
+  if (updates.adminComments !== undefined)
+    updateData.push({ range: `Annotations_Log!L${rowNum}:L${rowNum}`, values: [[adminComments]] })
+  if (updates.isValid !== undefined)
+    updateData.push({ range: `Annotations_Log!M${rowNum}:M${rowNum}`, values: [[isValid]] })
+  if (updates.invalidityReason !== undefined)
+    updateData.push({ range: `Annotations_Log!N${rowNum}:N${rowNum}`, values: [[invalidityReason]] })
+
+  if (updateData.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: "RAW",
+        data: updateData,
+      },
+    })
+  }
 }
 
 export async function getUnverifiedAnnotations(accessToken: string, spreadsheetId: string): Promise<AnnotationRow[]> {
@@ -895,7 +955,7 @@ export async function addUser(accessToken: string, spreadsheetId: string, user: 
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Users!A:I",
+      range: "Users!A:J",
       valueInputOption: "RAW",
       requestBody: {
         values: [
@@ -909,6 +969,7 @@ export async function addUser(accessToken: string, spreadsheetId: string, user: 
             user.avgTimePerRow,
             user.lastActive,
             user.joinedDate,
+            user.translationLanguages || "",
           ],
         ],
       },

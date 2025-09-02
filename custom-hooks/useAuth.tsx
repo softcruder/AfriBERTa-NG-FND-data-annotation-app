@@ -14,6 +14,8 @@ export type SessionUser = {
 
 export type AuthContextValue = {
   user: SessionUser | null
+  isAdmin: boolean
+  isAnnotator: boolean
   expiresAt?: number
   loading: boolean
   config: Record<string, string>
@@ -33,7 +35,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     while (attempt < maxAttempts) {
       try {
         const r = await fetch(url)
-        if (!r.ok) throw r
+        if (!r.ok) {
+          // Handle authentication errors by redirecting to login
+          if (r.status === 401) {
+            // Session is expired, redirect to auth page only if not already there
+            if (typeof window !== "undefined" && window.location.pathname !== "/") {
+              window.location.href = "/?error=session_expired"
+            }
+            throw new Error("Session expired") // Still throw to stop SWR
+          }
+          throw r
+        }
         return await r.json()
       } catch (e) {
         lastErr = e
@@ -45,17 +57,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     throw lastErr
   }
-  const { data, isLoading, mutate } = useSWR<{ user: SessionUser; expiresAt: number; config: Record<string, string> }>(
-    "/api/session",
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateIfStale: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 15000,
-      keepPreviousData: true,
-    },
-  )
+  const {
+    data: { user, config, expiresAt } = {},
+    isLoading,
+    mutate,
+  } = useSWR<{ user: SessionUser; expiresAt: number; config: Record<string, string> }>("/api/session", fetcher, {})
 
   const { request } = useRequest<{ success: boolean }>()
   const logout = useCallback(async () => {
@@ -68,18 +74,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const value: AuthContextValue = useMemo(
     () => ({
-      user: data?.user ?? null,
-      expiresAt: data?.expiresAt,
+      user: user ?? null,
+      isAdmin: user?.role === "admin",
+      isAnnotator: user?.role === "annotator",
+      expiresAt,
       loading: isLoading,
-      config: data?.config ?? {},
-      spreadsheetId: data?.config?.ANNOTATION_SPREADSHEET_ID,
-      csvFileId: data?.config?.CSV_FILE_ID,
+      config: config ?? {},
+      spreadsheetId: config?.ANNOTATION_SPREADSHEET_ID,
+      csvFileId: config?.CSV_FILE_ID,
       logout,
       refresh: async () => {
         await mutate()
       },
     }),
-    [data, isLoading, logout, mutate],
+    [config, expiresAt, isLoading, logout, mutate, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

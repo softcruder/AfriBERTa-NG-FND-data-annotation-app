@@ -25,18 +25,9 @@ import {
   Activity,
   FileText,
 } from "lucide-react"
-import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 import { useAnonymizeSelf } from "@/custom-hooks/useAnonymize"
 import { useRequest } from "@/hooks/useRequest"
 import { MobileSidebar } from "@/components/mobile-sidebar"
-
-type HeaderUser = {
-  id: string
-  name: string
-  email: string
-  picture?: string
-  role?: string
-} | null
 
 import { useAuth } from "@/custom-hooks/useAuth"
 
@@ -45,22 +36,17 @@ export function SiteHeader() {
   const pathname = usePathname()
   const { anonymize } = useAnonymizeSelf()
   const { request } = useRequest<{ success: boolean }>()
-  const { user } = useAuth()
+  const { user, isAdmin, isAnnotator, logout } = useAuth()
   const [navLoading, setNavLoading] = useState(false)
 
   const isDashboard = pathname?.startsWith("/dashboard")
   const role = (user?.role as string) || "annotator"
-  const isAdmin = role === "admin"
-  const isAnnotator = role === "annotator"
-
-  // Hide header on login screen or when unauthenticated
-  if (!user) return null
 
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : "U"
 
   const handleLogout = async () => {
     try {
-      await request.post("/auth/logout")
+      await logout()
       router.push("/")
       router.refresh()
     } catch {}
@@ -96,17 +82,8 @@ export function SiteHeader() {
         </div>
         <div className="flex items-center gap-2">
           {isDashboard && (
-            <Button variant="outline" size="sm" onClick={goVerify} disabled={navLoading}>
-              {navLoading ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="size-3 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
-                  Loading
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1">
-                  <ShieldCheck className="h-4 w-4" /> Verify
-                </span>
-              )}
+            <Button variant="outline" size="sm" onClick={goVerify} isLoading={navLoading}>
+              <ShieldCheck className="h-4 w-4" /> Verify
             </Button>
           )}
           <DropdownMenu>
@@ -125,8 +102,8 @@ export function SiteHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="max-w-[240px] truncate flex items-center justify-between gap-2">
-                <span>{user?.email || "Signed in"}</span>
+              <DropdownMenuLabel className="max-w-[240px] flex items-center justify-between gap-2">
+                <span className="truncate">{user?.email || "Signed in"}</span>
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded border bg-muted text-muted-foreground uppercase tracking-wide"
                   aria-label={`Role: ${role}`}
@@ -178,14 +155,14 @@ export function SiteHeader() {
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuItem onClick={goVerify} className="gap-2">
+              {/* <DropdownMenuItem onClick={goVerify} className="gap-2">
                 <ShieldCheck className="h-4 w-4" /> Verify others&apos; work
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuItem onClick={handleAnonymize} className="gap-2">
                 <Trash2 className="h-4 w-4" /> Delete my data
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600 gap-2">
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600 hover:bg-red-500 hover:text-white gap-2">
                 <LogOut className="h-4 w-4" /> Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -7,6 +7,7 @@ export interface User {
   name: string
   picture?: string
   role: "annotator" | "admin"
+  translationLanguages?: string[] // Languages user can translate (comma-separated in storage)
 }
 
 export interface AuthSession {

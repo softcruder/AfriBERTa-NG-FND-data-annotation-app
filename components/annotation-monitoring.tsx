@@ -1,14 +1,24 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
-import { useAuth, useAnnotations, useVerifyAnnotation } from "@/custom-hooks"
+import { useEffect, useMemo, useState } from "react"
+import { useAuth, useAnnotations, useVerifyAnnotation, useAdminVerify } from "@/custom-hooks"
 import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Clock, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Clock, CheckCircle, AlertCircle, RefreshCw, ThumbsUp, ThumbsDown, Ban } from "lucide-react"
 
 interface AnnotationMonitoringProps {
   onStatsUpdate?: (stats: any) => void
@@ -21,16 +31,25 @@ interface AnnotationActivity {
   annotatorEmail: string
   rowId: string
   claimText: string
-  status: "in-progress" | "completed" | "verified"
+  status: "in-progress" | "completed" | "verified" | "qa-review" | "needs-revision" | "approved" | "invalid"
   startTime: string
   endTime?: string
   durationMinutes?: number
+  isValid?: boolean
+  invalidityReason?: string
+  qaComments?: string
+  adminComments?: string
 }
 
 export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProps) {
-  const { spreadsheetId } = useAuth()
+  const { spreadsheetId, user } = useAuth()
   const { verify } = useVerifyAnnotation()
+  const { adminVerify } = useAdminVerify()
   const { data: annotations, isLoading, mutate } = useAnnotations(spreadsheetId)
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false)
+  const [selectedRowId, setSelectedRowId] = useState<string>("")
+  const [adminComments, setAdminComments] = useState("")
+  const [invalidityReason, setInvalidityReason] = useState("")
   const activities: AnnotationActivity[] = useMemo(() => {
     if (!Array.isArray(annotations)) return []
     const items = annotations.map((annotation: any) => ({
@@ -44,6 +63,10 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
       startTime: annotation.startTime,
       endTime: annotation.endTime,
       durationMinutes: annotation.durationMinutes,
+      isValid: annotation.isValid,
+      invalidityReason: annotation.invalidityReason,
+      qaComments: annotation.qaComments,
+      adminComments: annotation.adminComments,
     })) as AnnotationActivity[]
     return items.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
   }, [annotations])
@@ -69,6 +92,14 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
         return <CheckCircle className="h-4 w-4 text-orange-500" />
       case "verified":
         return <CheckCircle className="h-4 w-4 text-blue-500" />
+      case "qa-review":
+        return <AlertCircle className="h-4 w-4 text-purple-500" />
+      case "needs-revision":
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "invalid":
+        return <AlertCircle className="h-4 w-4 text-gray-500" />
       case "in-progress":
         return <Clock className="h-4 w-4 text-yellow-500" />
       default:
@@ -90,6 +121,30 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
             Verified
           </Badge>
         )
+      case "qa-review":
+        return (
+          <Badge variant="default" className="bg-purple-100 text-purple-800">
+            QA Review
+          </Badge>
+        )
+      case "needs-revision":
+        return (
+          <Badge variant="destructive" className="bg-red-100 text-red-800">
+            Needs Revision
+          </Badge>
+        )
+      case "approved":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Approved
+          </Badge>
+        )
+      case "invalid":
+        return (
+          <Badge variant="outline" className="bg-gray-100 text-gray-800">
+            Invalid
+          </Badge>
+        )
       case "in-progress":
         return <Badge variant="secondary">In Progress</Badge>
       default:
@@ -106,6 +161,33 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
 
   const formatTime = (timeString: string) => formatDate(timeString, { withTime: true })
 
+  const handleAdminAction = async (action: "approve" | "needs-revision" | "mark-invalid") => {
+    try {
+      if (!spreadsheetId || !selectedRowId) return
+
+      await adminVerify({
+        spreadsheetId,
+        rowId: selectedRowId,
+        action,
+        comments: adminComments,
+        invalidityReason: action === "mark-invalid" ? invalidityReason : undefined,
+      })
+
+      mutate()
+      setAdminDialogOpen(false)
+      setAdminComments("")
+      setInvalidityReason("")
+      setSelectedRowId("")
+    } catch (error) {
+      console.error("Admin action failed:", error)
+    }
+  }
+
+  const openAdminDialog = (rowId: string) => {
+    setSelectedRowId(rowId)
+    setAdminDialogOpen(true)
+  }
+
   return (
     <div className="space-y-6">
       {/* Real-time Activity Feed */}
@@ -116,8 +198,8 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Live feed of annotation activities</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={() => mutate()} disabled={isLoading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <Button variant="outline" size="sm" onClick={() => mutate()} isLoading={isLoading}>
+              <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
           </div>
@@ -137,6 +219,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                   <TableHead>Status</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Started</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -166,7 +249,16 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                       <div className="flex items-center gap-2">
                         {getStatusIcon(activity.status)}
                         {getStatusBadge(activity.status)}
-                        {activity.status !== "verified" && (
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatDuration(activity.durationMinutes)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(activity.startTime, { withTime: true })}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {/* QA Verify Button */}
+                        {(user?.role as any) === "qa" && activity.status === "completed" && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -180,14 +272,18 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                               } catch {}
                             }}
                           >
-                            Verify
+                            QA Review
                           </Button>
                         )}
+
+                        {/* Admin Actions */}
+                        {user?.role === "admin" &&
+                          (activity.status === "verified" || activity.status === "qa-review") && (
+                            <Button variant="outline" size="sm" onClick={() => openAdminDialog(activity.rowId)}>
+                              Admin Review
+                            </Button>
+                          )}
                       </div>
-                    </TableCell>
-                    <TableCell>{formatDuration(activity.durationMinutes)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(activity.startTime, { withTime: true })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -229,12 +325,34 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Verified</span>
+                <span className="text-sm text-muted-foreground">QA Review</span>
                 <span className="font-medium">
                   {
                     activities.filter(
                       a =>
-                        a.status === "verified" && new Date(a.startTime).toDateString() === new Date().toDateString(),
+                        (a.status === "verified" || a.status === "qa-review") &&
+                        new Date(a.startTime).toDateString() === new Date().toDateString(),
+                    ).length
+                  }
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Approved</span>
+                <span className="font-medium">
+                  {
+                    activities.filter(
+                      a =>
+                        a.status === "approved" && new Date(a.startTime).toDateString() === new Date().toDateString(),
+                    ).length
+                  }
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Invalid</span>
+                <span className="font-medium">
+                  {
+                    activities.filter(
+                      a => a.status === "invalid" && new Date(a.startTime).toDateString() === new Date().toDateString(),
                     ).length
                   }
                 </span>
@@ -287,10 +405,32 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Verification Rate</span>
+                <span className="text-sm text-muted-foreground">QA Review Rate</span>
                 <span className="font-medium">
                   {activities.length > 0
-                    ? Math.round((activities.filter(a => a.status === "verified").length / activities.length) * 100)
+                    ? Math.round(
+                        (activities.filter(a => a.status === "verified" || a.status === "qa-review").length /
+                          activities.length) *
+                          100,
+                      )
+                    : 0}
+                  %
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Approval Rate</span>
+                <span className="font-medium">
+                  {activities.length > 0
+                    ? Math.round((activities.filter(a => a.status === "approved").length / activities.length) * 100)
+                    : 0}
+                  %
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Invalid Rate</span>
+                <span className="font-medium">
+                  {activities.length > 0
+                    ? Math.round((activities.filter(a => a.status === "invalid").length / activities.length) * 100)
                     : 0}
                   %
                 </span>
@@ -300,7 +440,13 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 <span className="font-medium">
                   {activities.length > 0
                     ? Math.round(
-                        (activities.filter(a => a.status === "completed" || a.status === "verified").length /
+                        (activities.filter(
+                          a =>
+                            a.status === "completed" ||
+                            a.status === "verified" ||
+                            a.status === "qa-review" ||
+                            a.status === "approved",
+                        ).length /
                           activities.length) *
                           100,
                       )
@@ -312,6 +458,66 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
           </CardContent>
         </Card>
       </div>
+
+      {/* Admin Review Dialog */}
+      <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Admin Review</DialogTitle>
+            <DialogDescription>Review and take action on this annotation (Row ID: {selectedRowId})</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="admin-comments">Admin Comments</Label>
+              <Textarea
+                id="admin-comments"
+                value={adminComments}
+                onChange={e => setAdminComments(e.target.value)}
+                placeholder="Enter comments for this review..."
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="invalidity-reason">Invalidity Reason (if marking invalid)</Label>
+              <Textarea
+                id="invalidity-reason"
+                value={invalidityReason}
+                onChange={e => setInvalidityReason(e.target.value)}
+                placeholder="Explain why this annotation is invalid..."
+                className="mt-1"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => handleAdminAction("approve")}
+                className="flex items-center gap-2"
+              >
+                <ThumbsUp className="h-4 w-4" />
+                Approve
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleAdminAction("needs-revision")}
+                className="flex items-center gap-2"
+              >
+                <ThumbsDown className="h-4 w-4" />
+                Needs Revision
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleAdminAction("mark-invalid")}
+                className="flex items-center gap-2"
+              >
+                <Ban className="h-4 w-4" />
+                Mark Invalid
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

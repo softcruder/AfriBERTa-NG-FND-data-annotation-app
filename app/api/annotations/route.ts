@@ -56,6 +56,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
+    // Deduplication: prevent duplicate entries by Row ID or overlapping source links
+    // Normalize helper for URLs/links
+    const normalize = (s: string) =>
+      (s || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\/+$/, "") // drop trailing slashes
+        .replace(/^https?:\/\//, "") // ignore scheme
+
+    try {
+      const existing = await getAnnotations(session!.accessToken, spreadsheetId)
+      const newRowId = (annotation.rowId || "").trim()
+      // Build a set of normalized links for the new annotation
+      const newLinks = new Set<string>()
+      ;[annotation.sourceUrl || "", ...(annotation.sourceLinks || []), ...(annotation.claimLinks || [])]
+        .map(normalize)
+        .filter(Boolean)
+        .forEach(l => newLinks.add(l))
+
+      // Check for duplicates
+      const dup = existing.find(row => {
+        if ((row.rowId || "").trim() === newRowId && newRowId) return true
+        const rowLinks = new Set<string>()
+        ;[row.sourceUrl || "", ...(row.sourceLinks || []), ...(row.claimLinks || [])]
+          .map(normalize)
+          .filter(Boolean)
+          .forEach(l => rowLinks.add(l))
+        // any intersection?
+        for (const l of newLinks) if (rowLinks.has(l)) return true
+        return false
+      })
+
+      if (dup) {
+        return NextResponse.json(
+          {
+            error: "Duplicate annotation",
+            details:
+              "An annotation with the same Row ID or overlapping source links already exists. Please refresh the page before submitting.",
+          },
+          { status: 409 },
+        )
+      }
+    } catch (e) {
+      // If dedup check fails unexpectedly, surface a friendly error instead of risking duplicates
+      const message = e instanceof Error ? e.message : String(e)
+      return NextResponse.json({ error: "Failed to validate duplicates", details: message }, { status: 500 })
+    }
+
     // Preflight: verify the current user has edit access to the spreadsheet
     try {
       const { drive } = initializeGoogleAPIs(session!.accessToken)

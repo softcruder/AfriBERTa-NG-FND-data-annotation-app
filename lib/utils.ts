@@ -11,7 +11,7 @@ export function cn(...inputs: ClassValue[]) {
  * Defaults are stable (fixed locale/timezone) to avoid hydration mismatches.
  */
 export function formatMoney(
-  currency: string,
+  currency: string = "NGN",
   amount: number,
   options?: {
     type?: "decimal" | "currency" | "compact"

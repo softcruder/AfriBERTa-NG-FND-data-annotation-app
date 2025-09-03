@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { downloadCSVFile, getAppConfig, getAnnotations } from "@/lib/google-apis"
+import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 /**
@@ -162,13 +162,78 @@ export async function GET(request: NextRequest) {
     let rows = data.slice(1)
 
     // Exclude rows already worked on by matching CSV ID (first column) with annotation rowIds
+    // For dual-language workflow: only exclude if ALL required languages are completed
     const spreadsheetId = cfg["ANNOTATION_SPREADSHEET_ID"]
     if (spreadsheetId) {
       try {
-        // Only fetch annotation row IDs to minimize payload processing
+        // Fetch all annotations to analyze completion by language
         const anns = await getAnnotations(session!.accessToken, spreadsheetId)
-        const doneRowIds = new Set((anns || []).map(a => a.rowId))
-        rows = rows.filter(r => !doneRowIds.has((r[0] || "").trim()))
+
+        // Create a map to track which languages have been translated for each row
+        const translationMap = new Map<string, Set<string>>()
+
+        anns.forEach(annotation => {
+          const rowId = (annotation.rowId || "").trim()
+          if (!rowId) return
+
+          if (!translationMap.has(rowId)) {
+            translationMap.set(rowId, new Set())
+          }
+
+          const languages = translationMap.get(rowId)!
+
+          // Add the translation language if it exists
+          if (annotation.translationLanguage) {
+            languages.add(annotation.translationLanguage)
+          }
+
+          // For non-English source language tasks, consider them complete once annotated
+          // This is determined by checking if the source language is NOT English
+          const csvRowData = rows.find(r => (r[0] || "").trim() === rowId)
+          if (csvRowData) {
+            const sourceLanguage = (csvRowData[4] || "").trim().toLowerCase()
+            if (sourceLanguage !== "en" && sourceLanguage !== "english") {
+              // For non-English tasks, mark as complete once any annotation exists
+              languages.add("completed")
+            }
+          }
+        })
+
+        // Also check the final dataset to ensure we don't re-annotate already completed items
+        const finalSpreadsheetId = cfg["FINAL_DATASET_SPREADSHEET_ID"]
+        const finalDatasetIds = new Set<string>()
+        if (finalSpreadsheetId) {
+          try {
+            const finalDataset = await getFinalDataset(session!.accessToken, finalSpreadsheetId)
+            finalDataset.forEach((item: any) => {
+              if (item.id_in_source || item.id) {
+                finalDatasetIds.add((item.id_in_source || item.id).toString().trim())
+              }
+            })
+          } catch (finalError) {
+            console.warn("Could not fetch final dataset for filtering:", finalError)
+          }
+        }
+
+        // Filter out rows based on completion status
+        rows = rows.filter(row => {
+          const rowId = (row[0] || "").trim()
+          if (!rowId) return true
+
+          // If already in final dataset, exclude
+          if (finalDatasetIds.has(rowId)) return false
+
+          const sourceLanguage = (row[4] || "").trim().toLowerCase()
+          const completedLanguages = translationMap.get(rowId) || new Set()
+
+          // For English source tasks, only exclude if BOTH Yoruba and Hausa translations exist
+          if (sourceLanguage === "en" || sourceLanguage === "english") {
+            return !(completedLanguages.has("yo") && completedLanguages.has("ha"))
+          }
+
+          // For non-English tasks, exclude if any annotation exists
+          return !completedLanguages.has("completed")
+        })
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         if (message.includes("quota") || message.includes("rate") || message.includes("429")) {

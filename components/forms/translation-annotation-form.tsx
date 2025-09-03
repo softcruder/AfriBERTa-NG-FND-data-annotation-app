@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useFormContext } from "react-hook-form"
 import { ExternalLink, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,8 @@ function TranslationAnnotationFormContent() {
     formState: { errors },
   } = useFormContext<AnnotationFormData>()
   const watchedValues = watch()
+
+  const isDualTranslator = watchedValues.isDualTranslator || false
 
   const addClaimLink = () => {
     const currentLinks = getValues("claimLinks")
@@ -63,34 +66,92 @@ function TranslationAnnotationFormContent() {
 
       {/* Translation Section */}
       <div className="space-y-3">
-        <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Target Language</Label>
-          <Tabs
-            value={watchedValues.translationLanguage || undefined}
-            onValueChange={val => setValue("translationLanguage", val as any)}
-            className="mt-2"
-          >
-            <TabsList className="grid grid-cols-2 w-fit">
-              <TabsTrigger value="ha">Hausa</TabsTrigger>
-              <TabsTrigger value="yo">Yoruba</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Claim Text</Label>
-          <Textarea
-            placeholder="Enter translated claim text..."
-            value={watchedValues.translation || ""}
-            onChange={e => setValue("translation", e.target.value)}
-            className="min-h-[120px] mt-2 break-all"
-          />
-          {errors.translation && <p className="text-sm text-red-600 mt-2">{errors.translation.message}</p>}
-        </div>
+        {isDualTranslator ? (
+          <>
+            {/* Dual Translation Mode - Both Languages */}
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Translations (Both Languages Required) <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                As a dual translator, please provide translations for both Hausa and Yoruba.
+              </p>
+            </div>
+
+            {/* Hausa Translation */}
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Hausa Translation <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                placeholder="Enter Hausa translation of the claim..."
+                value={watchedValues.translationHausa || ""}
+                onChange={e => setValue("translationHausa", e.target.value)}
+                className="min-h-[120px] mt-2 break-all"
+              />
+              {errors.translationHausa && (
+                <p className="text-sm text-red-600 mt-2">{errors.translationHausa.message}</p>
+              )}
+            </div>
+
+            {/* Yoruba Translation */}
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Yoruba Translation <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                placeholder="Enter Yoruba translation of the claim..."
+                value={watchedValues.translationYoruba || ""}
+                onChange={e => setValue("translationYoruba", e.target.value)}
+                className="min-h-[120px] mt-2 break-all"
+              />
+              {errors.translationYoruba && (
+                <p className="text-sm text-red-600 mt-2">{errors.translationYoruba.message}</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Single Language Translation Mode */}
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Target Language <span className="text-red-500">*</span>
+              </Label>
+              <Tabs
+                value={watchedValues.translationLanguage || undefined}
+                onValueChange={val => setValue("translationLanguage", val as any)}
+                className="mt-2"
+              >
+                <TabsList className="grid grid-cols-2 w-fit">
+                  <TabsTrigger value="ha">Hausa</TabsTrigger>
+                  <TabsTrigger value="yo">Yoruba</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {errors.translationLanguage && (
+                <p className="text-sm text-red-600 mt-2">{errors.translationLanguage.message}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Translated Claim Text <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                placeholder="Enter translated claim text..."
+                value={watchedValues.translation || ""}
+                onChange={e => setValue("translation", e.target.value)}
+                className="min-h-[120px] mt-2 break-all"
+              />
+              {errors.translation && <p className="text-sm text-red-600 mt-2">{errors.translation.message}</p>}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Verdict Selection */}
       <div className="space-y-2">
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Rating / Verdict</Label>
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+          Rating / Verdict <span className="text-red-500">*</span>
+        </Label>
         <Select value={watchedValues.verdict || undefined} onValueChange={val => setValue("verdict", val as any)}>
           <SelectTrigger>
             <SelectValue placeholder="Select verdict" />
@@ -110,6 +171,7 @@ function TranslationAnnotationFormContent() {
                 ))}
           </SelectContent>
         </Select>
+        {errors.verdict && <p className="text-sm text-red-600 mt-2">{errors.verdict.message}</p>}
         {!isCoreVerdict(watchedValues.verdict || "") && (
           <p className="text-xs text-orange-600">
             Current verdict requires correction. Please select TRUE, FALSE, or MISLEADING.
@@ -176,20 +238,50 @@ function TranslationAnnotationFormContent() {
               </div>
             ))}
           </div>
-          {errors.claimLinks && <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>}
+          {errors.claimLinks && (
+            <p className="text-sm text-red-600 mt-2">
+              {Array.isArray(errors.claimLinks)
+                ? errors.claimLinks.find(error => error)?.message || "Invalid claim links"
+                : errors.claimLinks.message || "Invalid claim links"}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Article Body Translation */}
-      <div>
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Article Body</Label>
-        <Textarea
-          placeholder="Enter translated article body..."
-          value={watchedValues.articleBody || ""}
-          onChange={e => setValue("articleBody", e.target.value)}
-          className="min-h-[140px] mt-2 break-all"
-        />
-      </div>
+      {isDualTranslator ? (
+        <>
+          {/* Dual Translation Article Bodies */}
+          <div>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Hausa Article Body</Label>
+            <Textarea
+              placeholder="Enter Hausa translation of article body..."
+              value={watchedValues.articleBodyHausa || ""}
+              onChange={e => setValue("articleBodyHausa", e.target.value)}
+              className="min-h-[140px] mt-2 break-all"
+            />
+          </div>
+          <div>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Yoruba Article Body</Label>
+            <Textarea
+              placeholder="Enter Yoruba translation of article body..."
+              value={watchedValues.articleBodyYoruba || ""}
+              onChange={e => setValue("articleBodyYoruba", e.target.value)}
+              className="min-h-[140px] mt-2 break-all"
+            />
+          </div>
+        </>
+      ) : (
+        <div>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Article Body</Label>
+          <Textarea
+            placeholder="Enter translated article body..."
+            value={watchedValues.articleBody || ""}
+            onChange={e => setValue("articleBody", e.target.value)}
+            className="min-h-[140px] mt-2 break-all"
+          />
+        </div>
+      )}
     </>
   )
 }

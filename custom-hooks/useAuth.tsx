@@ -10,6 +10,7 @@ export type SessionUser = {
   name: string
   picture?: string
   role: "annotator" | "admin"
+  translationLanguages?: string[] // Languages user can translate
 }
 
 export type AuthContextValue = {

@@ -26,9 +26,16 @@ export const annotationFormSchema = z
     // Translation fields (shown/required only when claim language is EN via UI logic)
     translation: z.string().optional(),
     translationLanguage: z.enum(["ha", "yo"]).optional(),
+    // Dual translation fields for translators who can handle both languages
+    translationHausa: z.string().optional(),
+    translationYoruba: z.string().optional(),
+    isDualTranslator: z.boolean().default(false),
     needsTranslation: z.boolean(),
     // Optional editable article body (may hold translated content in EN workflow)
     articleBody: z.string().optional(),
+    // Dual translation article bodies
+    articleBodyHausa: z.string().optional(),
+    articleBodyYoruba: z.string().optional(),
     // Verdict via select
     verdict: VerdictEnum.optional(),
     // Task validity fields
@@ -36,19 +43,61 @@ export const annotationFormSchema = z
     invalidityReason: z.string().optional(),
     // QA mode flag
     isQAMode: z.boolean().default(false),
+    // QA comments for quality assurance review
+    qaComments: z.string().optional(),
   })
   .refine(
     data => {
       if (data.needsTranslation) {
-        const hasText = Boolean(data.translation && data.translation.trim().length > 0)
-        const hasLang = Boolean(data.translationLanguage)
-        return hasText && hasLang
+        if (data.isDualTranslator) {
+          // For dual translators, require both Hausa and Yoruba translations
+          const hasHausaText = Boolean(data.translationHausa && data.translationHausa.trim().length > 0)
+          const hasYorubaText = Boolean(data.translationYoruba && data.translationYoruba.trim().length > 0)
+          return hasHausaText && hasYorubaText
+        } else {
+          // For single language translators, require translation text and language selection
+          const hasText = Boolean(data.translation && data.translation.trim().length > 0)
+          const hasLang = Boolean(data.translationLanguage)
+          return hasText && hasLang
+        }
       }
       return true
     },
     {
       message: "Translation text and target language are required when translation is needed",
       path: ["translation"],
+    },
+  )
+  .refine(
+    data => {
+      // For dual translators doing translation, both languages must be provided
+      if (data.needsTranslation && data.isDualTranslator) {
+        const hasHausaText = Boolean(data.translationHausa && data.translationHausa.trim().length > 0)
+        if (!hasHausaText) {
+          return false
+        }
+      }
+      return true
+    },
+    {
+      message: "Hausa translation is required for dual translators",
+      path: ["translationHausa"],
+    },
+  )
+  .refine(
+    data => {
+      // For dual translators doing translation, both languages must be provided
+      if (data.needsTranslation && data.isDualTranslator) {
+        const hasYorubaText = Boolean(data.translationYoruba && data.translationYoruba.trim().length > 0)
+        if (!hasYorubaText) {
+          return false
+        }
+      }
+      return true
+    },
+    {
+      message: "Yoruba translation is required for dual translators",
+      path: ["translationYoruba"],
     },
   )
   .refine(

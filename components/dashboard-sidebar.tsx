@@ -4,7 +4,16 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/custom-hooks/useAuth"
-import { Home, Users, DollarSign, Activity, FileText, Settings as SettingsIcon, ShieldCheck } from "lucide-react"
+import {
+  Home,
+  Users,
+  DollarSign,
+  Activity,
+  FileText,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Languages,
+} from "lucide-react"
 
 type SidebarLinksProps = { onNavigate?: () => void }
 
@@ -38,6 +47,7 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
           <NavLink href="/dashboard/annotator/tasks" label="Tasks" Icon={FileText} />
           <NavLink href="/dashboard/annotator/payments" label="Payments" Icon={DollarSign} />
           <NavLink href="/dashboard/annotator/verify" label="Verify" Icon={ShieldCheck} />
+          <NavLink href="/dashboard/user/languages" label="Languages" Icon={Languages} />
         </>
       )}
       {isAdmin && (
@@ -47,6 +57,7 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
           <NavLink href="/dashboard/admin/annotators" label="Annotators" Icon={Users} />
           <NavLink href="/dashboard/admin/payments" label="Payments" Icon={DollarSign} />
           <NavLink href="/dashboard/admin/config" label="Config" Icon={SettingsIcon} />
+          <NavLink href="/dashboard/user/languages" label="My Languages" Icon={Languages} />
         </>
       )}
     </div>

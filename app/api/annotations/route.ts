@@ -31,6 +31,10 @@ export async function GET(request: NextRequest) {
       annotations = annotations.filter(a => a.status !== "verified" && !a.verifiedBy)
     }
 
+    // Exclude annotations made by current user to maintain peer review integrity
+    // Current user should not be able to QA their own annotations
+    annotations = annotations.filter(a => a.annotatorId !== session!.user.id)
+
     return NextResponse.json({ annotations })
   } catch (error) {
     console.error("Error getting annotations:", error)
@@ -127,35 +131,8 @@ export async function POST(request: NextRequest) {
 
     await logAnnotation(session!.accessToken, spreadsheetId, annotation)
 
-    // Also append to final dataset if configured
-    try {
-      const cfg = await getAppConfig(session!.accessToken)
-      const finalSheet = cfg["FINAL_DATASET_SPREADSHEET_ID"]
-      if (finalSheet) {
-        // Build merged row: original fields are not available server-side here unless carried in payload.
-        // We'll include annotation fields; clients may include CSV fields in annotation.claimText etc.
-        const merged: (string | number)[] = [
-          annotation.rowId,
-          annotation.claimText,
-          (annotation.sourceLinks || []).join("; "),
-          annotation.translation || "",
-          annotation.verdict || "",
-          annotation.sourceUrl || "",
-          (annotation.claimLinks || []).join("; "),
-          annotation.translationLanguage || "",
-          annotation.startTime,
-          annotation.endTime || "",
-          annotation.durationMinutes ?? "",
-          annotation.annotatorId,
-          annotation.status,
-          annotation.verifiedBy || "",
-        ]
-        await appendFinalDatasetRow(session!.accessToken, finalSheet, merged)
-      }
-    } catch (e) {
-      // Don't block response if final dataset append fails
-      //console.warn("Final dataset append failed:", e)
-    }
+    // Note: Final dataset entries are now created during QA approval process
+    // This ensures only verified annotations make it to the final dataset
 
     // Update payment formulas after logging annotation; don't block success if this fails
     try {

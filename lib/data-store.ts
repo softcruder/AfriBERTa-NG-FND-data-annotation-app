@@ -20,6 +20,11 @@ export interface AnnotationTask {
   translation?: string
   verdict?: string
   translationLanguage?: "ha" | "yo"
+  // Dual translation fields
+  translationHausa?: string
+  translationYoruba?: string
+  articleBodyHausa?: string
+  articleBodyYoruba?: string
   articleBody?: string
   sourceUrl?: string
   claimLinks?: string[]
@@ -33,6 +38,14 @@ export interface AnnotationTask {
   adminId?: string
   qaComments?: string
   adminComments?: string
+  // Additional CSV data for export
+  csvData?: {
+    originalClaim: string
+    language: string
+    originalSourceUrl: string
+    domain: string
+    id_in_source: string
+  }
 }
 
 // Local storage keys

@@ -91,7 +91,9 @@ function RegularAnnotationFormContent() {
       {/* Verdict Selection */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Rating / Verdict</Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+            Rating / Verdict <span className="text-red-500">*</span>
+          </Label>
           {canEditVerdict ? (
             <Badge variant="secondary" className="gap-1">
               <Edit3 className="h-3 w-3" /> Editable
@@ -121,6 +123,7 @@ function RegularAnnotationFormContent() {
                 ))}
           </SelectContent>
         </Select>
+        {errors.verdict && <p className="text-sm text-red-600">{errors.verdict.message}</p>}
         {!canEditVerdict && (
           <p className="text-xs text-muted-foreground">
             Verdict is set to a final value (TRUE/FALSE/MISLEADING). No further editing allowed.
@@ -137,7 +140,7 @@ function RegularAnnotationFormContent() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-            {canEditClaim ? "Extracted Claim Text (Editable)" : "Claims"}
+            {canEditClaim ? "Extracted Claim Text (Editable)" : "Claims"} <span className="text-red-500">*</span>
           </Label>
           {!canEditClaim && (
             <Button type="button" variant="outline" size="sm" onClick={addClaim} className="gap-2 bg-transparent">
@@ -232,7 +235,13 @@ function RegularAnnotationFormContent() {
               </div>
             ))}
           </div>
-          {errors.claimLinks && <p className="text-sm text-red-600 mt-2">{(errors as any).claimLinks?.message}</p>}
+          {errors.claimLinks && (
+            <p className="text-sm text-red-600 mt-2">
+              {Array.isArray(errors.claimLinks)
+                ? errors.claimLinks.find(error => error)?.message || "Invalid claim links"
+                : errors.claimLinks.message || "Invalid claim links"}
+            </p>
+          )}
         </div>
       </div>
 

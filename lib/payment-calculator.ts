@@ -162,7 +162,7 @@ export function formatCurrency(amount: number, currency = "₦"): string {
   return formatMoney(currency, amount)
 }
 
-export function calculateEfficiencyMetrics(totalAnnotations: number, totalHours: number, targetAnnotationsPerHour = 5) {
+export function calculateEfficiencyMetrics(totalAnnotations: number, totalHours: number, targetAnnotationsPerHour = 8) {
   const avgAnnotationsPerHour = totalHours > 0 ? totalAnnotations / totalHours : 0
   const efficiency = (avgAnnotationsPerHour / targetAnnotationsPerHour) * 100
 
@@ -171,16 +171,17 @@ export function calculateEfficiencyMetrics(totalAnnotations: number, totalHours:
 
   if (efficiency >= 120) {
     status = "excellent"
-    recommendation = "Outstanding performance! Consider taking on more complex tasks."
+    recommendation =
+      "Outstanding performance! You're exceeding 9.6+ annotations/hour. Consider taking on more complex tasks."
   } else if (efficiency >= 100) {
     status = "good"
-    recommendation = "Great work! You're meeting performance targets."
-  } else if (efficiency >= 80) {
+    recommendation = "Great work! You're meeting the target of 8+ annotations per hour."
+  } else if (efficiency >= 75) {
     status = "average"
-    recommendation = "Good progress. Focus on accuracy while maintaining pace."
-  } else if (efficiency > 1 && efficiency < 80) {
+    recommendation = "Good progress at 6+ annotations/hour. Focus on accuracy while building speed."
+  } else if (efficiency > 1 && efficiency < 75) {
     status = "below-average"
-    recommendation = "Take your time to ensure quality. Speed will improve with practice."
+    recommendation = "You're below 6 annotations/hour. Take time to ensure quality - speed will improve with practice."
   } else {
     status = "not-started"
     recommendation = "Start annotating to measure performance."
@@ -190,7 +191,7 @@ export function calculateEfficiencyMetrics(totalAnnotations: number, totalHours:
 }
 
 // Session timeout utilities
-export const SESSION_TIMEOUT = 15 * 60 * 1000 // 15 minutes in milliseconds
+export const SESSION_TIMEOUT = 20 * 60 * 1000 // 20 minutes in milliseconds
 
 export function isSessionExpired(lastActivity: Date): boolean {
   return Date.now() - lastActivity.getTime() > SESSION_TIMEOUT

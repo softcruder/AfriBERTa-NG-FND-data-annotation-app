@@ -164,7 +164,7 @@ function TranslationAnnotationFormContent() {
                     {v}
                   </SelectItem>
                 ))
-              : VerdictEnum.options.map(v => (
+              : CoreVerdictEnum.options.map(v => (
                   <SelectItem key={v} value={v}>
                     {v}
                   </SelectItem>
@@ -253,33 +253,44 @@ function TranslationAnnotationFormContent() {
         <>
           {/* Dual Translation Article Bodies */}
           <div>
-            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Hausa Article Body</Label>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+              Hausa Article Body <span className="text-red-500">*</span>
+            </Label>
             <Textarea
               placeholder="Enter Hausa translation of article body..."
               value={watchedValues.articleBodyHausa || ""}
               onChange={e => setValue("articleBodyHausa", e.target.value)}
               className="min-h-[140px] mt-2 break-all"
             />
+            {errors.articleBodyHausa && <p className="text-sm text-red-600 mt-2">{errors.articleBodyHausa.message}</p>}
           </div>
           <div>
-            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Yoruba Article Body</Label>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+              Yoruba Article Body <span className="text-red-500">*</span>
+            </Label>
             <Textarea
               placeholder="Enter Yoruba translation of article body..."
               value={watchedValues.articleBodyYoruba || ""}
               onChange={e => setValue("articleBodyYoruba", e.target.value)}
               className="min-h-[140px] mt-2 break-all"
             />
+            {errors.articleBodyYoruba && (
+              <p className="text-sm text-red-600 mt-2">{errors.articleBodyYoruba.message}</p>
+            )}
           </div>
         </>
       ) : (
         <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Article Body</Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+            Translated Article Body <span className="text-red-500">*</span>
+          </Label>
           <Textarea
             placeholder="Enter translated article body..."
             value={watchedValues.articleBody || ""}
             onChange={e => setValue("articleBody", e.target.value)}
             className="min-h-[140px] mt-2 break-all"
           />
+          {errors.articleBody && <p className="text-sm text-red-600 mt-2">{errors.articleBody.message}</p>}
         </div>
       )}
     </>

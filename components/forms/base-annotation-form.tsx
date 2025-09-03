@@ -94,9 +94,10 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
 
   const form = useForm<AnnotationFormData>({
     resolver: zodResolver(annotationFormSchema),
-    mode: "onChange",
+    mode: "onBlur",
+    reValidateMode: "onBlur",
     defaultValues: {
-      claims: task.claims.length > 0 ? task.claims : [""],
+      claims: task.claims.length > 0 ? task.claims : [task.csvRow.data[1] || "Default claim"],
       sourceUrl: initialSourceUrl,
       claimLinks: initialClaimLinks.length > 0 ? initialClaimLinks : [],
       articleBody: initialArticleBody,
@@ -122,6 +123,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     setValue,
     getValues,
     handleSubmit,
+    trigger,
     formState: { errors, isValid: formIsValid },
   } = form
   const watchedValues = watch()
@@ -176,7 +178,24 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     if (!markAsInvalid) {
       setValue("invalidityReason", "")
     }
-  }, [markAsInvalid, setValue])
+    // Only trigger validation when toggling validity, not on every change
+    setTimeout(() => trigger(), 100)
+  }, [markAsInvalid, setValue, trigger])
+
+  // Retrigger validation for fields that have errors when their values change
+  useEffect(() => {
+    const errorFields = Object.keys(errors)
+    if (errorFields.length > 0) {
+      // Debounced validation for fields with errors
+      const timeoutId = setTimeout(() => {
+        errorFields.forEach(fieldName => {
+          trigger(fieldName as any)
+        })
+      }, 300) // 300ms debounce
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [watchedValues, errors, trigger])
 
   const handleAutoSave = async () => {
     try {
@@ -200,6 +219,22 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
         description: "Failed to auto-save progress. Please save manually.",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    // Trigger validation to ensure form state is current
+    const isFormValid = await trigger()
+    if (isFormValid) {
+      handleSubmit(onSubmit)(e)
+    } else {
+      e.preventDefault()
+      // Scroll to first error if needed
+      const firstErrorField = Object.keys(errors)[0]
+      if (firstErrorField) {
+        const element = document.querySelector(`[name="${firstErrorField}"]`)
+        element?.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
     }
   }
 
@@ -320,6 +355,11 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     }
   }
 
+  // Debug form validation state (minimal logging)
+  // if (!formIsValid && Object.keys(errors).length > 0) {
+  //   console.log("Form validation errors:", errors)
+  // }
+
   return (
     <FormProvider {...form}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -427,7 +467,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
             </div>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleFormSubmit}>
             <div
               className={`grid grid-cols-1 gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}
             >
@@ -551,12 +591,8 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                         <Button
                           type="submit"
                           className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
-                          disabled={
-                            timeTracking.isIdle ||
-                            !formIsValid ||
-                            submitting ||
-                            (isQAMode && task.annotatorId === user.id)
-                          }
+                          disabled={timeTracking.isIdle || submitting || (isQAMode && task.annotatorId === user.id)}
+                          isLoading={submitting}
                         >
                           <Save className="h-4 w-4" />
                           {submitting ? "Submitting..." : "Complete & Submit"}

@@ -92,6 +92,19 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
   const initialClaimLinks = parsedSourceLinks.length > 1 ? parsedSourceLinks.slice(1) : initialClaimLinksFromCSV
   const initialArticleBody = task.csvRow.data[9] || ""
 
+  // Determine initial translation language for single-language annotators
+  const getUserInitialTranslationLanguage = (): "ha" | "yo" | undefined => {
+    if (needsTranslation && !userIsDualTranslator) {
+      const userLanguages = user.translationLanguages || []
+      if (userLanguages.includes("ha") && !userLanguages.includes("yo")) {
+        return "ha"
+      } else if (userLanguages.includes("yo") && !userLanguages.includes("ha")) {
+        return "yo"
+      }
+    }
+    return task.translationLanguage
+  }
+
   const form = useForm<AnnotationFormData>({
     resolver: zodResolver(annotationFormSchema),
     mode: "onBlur",
@@ -102,7 +115,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       claimLinks: initialClaimLinks.length > 0 ? initialClaimLinks : [],
       articleBody: initialArticleBody,
       translation: task.translation || "",
-      translationLanguage: task.translationLanguage,
+      translationLanguage: getUserInitialTranslationLanguage(),
       // Dual translation fields
       translationHausa: task.translationHausa || "",
       translationYoruba: task.translationYoruba || "",

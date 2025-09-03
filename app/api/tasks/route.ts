@@ -215,7 +215,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Filter out rows based on completion status
+        // Filter out rows based on completion status and user language capabilities
         rows = rows.filter(row => {
           const rowId = (row[0] || "").trim()
           if (!rowId) return true
@@ -226,9 +226,33 @@ export async function GET(request: NextRequest) {
           const sourceLanguage = (row[4] || "").trim().toLowerCase()
           const completedLanguages = translationMap.get(rowId) || new Set()
 
-          // For English source tasks, only exclude if BOTH Yoruba and Hausa translations exist
+          // Get user's translation capabilities
+          const userLanguages = session!.user.translationLanguages || []
+          const canTranslateHausa = userLanguages.includes("ha")
+          const canTranslateYoruba = userLanguages.includes("yo")
+
+          // For English source tasks, check language-specific completion and capabilities
           if (sourceLanguage === "en" || sourceLanguage === "english") {
-            return !(completedLanguages.has("yo") && completedLanguages.has("ha"))
+            const hasHausaTranslation = completedLanguages.has("ha")
+            const hasYorubaTranslation = completedLanguages.has("yo")
+            
+            // If both languages are completed, exclude
+            if (hasHausaTranslation && hasYorubaTranslation) return false
+            
+            // If user can only work on one language, check if that language is available
+            if (canTranslateHausa && !canTranslateYoruba) {
+              // User can only do Hausa - show only if Hausa is not completed
+              return !hasHausaTranslation
+            } else if (canTranslateYoruba && !canTranslateHausa) {
+              // User can only do Yoruba - show only if Yoruba is not completed
+              return !hasYorubaTranslation
+            } else if (canTranslateHausa && canTranslateYoruba) {
+              // Dual translator - show if either language is not completed
+              return !hasHausaTranslation || !hasYorubaTranslation
+            } else {
+              // User has no translation capabilities - exclude all English tasks
+              return false
+            }
           }
 
           // For non-English tasks, exclude if any annotation exists

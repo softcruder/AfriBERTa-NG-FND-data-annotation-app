@@ -31,8 +31,8 @@ export const annotationFormSchema = z
     translationYoruba: z.string().optional(),
     isDualTranslator: z.boolean().default(false),
     needsTranslation: z.boolean(),
-    // Optional editable article body (may hold translated content in EN workflow)
-    articleBody: z.string().optional(),
+    // Article body (required for regular annotations, may hold translated content in EN workflow)
+    articleBody: z.string().min(50, "Article body is required"),
     // Dual translation article bodies
     articleBodyHausa: z.string().optional(),
     articleBodyYoruba: z.string().optional(),
@@ -172,6 +172,23 @@ export const annotationFormSchema = z
     },
     {
       message: "Hausa article body is required when Yoruba article body is provided",
+      path: ["articleBodyHausa"],
+    },
+  )
+  .refine(
+    data => {
+      // For single-language annotators doing translation, require article body translation for their language
+      if (data.needsTranslation && !data.isDualTranslator && data.translationLanguage) {
+        if (data.translationLanguage === "ha") {
+          return Boolean(data.articleBodyHausa && data.articleBodyHausa.trim().length > 0)
+        } else if (data.translationLanguage === "yo") {
+          return Boolean(data.articleBodyYoruba && data.articleBodyYoruba.trim().length > 0)
+        }
+      }
+      return true
+    },
+    {
+      message: "Article body translation is required for your selected target language",
       path: ["articleBodyHausa"],
     },
   )

@@ -110,7 +110,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     mode: "onBlur",
     reValidateMode: "onBlur",
     defaultValues: {
-      claims: task.claims.length > 0 ? task.claims : [task.csvRow.data[1] || "Default claim"],
+      claims: task.claims.length > 0 ? task.claims : [task.csvRow.data[1] || ""],
       sourceUrl: initialSourceUrl,
       claimLinks: initialClaimLinks.length > 0 ? initialClaimLinks : [],
       articleBody: initialArticleBody,

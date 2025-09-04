@@ -509,9 +509,11 @@ export async function listDriveFiles(
 }
 
 export async function downloadCSVFile(accessToken: string, fileId: string): Promise<string[][]> {
-  const { drive } = initializeGoogleAPIs(accessToken)
-
   try {
+    const { drive } = initializeGoogleAPIs(accessToken)
+
+    console.log(`Attempting to download CSV file with ID: ${fileId}`)
+
     const response = await drive.files.get({
       fileId,
       alt: "media",
@@ -562,8 +564,10 @@ export async function downloadCSVFile(accessToken: string, fileId: string): Prom
       }
     }
 
+    console.log(`Successfully parsed CSV with ${rows.length} rows`)
     return rows
   } catch (error) {
+    console.error(`Failed to download CSV file ${fileId}:`, error)
     throw new Error(`Failed to download CSV file: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
@@ -1180,6 +1184,12 @@ export async function getFinalDataset(accessToken: string, spreadsheetId: string
       return obj
     })
   } catch (error) {
-    throw new Error(`Failed to fetch final dataset: ${error instanceof Error ? error.message : "Unknown error"}`)
+    console.warn(
+      `Failed to fetch final dataset from sheet "Annotated_Dataset":`,
+      error instanceof Error ? error.message : "Unknown error",
+    )
+    // Return empty array instead of throwing - this allows the app to continue working
+    // even if the final dataset sheet is missing or has wrong name
+    return []
   }
 }

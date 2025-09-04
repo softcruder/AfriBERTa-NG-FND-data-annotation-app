@@ -20,7 +20,7 @@ export const annotationFormSchema = z
     sourceUrl: z.string().default(""),
     // Allow blanks while editing; they will be filtered out on transform.
     claimLinks: z
-      .array(z.union([z.string().url("Must be a valid URL"), z.literal("")]))
+      .array(z.string())
       .default([])
       .transform(arr => arr.filter(link => !!link && link.trim().length > 0)),
     // Translation fields (shown/required only when claim language is EN via UI logic)
@@ -31,13 +31,37 @@ export const annotationFormSchema = z
     translationYoruba: z.string().optional(),
     isDualTranslator: z.boolean().default(false),
     needsTranslation: z.boolean(),
-    // Optional editable article body (may hold translated content in EN workflow)
-    articleBody: z.string().optional(),
+    // Article body (required for regular annotations, may hold translated content in EN workflow)
+    articleBody: z.string().min(50, "Article body is required"),
     // Dual translation article bodies
     articleBodyHausa: z.string().optional(),
     articleBodyYoruba: z.string().optional(),
-    // Verdict via select
-    verdict: VerdictEnum.optional(),
+    // Verdict via select - required for completion, with silent handling of invalid values
+    verdict: z
+      .string()
+      .transform(value => {
+        // Silently handle mapping of legacy/invalid verdict values
+        const validVerdicts = ["True", "False", "Misleading"]
+        if (validVerdicts.includes(value)) {
+          return value as "True" | "False" | "Misleading"
+        }
+        // Map common legacy values silently
+        switch (value) {
+          case "Correct":
+          case "correct":
+            return z.NEVER // Map to z.NEVER to trigger required validation
+          case "Incorrect":
+          case "incorrect":
+            return z.NEVER // Map to z.NEVER to trigger required validation
+          case "Partially Correct":
+          case "Partly True":
+            return z.NEVER // Map to z.NEVER to trigger required validation
+          default:
+            // For any other invalid value, default to undefined to trigger required validation
+            return z.NEVER
+        }
+      })
+      .pipe(CoreVerdictEnum),
     // Task validity fields
     isValid: z.boolean().default(true),
     invalidityReason: z.string().optional(),
@@ -103,7 +127,7 @@ export const annotationFormSchema = z
   .refine(
     data => {
       // If task is marked as not valid, require a reason
-      if (!data.isValid || data.verdict === "Not Valid") {
+      if (!data.isValid) {
         return Boolean(data.invalidityReason && data.invalidityReason.trim().length > 0)
       }
       return true
@@ -111,6 +135,64 @@ export const annotationFormSchema = z
     {
       message: "Please provide a reason when marking task as not valid",
       path: ["invalidityReason"],
+    },
+  )
+  .refine(
+    data => {
+      // For dual translators, if one article body is provided, both should be provided
+      if (data.isDualTranslator) {
+        const hasHausaBody = Boolean(data.articleBodyHausa && data.articleBodyHausa.trim().length > 0)
+        const hasYorubaBody = Boolean(data.articleBodyYoruba && data.articleBodyYoruba.trim().length > 0)
+
+        // If either has content, both must have content
+        if (hasHausaBody && !hasYorubaBody) {
+          return false
+        }
+      }
+      return true
+    },
+    {
+      message: "Yoruba article body is required when Hausa article body is provided",
+      path: ["articleBodyYoruba"],
+    },
+  )
+  .refine(
+    data => {
+      // For dual translators, if one article body is provided, both should be provided
+      if (data.isDualTranslator) {
+        const hasHausaBody = Boolean(data.articleBodyHausa && data.articleBodyHausa.trim().length > 0)
+        const hasYorubaBody = Boolean(data.articleBodyYoruba && data.articleBodyYoruba.trim().length > 0)
+
+        // If either has content, both must have content
+        if (hasYorubaBody && !hasHausaBody) {
+          return false
+        }
+      }
+      return true
+    },
+    {
+      message: "Hausa article body is required when Yoruba article body is provided",
+      path: ["articleBodyHausa"],
+    },
+  )
+  .refine(
+    data => {
+      // For single-language annotators doing translation, require article body translation for their language
+      if (data.needsTranslation && !data.isDualTranslator && data.translationLanguage) {
+        if (data.translationLanguage === "ha") {
+          return Boolean(data.articleBodyHausa && data.articleBodyHausa.trim().length > 0)
+        } else if (data.translationLanguage === "yo") {
+          return Boolean(data.articleBodyYoruba && data.articleBodyYoruba.trim().length > 0)
+        }
+      }
+      return true
+    },
+    {
+      message: "Article body translation is required for your selected target language",
+      path: (data) =>
+        data.translationLanguage === "yo"
+          ? ["articleBodyYoruba"]
+          : ["articleBodyHausa"],
     },
   )
 

@@ -34,11 +34,11 @@ function RegularAnnotationFormContent() {
 
   // Initialize editability based on CSV data and verdict type
   useEffect(() => {
-    const currentVerdict = watchedValues.verdict || ""
-    const ratingStatus = currentVerdict.toLowerCase()
+    const currentVerdict = watchedValues.verdict
+    const ratingStatus = currentVerdict?.toLowerCase() || ""
 
     // Claims are editable if unrated or empty
-    const isUnrated = ratingStatus === "unrated" || currentVerdict === ""
+    const isUnrated = !["true", "false", "misleading"].includes(ratingStatus) || !currentVerdict
     setCanEditClaim(isUnrated)
 
     // Verdict is editable if unrated or not a core verdict (TRUE/FALSE/MISLEADING)

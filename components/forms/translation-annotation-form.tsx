@@ -22,7 +22,7 @@ interface TranslationAnnotationFormProps {
   onCancel: () => void
 }
 
-function TranslationAnnotationFormContent() {
+function TranslationAnnotationFormContent({ user }: { user: User }) {
   const {
     watch,
     setValue,
@@ -32,6 +32,11 @@ function TranslationAnnotationFormContent() {
   const watchedValues = watch()
 
   const isDualTranslator = watchedValues.isDualTranslator || false
+  
+  // Determine if user is single-language and what language they can work with
+  const userLanguages = user.translationLanguages || []
+  const isSingleLanguageUser = userLanguages.length === 1
+  const singleLanguage = isSingleLanguageUser ? userLanguages[0] : undefined
 
   const addClaimLink = () => {
     const currentLinks = getValues("claimLinks")
@@ -117,16 +122,24 @@ function TranslationAnnotationFormContent() {
               <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
                 Target Language <span className="text-red-500">*</span>
               </Label>
-              <Tabs
-                value={watchedValues.translationLanguage || undefined}
-                onValueChange={val => setValue("translationLanguage", val as any)}
-                className="mt-2"
-              >
-                <TabsList className="grid grid-cols-2 w-fit">
-                  <TabsTrigger value="ha">Hausa</TabsTrigger>
-                  <TabsTrigger value="yo">Yoruba</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {isSingleLanguageUser ? (
+                <div className="mt-2">
+                  <Badge variant="default" className="text-sm">
+                    {singleLanguage === "ha" ? "Hausa" : "Yoruba"} (Your configured language)
+                  </Badge>
+                </div>
+              ) : (
+                <Tabs
+                  value={watchedValues.translationLanguage || undefined}
+                  onValueChange={val => setValue("translationLanguage", val as any)}
+                  className="mt-2"
+                >
+                  <TabsList className="grid grid-cols-2 w-fit">
+                    <TabsTrigger value="ha">Hausa</TabsTrigger>
+                    <TabsTrigger value="yo">Yoruba</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
               {errors.translationLanguage && (
                 <p className="text-sm text-red-600 mt-2">{errors.translationLanguage.message}</p>
               )}
@@ -164,7 +177,7 @@ function TranslationAnnotationFormContent() {
                     {v}
                   </SelectItem>
                 ))
-              : VerdictEnum.options.map(v => (
+              : CoreVerdictEnum.options.map(v => (
                   <SelectItem key={v} value={v}>
                     {v}
                   </SelectItem>
@@ -253,33 +266,77 @@ function TranslationAnnotationFormContent() {
         <>
           {/* Dual Translation Article Bodies */}
           <div>
-            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Hausa Article Body</Label>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+              Hausa Article Body <span className="text-red-500">*</span>
+            </Label>
             <Textarea
               placeholder="Enter Hausa translation of article body..."
               value={watchedValues.articleBodyHausa || ""}
               onChange={e => setValue("articleBodyHausa", e.target.value)}
               className="min-h-[140px] mt-2 break-all"
             />
+            {errors.articleBodyHausa && <p className="text-sm text-red-600 mt-2">{errors.articleBodyHausa.message}</p>}
           </div>
           <div>
-            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Yoruba Article Body</Label>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+              Yoruba Article Body <span className="text-red-500">*</span>
+            </Label>
             <Textarea
               placeholder="Enter Yoruba translation of article body..."
               value={watchedValues.articleBodyYoruba || ""}
               onChange={e => setValue("articleBodyYoruba", e.target.value)}
               className="min-h-[140px] mt-2 break-all"
             />
+            {errors.articleBodyYoruba && (
+              <p className="text-sm text-red-600 mt-2">{errors.articleBodyYoruba.message}</p>
+            )}
           </div>
+        </>
+      ) : isSingleLanguageUser ? (
+        <>
+          {/* Single Language User - Show appropriate field */}
+          {singleLanguage === "ha" ? (
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Hausa Article Body <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                placeholder="Enter Hausa translation of article body..."
+                value={watchedValues.articleBodyHausa || ""}
+                onChange={e => setValue("articleBodyHausa", e.target.value)}
+                className="min-h-[140px] mt-2 break-all"
+              />
+              {errors.articleBodyHausa && <p className="text-sm text-red-600 mt-2">{errors.articleBodyHausa.message}</p>}
+            </div>
+          ) : (
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+                Yoruba Article Body <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                placeholder="Enter Yoruba translation of article body..."
+                value={watchedValues.articleBodyYoruba || ""}
+                onChange={e => setValue("articleBodyYoruba", e.target.value)}
+                className="min-h-[140px] mt-2 break-all"
+              />
+              {errors.articleBodyYoruba && (
+                <p className="text-sm text-red-600 mt-2">{errors.articleBodyYoruba.message}</p>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <div>
-          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Translated Article Body</Label>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+            Translated Article Body <span className="text-red-500">*</span>
+          </Label>
           <Textarea
             placeholder="Enter translated article body..."
             value={watchedValues.articleBody || ""}
             onChange={e => setValue("articleBody", e.target.value)}
             className="min-h-[140px] mt-2 break-all"
           />
+          {errors.articleBody && <p className="text-sm text-red-600 mt-2">{errors.articleBody.message}</p>}
         </div>
       )}
     </>
@@ -289,7 +346,7 @@ function TranslationAnnotationFormContent() {
 export function TranslationAnnotationForm({ task, user, onComplete, onCancel }: TranslationAnnotationFormProps) {
   return (
     <BaseAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode="translation">
-      <TranslationAnnotationFormContent />
+      <TranslationAnnotationFormContent user={user} />
     </BaseAnnotationForm>
   )
 }

@@ -189,7 +189,10 @@ export const annotationFormSchema = z
     },
     {
       message: "Article body translation is required for your selected target language",
-      path: ["articleBodyHausa"],
+      path: (data) =>
+        data.translationLanguage === "yo"
+          ? ["articleBodyYoruba"]
+          : ["articleBodyHausa"],
     },
   )
 

@@ -33,8 +33,15 @@ export async function GET(
     } catch (downloadError) {
       console.error(`API: Failed to download CSV file ${fileId}:`, downloadError)
 
-      // Check if it's the specific webpack/googleapis error
-      if (downloadError instanceof Error && downloadError.message.includes("Cannot read properties of undefined")) {
+      // Check if it's likely a module loading or misconfiguration error (TypeError with undefined in stack/message)
+      if (
+        downloadError instanceof Error &&
+        downloadError.name === "TypeError" &&
+        (
+          (downloadError.stack && downloadError.stack.includes("undefined")) ||
+          (downloadError.message && downloadError.message.includes("undefined"))
+        )
+      ) {
         return NextResponse.json(
           {
             error: "Internal server error - Google APIs module loading issue",

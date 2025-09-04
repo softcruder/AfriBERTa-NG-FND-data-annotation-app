@@ -49,16 +49,16 @@ export const annotationFormSchema = z
         switch (value) {
           case "Correct":
           case "correct":
-            return undefined as any // Map to undefined to trigger required validation
+            return z.NEVER // Map to z.NEVER to trigger required validation
           case "Incorrect":
           case "incorrect":
-            return undefined as any // Map to undefined to trigger required validation
+            return z.NEVER // Map to z.NEVER to trigger required validation
           case "Partially Correct":
           case "Partly True":
-            return undefined as any // Map to undefined to trigger required validation
+            return z.NEVER // Map to z.NEVER to trigger required validation
           default:
             // For any other invalid value, default to undefined to trigger required validation
-            return undefined as any
+            return z.NEVER
         }
       })
       .pipe(CoreVerdictEnum),

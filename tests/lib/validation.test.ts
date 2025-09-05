@@ -25,6 +25,7 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -42,6 +43,8 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
+        articleBodyHausa: "This is the translated article body in Hausa language that meets the minimum character requirement.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -60,6 +63,9 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
+        articleBodyHausa: "This is the translated article body in Hausa language that meets the minimum character requirement.",
+        articleBodyYoruba: "This is the translated article body in Yoruba language that meets the minimum character requirement.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -77,6 +83,8 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
+        articleBodyYoruba: "This is the translated article body in Yoruba language that meets the minimum character requirement.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -97,6 +105,8 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
+        articleBodyHausa: "This is the translated article body in Hausa language that meets the minimum character requirement.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -115,6 +125,7 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: true,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -127,10 +138,11 @@ describe("Enhanced Validation Schema", () => {
         sourceUrl: "https://example.com",
         claimLinks: [],
         needsTranslation: false,
-        verdict: "Not Valid",
+        verdict: "True", // Still need a valid verdict even for invalid tasks
         isValid: false,
         invalidityReason: "Poor quality data",
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -146,6 +158,7 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -163,6 +176,7 @@ describe("Enhanced Validation Schema", () => {
         verdict: "True",
         isValid: true,
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -193,10 +207,11 @@ describe("Enhanced Validation Schema", () => {
         sourceUrl: "https://example.com",
         claimLinks: [],
         needsTranslation: false,
-        verdict: "Not Valid",
+        verdict: "True", // Still need a valid verdict even for invalid tasks
         isValid: false,
         // Missing invalidityReason
         isQAMode: false,
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)
@@ -215,6 +230,7 @@ describe("Enhanced Validation Schema", () => {
         isQAMode: false,
         startTime: "2024-01-01T10:00:00Z",
         endTime: "2024-01-01T11:00:00Z",
+        articleBody: "This is a test article body that is long enough to meet the minimum 50 character requirement for validation.",
       }
 
       const result = annotationFormSchema.safeParse(data)

@@ -1,6 +1,4 @@
 "use client"
-
-import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,12 +34,8 @@ interface QADashboardProps {
 }
 
 export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false)
-
   const handleRefresh = async () => {
-    setIsRefreshing(true)
     await onRefresh()
-    setIsRefreshing(false)
   }
 
   const completionRate = (metrics.completedAnnotations / metrics.totalAnnotations) * 100
@@ -56,8 +50,8 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
           <h2 className="text-2xl font-bold text-foreground">Quality Assurance Dashboard</h2>
           <p className="text-muted-foreground">Monitor annotation quality and performance metrics</p>
         </div>
-        <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline">
-          <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+        <Button onClick={handleRefresh} variant="outline">
+          <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
       </div>
@@ -135,7 +129,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {metrics.annotatorPerformance.map((annotator) => (
+                {metrics.annotatorPerformance.map(annotator => (
                   <div key={annotator.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <h4 className="font-medium">{annotator.name}</h4>
@@ -195,7 +189,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {metrics.flaggedAnnotations.map((flag) => (
+                  {metrics.flaggedAnnotations.map(flag => (
                     <Alert
                       key={flag.id}
                       className={`${
@@ -272,7 +266,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
                     <div className="flex justify-between">
                       <span className="text-sm">High Quality Annotations</span>
                       <span className="font-medium">
-                        {metrics.annotatorPerformance.filter((a) => a.qualityScore >= 8).length}
+                        {metrics.annotatorPerformance.filter(a => a.qualityScore >= 8).length}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -282,7 +276,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
                     <div className="flex justify-between">
                       <span className="text-sm">Critical Issues</span>
                       <span className="font-medium text-red-600">
-                        {metrics.flaggedAnnotations.filter((f) => f.severity === "high").length}
+                        {metrics.flaggedAnnotations.filter(f => f.severity === "high").length}
                       </span>
                     </div>
                   </div>

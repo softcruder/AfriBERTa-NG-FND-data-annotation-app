@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Shield, Clock, CheckCircle } from "lucide-react"
+import { Shield, Clock, CheckCircle, Save } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth, useUsers, useUpdateUser } from "@/custom-hooks"
+import { useRequest } from "@/hooks/useRequest"
 
 interface Annotator {
   id: string
@@ -32,117 +35,60 @@ interface Annotator {
 }
 
 export function AnnotatorManagement() {
-  const [annotators, setAnnotators] = useState<Annotator[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [newAnnotatorEmail, setNewAnnotatorEmail] = useState("")
-  const [newAnnotatorRole, setNewAnnotatorRole] = useState<"annotator" | "admin">("annotator")
+  const { toast } = useToast()
+  const { spreadsheetId, config, refresh: refreshSession } = useAuth()
+  const { data: swrUsers, isLoading: usersLoading, mutate } = useUsers(spreadsheetId)
+  const { update } = useUpdateUser()
+  const { request } = useRequest<{ success: boolean }>()
 
-  useEffect(() => {
-    loadAnnotators()
-  }, [])
+  // Derive list directly from SWR when not locally modified by us
+  const remoteAnnotators: Annotator[] = Array.isArray(swrUsers) ? (swrUsers as Annotator[]) : []
+  const isLoading = usersLoading && remoteAnnotators.length === 0
 
-  const loadAnnotators = async () => {
-    try {
-      // Mock data for now - in real implementation, this would come from your user management system
-      const mockAnnotators: Annotator[] = [
-        {
-          id: "user_1",
-          name: "John Doe",
-          email: "john.doe@example.com",
-          role: "annotator",
-          status: "active",
-          totalAnnotations: 45,
-          avgTimePerRow: 8.5,
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-          joinedDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-        },
-        {
-          id: "user_2",
-          name: "Jane Smith",
-          email: "jane.smith@example.com",
-          role: "annotator",
-          status: "active",
-          totalAnnotations: 32,
-          avgTimePerRow: 12.3,
-          lastActive: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-          joinedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-        },
-        {
-          id: "user_3",
-          name: "Mike Johnson",
-          email: "mike.johnson@example.com",
-          role: "annotator",
-          status: "inactive",
-          totalAnnotations: 18,
-          avgTimePerRow: 15.7,
-          lastActive: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-          joinedDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
-        },
-      ]
-
-      setAnnotators(mockAnnotators)
-    } catch (error) {
-      console.error("Error loading annotators:", error)
-    } finally {
-      setIsLoading(false)
-    }
+  // Admin configuration (from Config sheet)
+  const initialAdmins = useMemo(() => (config?.ADMIN_EMAILS as string) || "", [config])
+  const [adminEmails, setAdminEmails] = useState<string>(initialAdmins)
+  // keep in sync when config changes
+  if (adminEmails !== initialAdmins && initialAdmins && adminEmails === "") {
+    // when config arrives first time
+    setAdminEmails(initialAdmins)
   }
 
-  const handleInviteAnnotator = async () => {
-    if (!newAnnotatorEmail.trim()) {
-      alert("Please enter an email address")
-      return
-    }
-
+  const handleSaveAdmins = async () => {
     try {
-      // In real implementation, this would send an invitation email
-      console.log("Inviting annotator:", { email: newAnnotatorEmail, role: newAnnotatorRole })
-
-      // Mock adding to list
-      const newAnnotator: Annotator = {
-        id: `user_${Date.now()}`,
-        name: newAnnotatorEmail.split("@")[0],
-        email: newAnnotatorEmail,
-        role: newAnnotatorRole,
-        status: "inactive", // Will be active once they accept invitation
-        totalAnnotations: 0,
-        avgTimePerRow: 0,
-        lastActive: new Date().toISOString(),
-        joinedDate: new Date().toISOString(),
-      }
-
-      setAnnotators((prev) => [...prev, newAnnotator])
-      setNewAnnotatorEmail("")
-      setNewAnnotatorRole("annotator")
-
-      alert("Invitation sent successfully!")
-    } catch (error) {
-      console.error("Error inviting annotator:", error)
-      alert("Failed to send invitation")
+      const value = adminEmails.trim()
+      await request.post("/config", { entries: { ADMIN_EMAILS: value } })
+      await refreshSession()
+      toast({ title: "Saved", description: "Admin emails updated." })
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update admin emails", variant: "destructive" })
     }
   }
 
   const handleToggleStatus = async (annotatorId: string) => {
     try {
-      setAnnotators((prev) =>
-        prev.map((annotator) =>
-          annotator.id === annotatorId
-            ? { ...annotator, status: annotator.status === "active" ? "inactive" : "active" }
-            : annotator,
-        ),
-      )
+      if (!spreadsheetId) return
+
+      const annotator = remoteAnnotators.find(a => a.id === annotatorId)
+      if (!annotator) return
+
+      const newStatus = annotator.status === "active" ? "inactive" : "active"
+
+      await update({ spreadsheetId, userId: annotatorId, updates: { status: newStatus } })
+      await mutate()
     } catch (error) {
-      console.error("Error updating annotator status:", error)
+      // console.error("Error updating annotator status:", error)
     }
   }
 
   const handleRoleChange = async (annotatorId: string, newRole: "annotator" | "admin") => {
     try {
-      setAnnotators((prev) =>
-        prev.map((annotator) => (annotator.id === annotatorId ? { ...annotator, role: newRole } : annotator)),
-      )
+      if (!spreadsheetId) return
+
+      await update({ spreadsheetId, userId: annotatorId, updates: { role: newRole } })
+      await mutate()
     } catch (error) {
-      console.error("Error updating annotator role:", error)
+      // console.error("Error updating annotator role:", error)
     }
   }
 
@@ -180,45 +126,27 @@ export function AnnotatorManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Invite New Annotator */}
+      {/* Admin Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle>Invite New Annotator</CardTitle>
-          <CardDescription>Send an invitation to join the annotation team</CardDescription>
+          <CardTitle>Admin Configuration</CardTitle>
+          <CardDescription>Manage admin emails from the Config sheet (comma-separated)</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-end">
             <div className="flex-1">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="admins">Admin Emails</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="annotator@example.com"
-                value={newAnnotatorEmail}
-                onChange={(e) => setNewAnnotatorEmail(e.target.value)}
+                id="admins"
+                type="text"
+                placeholder="admin1@example.com, admin2@example.com"
+                value={adminEmails}
+                onChange={e => setAdminEmails(e.target.value)}
               />
             </div>
-            <div className="w-32">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={newAnnotatorRole}
-                onValueChange={(value: "annotator" | "admin") => setNewAnnotatorRole(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="annotator">Annotator</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleInviteAnnotator}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite
-              </Button>
-            </div>
+            <Button onClick={handleSaveAdmins}>
+              <Save className="mr-2 h-4 w-4" /> Save
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -246,7 +174,7 @@ export function AnnotatorManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {annotators.map((annotator) => (
+                {remoteAnnotators.map(annotator => (
                   <TableRow key={annotator.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -254,7 +182,7 @@ export function AnnotatorManagement() {
                           <AvatarFallback>
                             {annotator.name
                               .split(" ")
-                              .map((n) => n[0])
+                              .map(n => n[0])
                               .join("")}
                           </AvatarFallback>
                         </Avatar>

@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUserRole } from "@/lib/admin-auth"
+import { getAppConfig, upsertUserByEmail } from "@/lib/google-apis"
 import { encryptSession } from "@/lib/encryption"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, { route: "auth:google:callback:GET", limit: 10, windowMs: 3000 })
+  if (limited) return limited
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")
   const error = searchParams.get("error")
@@ -18,6 +21,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for access token
+    // Build redirect_uri dynamically from the current request to support local/prod
+    const redirectUri = `${request.nextUrl.origin}${request.nextUrl.pathname}`
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -28,7 +33,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!,
+        redirect_uri: redirectUri,
       }),
     })
 
@@ -51,32 +56,58 @@ export async function GET(request: NextRequest) {
 
     const user = await userResponse.json()
 
-    // Create session (in a real app, you'd use a proper session store)
-    const sessionData = {
+    // Create session compatible with AuthSession type used across the app
+    // Determine role from Config sheet ADMIN_EMAILS
+    let role: "admin" | "annotator" = "annotator"
+    try {
+      const appCfg = await getAppConfig(tokens.access_token)
+      const adminsStr = appCfg["ADMIN_EMAILS"] || ""
+      const admins = adminsStr
+        .split(",")
+        .map((s: string) => s.trim().toLowerCase())
+        .filter(Boolean)
+      if (admins.includes((user.email || "").toLowerCase())) role = "admin"
+    } catch {}
+
+    const session = {
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         picture: user.picture,
-        role: getUserRole(user.email), // Use admin authorization logic
+        role,
       },
-      tokens: {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: Date.now() + tokens.expires_in * 1000,
-      },
-      expiresAt: Date.now() + 60 * 60 * 24 * 7 * 1000, // 7 days
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: Date.now() + tokens.expires_in * 1000,
     }
 
     const response = NextResponse.redirect(new URL("/dashboard", request.url))
-    
+
+    // Try to upsert user into Users sheet if a spreadsheetId is configured in App Config
+    try {
+      const appCfg = await getAppConfig(tokens.access_token)
+      const spreadsheetId = appCfg["ANNOTATION_SPREADSHEET_ID"]
+      if (spreadsheetId) {
+        await upsertUserByEmail(tokens.access_token, spreadsheetId, {
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+          role: session.user.role,
+        })
+      }
+    } catch (e) {
+      // Non-blocking: failure here shouldn't prevent login
+      console.warn("User upsert skipped:", e)
+    }
+
     // Encrypt and set session cookie
-    const encryptedSession = encryptSession(JSON.stringify(sessionData))
+    const encryptedSession = encryptSession(JSON.stringify(session))
     response.cookies.set("auth_session", encryptedSession, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 604800, // 7 days in seconds
     })
 
     return response

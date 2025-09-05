@@ -6,6 +6,7 @@ export interface CSVRow {
   assigned?: boolean
   assignedTo?: string
   completed?: boolean
+  header?: string[]
 }
 
 export interface AnnotationTask {
@@ -17,7 +18,34 @@ export interface AnnotationTask {
   claims: string[]
   sourceLinks: string[]
   translation?: string
-  status: "not-started" | "in-progress" | "completed"
+  verdict?: string
+  translationLanguage?: "ha" | "yo"
+  // Dual translation fields
+  translationHausa?: string
+  translationYoruba?: string
+  articleBodyHausa?: string
+  articleBodyYoruba?: string
+  articleBody?: string
+  sourceUrl?: string
+  claimLinks?: string[]
+  status: "not-started" | "in-progress" | "completed" | "qa-pending" | "qa-approved" | "admin-review"
+  // Task validity fields
+  isValid?: boolean
+  invalidityReason?: string
+  // QA workflow tracking
+  annotatorId?: string
+  qaId?: string
+  adminId?: string
+  qaComments?: string
+  adminComments?: string
+  // Additional CSV data for export
+  csvData?: {
+    originalClaim: string
+    language: string
+    originalSourceUrl: string
+    domain: string
+    id_in_source: string
+  }
 }
 
 // Local storage keys

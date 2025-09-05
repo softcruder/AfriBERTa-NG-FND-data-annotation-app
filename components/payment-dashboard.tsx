@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
 import type { User } from "@/lib/auth"
-import { calculatePayment, calculateEfficiencyMetrics, formatCurrency, DEFAULT_RATES } from "@/lib/payment-calculator"
+import { calculatePayment, calculateEfficiencyMetrics, formatCurrency } from "@/lib/payment-calculator"
+import { useAuth, useAnnotations, usePaymentConfig } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -21,63 +22,48 @@ interface AnnotatorStats {
 }
 
 export function PaymentDashboard({ user }: PaymentDashboardProps) {
-  const [stats, setStats] = useState<AnnotatorStats>({
-    totalRows: 0,
-    translations: 0,
-    totalHours: 0,
-    completedToday: 0,
-    hoursToday: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  const { spreadsheetId } = useAuth()
+  const { data: annotations } = useAnnotations(spreadsheetId)
+  const { paymentRates } = usePaymentConfig()
 
-  useEffect(() => {
-    loadStats()
-  }, [])
-
-  const loadStats = async () => {
-    try {
-      const spreadsheetId = localStorage.getItem("annotation_spreadsheet_id")
-      if (!spreadsheetId) {
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch(`/api/annotations?spreadsheetId=${spreadsheetId}`)
-      if (!response.ok) return
-
-      const { annotations } = await response.json()
-
-      // Filter annotations for current user
-      const userAnnotations = annotations.filter((a: any) => a.annotatorId === user.id)
-
-      // Calculate stats
-      const today = new Date().toDateString()
-      const todayAnnotations = userAnnotations.filter(
-        (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
-      )
-
-      const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
-      const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
-      const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-      const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
-
-      setStats({
-        totalRows,
-        translations,
-        totalHours: totalMinutes / 60,
-        completedToday: todayAnnotations.length,
-        hoursToday: todayMinutes / 60,
-      })
-    } catch (error) {
-      console.error("Error loading stats:", error)
-    } finally {
-      setIsLoading(false)
+  const stats: AnnotatorStats = useMemo(() => {
+    const anns = annotations || []
+    if (!anns.length) {
+      return { totalRows: 0, translations: 0, totalHours: 0, completedToday: 0, hoursToday: 0 }
     }
-  }
 
-  const payment = calculatePayment(stats.totalRows, stats.translations, stats.totalHours)
+    const userAnnotations = anns.filter((a: any) => a.annotatorId === user.id)
+    const today = new Date().toDateString()
+    const todayAnnotations = userAnnotations.filter(
+      (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
+    )
+
+    const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
+    const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
+    const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+    const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+
+    return {
+      totalRows,
+      translations,
+      totalHours: totalMinutes / 60,
+      completedToday: todayAnnotations.length,
+      hoursToday: todayMinutes / 60,
+    }
+  }, [annotations, user.id])
+
+  // Calculate payment with new signature: (annotations, translations, qa, hours, rates, userLanguages)
+  const userLanguagesString = user.translationLanguages?.join(",") || ""
+  const payment = calculatePayment(
+    stats.totalRows,
+    stats.translations,
+    0,
+    stats.totalHours,
+    paymentRates,
+    userLanguagesString,
+  )
   const efficiency = calculateEfficiencyMetrics(stats.totalRows, stats.totalHours)
-  const todayPayment = calculatePayment(stats.completedToday, 0, stats.hoursToday) // Simplified for today
+  const todayPayment = calculatePayment(stats.completedToday, 0, 0, stats.hoursToday, paymentRates, userLanguagesString)
 
   const getEfficiencyColor = (status: string) => {
     switch (status) {
@@ -125,7 +111,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium">Today&apos;s Earnings</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -143,7 +129,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
             <div className={`text-2xl font-bold ${getEfficiencyColor(efficiency.status)}`}>
               {efficiency.efficiency.toFixed(0)}%
             </div>
-            <p className="text-xs text-muted-foreground">{payment.avgRowsPerHour.toFixed(1)} rows/hour</p>
+            <p className="text-xs text-muted-foreground">{payment.avgAnnotationsPerHour.toFixed(1)} rows/hour</p>
           </CardContent>
         </Card>
 
@@ -169,7 +155,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Base Payment ({stats.totalRows} rows)</span>
-              <span className="font-medium">{formatCurrency(payment.breakdown.rowPayment)}</span>
+              <span className="font-medium">{formatCurrency(payment.breakdown.annotationPayment)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">
@@ -211,11 +197,11 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Progress to Bonus</span>
                 <span className="text-sm font-medium">
-                  {stats.totalRows}/{DEFAULT_RATES.bonusThreshold} rows
+                  {stats.totalRows}/{paymentRates.bonusThreshold} rows
                 </span>
               </div>
-              <Progress value={(stats.totalRows / (DEFAULT_RATES.bonusThreshold || 50)) * 100} className="h-2" />
-              {stats.totalRows >= (DEFAULT_RATES.bonusThreshold || 50) && (
+              <Progress value={(stats.totalRows / (paymentRates.bonusThreshold || 50)) * 100} className="h-2" />
+              {stats.totalRows >= (paymentRates.bonusThreshold || 50) && (
                 <div className="flex items-center gap-1 text-orange-600">
                   <Award className="h-4 w-4" />
                   <span className="text-xs font-medium">Bonus Unlocked!</span>
@@ -225,7 +211,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="text-center">
-                <div className="text-lg font-bold">{payment.avgRowsPerHour.toFixed(1)}</div>
+                <div className="text-lg font-bold">{payment.avgAnnotationsPerHour.toFixed(1)}</div>
                 <div className="text-xs text-muted-foreground">Rows/Hour</div>
               </div>
               <div className="text-center">

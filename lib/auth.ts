@@ -1,4 +1,4 @@
-import { encryptSession, decryptSession } from './encryption'
+import { encryptSession, decryptSession } from "./encryption"
 
 // Authentication utilities and types
 export interface User {
@@ -7,6 +7,7 @@ export interface User {
   name: string
   picture?: string
   role: "annotator" | "admin"
+  translationLanguages?: string[] // Languages user can translate (comma-separated in storage)
 }
 
 export interface AuthSession {
@@ -17,28 +18,39 @@ export interface AuthSession {
 }
 
 // Google OAuth configuration
+export const GOOGLE_OAUTH_SCOPES = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/spreadsheets",
+] as const
+
 export const GOOGLE_OAUTH_CONFIG = {
   clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   redirectUri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI,
-  scopes: [
-    "openid",
-    "email",
-    "profile",
-    "https://www.googleapis.com/auth/drive.readonly",
-    "https://www.googleapis.com/auth/spreadsheets",
-  ].join(" "),
+  scopes: GOOGLE_OAUTH_SCOPES.join(" "),
 }
 
 // Helper function to generate Google OAuth URL
-export function getGoogleAuthUrl(): string {
+export function getGoogleAuthUrl(options?: { prompt?: "none" | "consent" | "select_account" }): string {
+  // Prefer dynamic origin on the client to avoid env drift between local and prod
+  const dynamicRedirect =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/auth/google/callback`
+      : GOOGLE_OAUTH_CONFIG.redirectUri
+
   const params = new URLSearchParams({
     client_id: GOOGLE_OAUTH_CONFIG.clientId || "",
-    redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri || "",
+    redirect_uri: dynamicRedirect || "",
     response_type: "code",
     scope: GOOGLE_OAUTH_CONFIG.scopes,
     access_type: "offline",
-    prompt: "consent",
   })
+
+  if (options?.prompt) {
+    params.set("prompt", options.prompt)
+  }
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
@@ -51,8 +63,9 @@ export function getStoredSession(): AuthSession | null {
     const stored = localStorage.getItem("auth_session")
     if (!stored) return null
 
-    // Parse the session data directly (no decryption on client side)
-    const session: AuthSession = JSON.parse(stored)
+    // Decrypt the session data before parsing
+    const decrypted = decryptSession(stored)
+    const session: AuthSession = JSON.parse(decrypted)
 
     // Check if session is expired
     if (Date.now() > session.expiresAt) {
@@ -70,15 +83,15 @@ export function getStoredSession(): AuthSession | null {
 
 export function storeSession(session: AuthSession): void {
   if (typeof window === "undefined") return
-  
+
   try {
     // Encrypt the session data before storing
     const sessionData = JSON.stringify(session)
     const encryptedData = encryptSession(sessionData)
     localStorage.setItem("auth_session", encryptedData)
   } catch (error) {
-    console.error('Failed to store encrypted session:', error)
-    throw new Error('Failed to store session')
+    // console.error('Failed to store encrypted session:', error)
+    throw new Error("Failed to store session")
   }
 }
 
@@ -117,7 +130,22 @@ export function getSessionFromCookie(cookieValue: string): AuthSession | null {
 
     return session
   } catch (error) {
-    console.error('Failed to decrypt session from cookie:', error)
+    // console.error('Failed to decrypt session from cookie:', error)
+    return null
+  }
+}
+
+/**
+ * Parse an encrypted session cookie value but do NOT enforce expiry.
+ * Useful for token refresh flows where the access token is expired
+ * but a refresh token is still present in the session payload.
+ */
+export function getPossiblyExpiredSession(cookieValue: string): AuthSession | null {
+  try {
+    const decryptedData = decryptSession(cookieValue)
+    const session: AuthSession = JSON.parse(decryptedData)
+    return session
+  } catch {
     return null
   }
 }
@@ -126,8 +154,8 @@ export function getSessionFromCookie(cookieValue: string): AuthSession | null {
  * Extract session from request cookies
  */
 export function getSessionFromRequest(request: Request): AuthSession | null {
-  const sessionCookie = request.headers.get('cookie')?.match(/auth_session=([^;]+)/)?.[1]
-  
+  const sessionCookie = request.headers.get("cookie")?.match(/auth_session=([^;]+)/)?.[1]
+
   if (!sessionCookie) {
     return null
   }

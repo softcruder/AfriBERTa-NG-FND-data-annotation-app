@@ -32,7 +32,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
   const watchedValues = watch()
 
   const isDualTranslator = watchedValues.isDualTranslator || false
-  
+
   // Determine if user is single-language and what language they can work with
   const userLanguages = user.translationLanguages || []
   const isSingleLanguageUser = userLanguages.length === 1
@@ -306,7 +306,9 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
                 onChange={e => setValue("articleBodyHausa", e.target.value)}
                 className="min-h-[140px] mt-2 break-all"
               />
-              {errors.articleBodyHausa && <p className="text-sm text-red-600 mt-2">{errors.articleBodyHausa.message}</p>}
+              {errors.articleBodyHausa && (
+                <p className="text-sm text-red-600 mt-2">{errors.articleBodyHausa.message}</p>
+              )}
             </div>
           ) : (
             <div>

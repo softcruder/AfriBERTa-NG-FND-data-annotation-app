@@ -235,10 +235,10 @@ export async function GET(request: NextRequest) {
           if (sourceLanguage === "en" || sourceLanguage === "english") {
             const hasHausaTranslation = completedLanguages.has("ha")
             const hasYorubaTranslation = completedLanguages.has("yo")
-            
+
             // If both languages are completed, exclude
             if (hasHausaTranslation && hasYorubaTranslation) return false
-            
+
             // If user can only work on one language, check if that language is available
             if (canTranslateHausa && !canTranslateYoruba) {
               // User can only do Hausa - show only if Hausa is not completed

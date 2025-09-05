@@ -6,6 +6,7 @@ import {
   createFinalDatasetEntries,
   getAppConfig,
   downloadCSVFile,
+  updatePaymentFormulas,
 } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
@@ -84,6 +85,14 @@ export async function POST(request: NextRequest) {
         // Don't fail the approval if final dataset creation fails
         console.warn("Failed to create final dataset entries:", finalDatasetError)
       }
+    }
+
+    // Update payment formulas to reflect QA activities and approval status changes
+    try {
+      await updatePaymentFormulas(session!.accessToken, spreadsheetId)
+    } catch (paymentError) {
+      // Don't fail the verification if payment update fails, but log it
+      console.warn("Failed to update payment formulas after QA:", paymentError)
     }
 
     return NextResponse.json({

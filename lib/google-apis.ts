@@ -44,6 +44,13 @@ export interface PaymentSummary {
   paymentRows: number
   paymentTranslations: number
   totalPayment: number
+  // QA-related fields
+  qaCount: number
+  qaTotal: number
+  // Approved items for redeemable calculations
+  approvedAnnotations: number
+  approvedTranslations: number
+  redeemableAmount: number
 }
 
 // Simple key-value app configuration stored in a dedicated spreadsheet within the AfriBERTa folder
@@ -800,10 +807,58 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
   }
 }
 
+export async function ensurePaymentSheetHeaders(accessToken: string, spreadsheetId: string): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  try {
+    // Check if Payments sheet exists and has proper headers
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Payments!A1:M1",
+    })
+
+    const headers = response.data.values?.[0] || []
+    const expectedHeaders = [
+      "Annotator_ID",
+      "Total_Rows",
+      "Translations",
+      "Avg_Rows_Per_Hour",
+      "Total_Hours",
+      "Payment_Annotations",
+      "Payment_Translations",
+      "Total_Payment",
+      "QA_Count",
+      "QA_Total",
+      "Approved_Annotations",
+      "Approved_Translations",
+      "Redeemable_Amount",
+    ]
+
+    // If headers don't match or don't exist, update them
+    if (headers.length !== expectedHeaders.length || !expectedHeaders.every((h, i) => h === headers[i])) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: "Payments!A1:M1",
+        valueInputOption: "USER_ENTERED",
+        requestBody: {
+          values: [expectedHeaders],
+        },
+      })
+    }
+  } catch (error) {
+    throw new Error(
+      `Failed to ensure payment sheet headers: ${error instanceof Error ? error.message : "Unknown error"}`,
+    )
+  }
+}
+
 export async function updatePaymentFormulas(accessToken: string, spreadsheetId: string): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   try {
+    // Ensure payment sheet has proper headers
+    await ensurePaymentSheetHeaders(accessToken, spreadsheetId)
+
     // Get current payment configuration
     const config = await getAppConfigSafe(accessToken)
     const rates = parsePaymentRatesFromConfig(config)
@@ -811,8 +866,13 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
     const annotations = await getAnnotations(accessToken, spreadsheetId)
     const annotatorIds = [...new Set(annotations.map(a => a.annotatorId))]
 
+    // Get current users to map annotator IDs to emails for QA counting
+    const users = await getUsers(accessToken, spreadsheetId)
+    const userIdToEmail = new Map(users.map(u => [u.id, u.email]))
+
     const paymentRows = annotatorIds.map((annotatorId, index) => {
       const rowNum = index + 2 // Starting from row 2 (after header)
+      const userEmail = userIdToEmail.get(annotatorId) || annotatorId // fallback to ID if email not found
       return [
         annotatorId,
         `=COUNTIF(Annotations_Log!B:B,"${annotatorId}")`, // Total_Rows
@@ -822,13 +882,18 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
         `=B${rowNum}*${rates.annotation}`, // Payment_Annotations (configurable per annotation)
         `=C${rowNum}*${rates.translationRegular}`, // Payment_Translations (configurable per translation)
         `=F${rowNum}+G${rowNum}`, // Total_Payment
+        `=COUNTIF(Annotations_Log!J:J,"${userEmail}")`, // QA_Count (where user performed QA - by checking verifiedBy email)
+        `=I${rowNum}*${rates.qa}`, // QA_Total (QA payment)
+        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!I:I,"qa-approved")`, // Approved_Annotations
+        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>",Annotations_Log!I:I,"qa-approved")`, // Approved_Translations
+        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+(I${rowNum}*${rates.qa})`, // Redeemable_Amount (only approved items + QA)
       ]
     })
 
     if (paymentRows.length > 0) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Payments!A2:H${paymentRows.length + 1}`,
+        range: `Payments!A2:M${paymentRows.length + 1}`, // Extended to include new columns
         valueInputOption: "USER_ENTERED",
         requestBody: {
           values: paymentRows,
@@ -846,7 +911,7 @@ export async function getPaymentSummaries(accessToken: string, spreadsheetId: st
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Payments!A2:H",
+      range: "Payments!A2:M", // Extended to include new columns
     })
 
     const rows = response.data.values || []
@@ -859,6 +924,11 @@ export async function getPaymentSummaries(accessToken: string, spreadsheetId: st
       paymentRows: Number.parseInt(row[5]) || 0,
       paymentTranslations: Number.parseInt(row[6]) || 0,
       totalPayment: Number.parseInt(row[7]) || 0,
+      qaCount: Number.parseInt(row[8]) || 0,
+      qaTotal: Number.parseInt(row[9]) || 0,
+      approvedAnnotations: Number.parseInt(row[10]) || 0,
+      approvedTranslations: Number.parseInt(row[11]) || 0,
+      redeemableAmount: Number.parseInt(row[12]) || 0,
     }))
   } catch (error) {
     throw new Error(`Failed to get payment summaries: ${error instanceof Error ? error.message : "Unknown error"}`)

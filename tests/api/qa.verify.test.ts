@@ -20,10 +20,18 @@ vi.mock("@/lib/rate-limit", () => ({
 
 const updateMock = vi.fn()
 const getAnnotationsMock = vi.fn()
+const createFinalDatasetEntriesMock = vi.fn()
+const getAppConfigMock = vi.fn()
+const downloadCSVFileMock = vi.fn()
+const updatePaymentFormulasMock = vi.fn()
 
 vi.mock("@/lib/google-apis", () => ({
   updateAnnotationStatus: (...args: any[]) => updateMock(...args),
   getAnnotations: (...args: any[]) => getAnnotationsMock(...args),
+  createFinalDatasetEntries: (...args: any[]) => createFinalDatasetEntriesMock(...args),
+  getAppConfig: (...args: any[]) => getAppConfigMock(...args),
+  downloadCSVFile: (...args: any[]) => downloadCSVFileMock(...args),
+  updatePaymentFormulas: (...args: any[]) => updatePaymentFormulasMock(...args),
 }))
 
 function makeRequest(body: any) {

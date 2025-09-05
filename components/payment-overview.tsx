@@ -20,6 +20,11 @@ interface PaymentSummary {
   paymentRows: number
   paymentTranslations: number
   totalPayment: number
+  qaCount: number
+  qaTotal: number
+  approvedAnnotations: number
+  approvedTranslations: number
+  redeemableAmount: number
 }
 
 export function PaymentOverview() {
@@ -54,6 +59,11 @@ export function PaymentOverview() {
       "Payment (Rows)",
       "Payment (Translations)",
       "Total Payment",
+      "QA Count",
+      "QA Payment",
+      "Approved Annotations",
+      "Approved Translations",
+      "Redeemable Amount",
     ]
 
     const csvContent = [
@@ -69,6 +79,11 @@ export function PaymentOverview() {
           `₦${p.paymentRows}`,
           `₦${p.paymentTranslations}`,
           `₦${p.totalPayment}`,
+          p.qaCount,
+          `₦${p.qaTotal}`,
+          p.approvedAnnotations,
+          p.approvedTranslations,
+          `₦${p.redeemableAmount}`,
         ].join(","),
       ),
     ].join("\n")
@@ -89,43 +104,56 @@ export function PaymentOverview() {
   }
 
   const totalPayments = payments.reduce((sum, p) => sum + p.totalPayment, 0)
+  const totalRedeemable = payments.reduce((sum, p) => sum + p.redeemableAmount, 0)
   const totalRows = payments.reduce((sum, p) => sum + p.totalRows, 0)
   const totalTranslations = payments.reduce((sum, p) => sum + p.translations, 0)
+  const totalQA = payments.reduce((sum, p) => sum + p.qaCount, 0)
 
   return (
     <div className="space-y-6">
       {/* Payment Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Payments Due</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Earned</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatMoney("₦", totalPayments)}</div>
-            <p className="text-xs text-muted-foreground">across all annotators</p>
+            <p className="text-xs text-muted-foreground">all activities</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Rows</CardTitle>
+            <CardTitle className="text-sm font-medium">Redeemable</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatMoney("₦", totalRedeemable)}</div>
+            <p className="text-xs text-muted-foreground">approved only</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Annotations</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalRows}</div>
-            <p className="text-xs text-muted-foreground">completed annotations</p>
+            <p className="text-xs text-muted-foreground">completed</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Translations</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">QA Reviews</CardTitle>
+            <FileText className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalTranslations}</div>
-            <p className="text-xs text-muted-foreground">with translations</p>
+            <div className="text-2xl font-bold">{totalQA}</div>
+            <p className="text-xs text-muted-foreground">performed</p>
           </CardContent>
         </Card>
 
@@ -169,13 +197,12 @@ export function PaymentOverview() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Annotator</TableHead>
-                  <TableHead>Rows</TableHead>
+                  <TableHead>Annotations</TableHead>
                   <TableHead>Translations</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Row Payment</TableHead>
-                  <TableHead>Translation Payment</TableHead>
-                  <TableHead>Total</TableHead>
+                  <TableHead>QA Count</TableHead>
+                  <TableHead>Approved</TableHead>
+                  <TableHead>Total Earned</TableHead>
+                  <TableHead>Redeemable</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -198,18 +225,42 @@ export function PaymentOverview() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{payment.totalRows}</Badge>
+                      <div className="space-y-1">
+                        <Badge variant="outline">{payment.totalRows}</Badge>
+                        <div className="text-xs text-muted-foreground">{payment.avgRowsPerHour.toFixed(1)}/hr</div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{payment.translations}</Badge>
                     </TableCell>
-                    <TableCell>{payment.totalHours.toFixed(1)}h</TableCell>
-                    <TableCell>{payment.avgRowsPerHour.toFixed(1)}/hr</TableCell>
-                    <TableCell>{formatMoney("₦", payment.paymentRows)}</TableCell>
-                    <TableCell>{formatMoney("₦", payment.paymentTranslations)}</TableCell>
                     <TableCell>
-                      <Badge variant="default" className="bg-orange-100 text-orange-800">
-                        {formatMoney("₦", payment.totalPayment)}
+                      <div className="space-y-1">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                          {payment.qaCount}
+                        </Badge>
+                        <div className="text-xs text-muted-foreground">{formatMoney("₦", payment.qaTotal)}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm">
+                          <span className="text-green-600">{payment.approvedAnnotations}</span>
+                          {payment.approvedTranslations > 0 && (
+                            <span className="text-muted-foreground"> + {payment.approvedTranslations}T</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">approved</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant="outline">{formatMoney("₦", payment.totalPayment)}</Badge>
+                        <div className="text-xs text-muted-foreground">all activities</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        {formatMoney("₦", payment.redeemableAmount)}
                       </Badge>
                     </TableCell>
                   </TableRow>

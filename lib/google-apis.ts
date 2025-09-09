@@ -593,37 +593,96 @@ export async function logAnnotation(
   const { sheets } = initializeGoogleAPIs(accessToken)
 
   try {
+    await ensureAnnotationLogHeaders(accessToken, spreadsheetId)
+
+    // Defensive normalization to prevent misalignment / blank IDs
+    const rowId = (annotation.rowId || "").trim()
+    const annotatorId = (annotation.annotatorId || "").trim()
+    if (!rowId) throw new Error("Annotation rowId is required")
+    if (!annotatorId) throw new Error("Annotation annotatorId is required")
+
+    const values: (string | number)[] = [
+      rowId,
+      annotatorId,
+      annotation.claimText || "",
+      (annotation.sourceLinks || []).filter(Boolean).join("; "),
+      annotation.translation || "",
+      annotation.startTime || new Date().toISOString(),
+      annotation.endTime || "",
+      annotation.durationMinutes ?? "",
+      annotation.status || "completed",
+      annotation.verifiedBy || "",
+      annotation.verdict || "",
+      annotation.sourceUrl || "",
+      (annotation.claimLinks || []).filter(Boolean).join("; "),
+      annotation.claim_text_ha || "",
+      annotation.claim_text_yo || "",
+      annotation.article_body_ha || "",
+      annotation.article_body_yo || "",
+      annotation.translationLanguage || "",
+    ]
+
+    // Always append using just the sheet name so Sheets computes the table range itself
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Annotations_Log!A:R",
+      range: "Annotations_Log",
       valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [
-          [
-            annotation.rowId,
-            annotation.annotatorId,
-            annotation.claimText,
-            annotation.sourceLinks.join("; "),
-            annotation.translation || "",
-            annotation.startTime,
-            annotation.endTime || "",
-            annotation.durationMinutes || "",
-            annotation.status,
-            annotation.verifiedBy || "",
-            annotation.verdict || "",
-            annotation.sourceUrl || "",
-            (annotation.claimLinks || []).join("; "),
-            annotation.claim_text_ha || "",
-            annotation.claim_text_yo || "",
-            annotation.article_body_ha || "",
-            annotation.article_body_yo || "",
-            annotation.translationLanguage || "",
-          ],
-        ],
-      },
+      requestBody: { values: [values] },
     })
   } catch (error) {
     throw new Error(`Failed to log annotation: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
+/** Ensure the Annotations_Log sheet exists and has exactly the expected headers in the expected order. */
+export async function ensureAnnotationLogHeaders(accessToken: string, spreadsheetId: string): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  const expected = [
+    "Row_ID",
+    "Annotator_ID",
+    "Claim_Text",
+    "Source_Links",
+    "Translation",
+    "Start_Time",
+    "End_Time",
+    "Duration_Minutes",
+    "Status",
+    "Verified_By",
+    "Verdict",
+    "Source_URL",
+    "Claim_Links",
+    "Claim_Text_HA",
+    "Claim_Text_YO",
+    "Article_Body_HA",
+    "Article_Body_YO",
+    "Translation_Language",
+  ]
+
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Annotations_Log!A1:R1",
+    })
+    const headers = res.data.values?.[0] || []
+    let needsUpdate = false
+    if (headers.length !== expected.length) needsUpdate = true
+    else if (!expected.every((h, i) => headers[i] === h)) needsUpdate = true
+    if (needsUpdate) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: "Annotations_Log!A1:R1",
+        valueInputOption: "RAW",
+        requestBody: { values: [expected] },
+      })
+    }
+  } catch (e) {
+    // If sheet doesn't exist or error reading, attempt to write headers (will create sheet implicitly when possible)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: "Annotations_Log!A1:R1",
+      valueInputOption: "RAW",
+      requestBody: { values: [expected] },
+    })
   }
 }
 
@@ -864,7 +923,7 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
     const rates = parsePaymentRatesFromConfig(config)
 
     const annotations = await getAnnotations(accessToken, spreadsheetId)
-    const annotatorIds = [...new Set(annotations.map(a => a.annotatorId))]
+    const annotatorIds = [...new Set(annotations.map(a => a.annotatorId.trim()).filter(Boolean))]
 
     // Get current users to map annotator IDs to emails for QA counting
     const users = await getUsers(accessToken, spreadsheetId)
@@ -886,7 +945,7 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
         `=I${rowNum}*${rates.qa}`, // QA_Total (QA payment)
         `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!I:I,"qa-approved")`, // Approved_Annotations
         `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>",Annotations_Log!I:I,"qa-approved")`, // Approved_Translations
-        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+(I${rowNum}*${rates.qa})`, // Redeemable_Amount (only approved items + QA)
+        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+J${rowNum}`, // Redeemable_Amount (only approved items + QA total)
       ]
     })
 

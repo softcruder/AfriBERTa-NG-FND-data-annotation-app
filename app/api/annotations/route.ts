@@ -6,6 +6,7 @@ import {
   initializeGoogleAPIs,
   appendFinalDatasetRow,
   getAppConfig,
+  type AnnotationRow,
 } from "@/lib/google-apis"
 import { requireSession } from "@/lib/server-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
@@ -55,6 +56,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    // Basic validation of critical fields
+    if (!annotation.rowId || !annotation.annotatorId) {
+      return NextResponse.json(
+        { error: "Invalid annotation payload", details: "rowId and annotatorId are required" },
+        { status: 400 },
+      )
+    }
+
+    // Defensive trimming
+    annotation.rowId = (annotation.rowId || "").trim()
+    annotation.annotatorId = (annotation.annotatorId || "").trim()
+
     // Ensure annotator can only log their own annotations
     if (session!.user.role === "annotator" && annotation.annotatorId !== session!.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
@@ -80,8 +93,8 @@ export async function POST(request: NextRequest) {
         .forEach(l => newLinks.add(l))
 
       // Check for duplicates
-      const dup = existing.find(row => {
-        if ((row.rowId || "").trim() === newRowId && newRowId) return true
+      const dup = existing.find((row: AnnotationRow) => {
+        if (newRowId && (row.rowId || "").trim() === newRowId) return true
         const rowLinks = new Set<string>()
         ;[row.sourceUrl || "", ...(row.sourceLinks || []), ...(row.claimLinks || [])]
           .map(normalize)

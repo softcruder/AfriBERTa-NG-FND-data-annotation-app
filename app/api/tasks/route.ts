@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
 import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset, getUserByEmail } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { csvCache, annotationsCache, finalDatasetCache, usersCache } from "./cache"
 
 /**
  * List available tasks (rows) from the configured source CSV with pagination.
@@ -11,7 +12,7 @@ import { enforceRateLimit } from "@/lib/rate-limit"
  * - fileId: optional override the CSV file id; if missing, use config[CSV_FILE_ID]
  */
 // naive in-memory cache for CSV per fileId to reduce repeated downloads within a short window
-export const csvCache = new Map<string, { data: string[][]; ts: number }>()
+// moved to ./cache for test access
 const CONFIG = {
   CSV_TTL_MS: 30_000,
   ANNOTATION_TTL_MS: 60_000,
@@ -21,11 +22,8 @@ const CONFIG = {
   MAX_PAGE_SIZE: 100,
 } as const
 
-export const annotationCache = new Map<string, { rowIds: Set<string>; ts: number }>()
-// Lightweight caches for Google Sheet-driven data
-const annotationsCache = new Map<string, { anns: any[]; ts: number }>()
-const finalDatasetCache = new Map<string, { ids: Set<string>; ts: number }>()
-const usersCache = new Map<string, { byEmail: Map<string, { langs: string[]; ts: number }>; ts: number }>()
+// Lightweight caches for Google Sheet-driven data (scoped to this module only)
+// These are intentionally not exported to satisfy Next.js route module constraints
 // const ANNOTATION_TTL_MS = 60_000 // Cache annotations longer than CSV
 
 export async function GET(request: NextRequest) {
@@ -185,7 +183,7 @@ export async function GET(request: NextRequest) {
       try {
         // Fetch all annotations to analyze completion by language (with caching)
         let anns: any[]
-        let cachedAnns = annotationsCache.get(spreadsheetId)
+        const cachedAnns = annotationsCache.get(spreadsheetId)
         if (cachedAnns && now - cachedAnns.ts < CONFIG.ANNOTATION_TTL_MS) {
           anns = cachedAnns.anns
         } else {

@@ -297,7 +297,6 @@ export async function GET(request: NextRequest) {
           const userLanguages = currentUserLanguages
           const canTranslateHausa = userLanguages.includes("ha")
           const canTranslateYoruba = userLanguages.includes("yo")
-          console.log("User languages:", userLanguages, canTranslateHausa, canTranslateYoruba)
 
           // For English source tasks, check language-specific completion and capabilities
           if (sourceLanguage === "en" || sourceLanguage === "english") {

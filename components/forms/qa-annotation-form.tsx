@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
-import { VerdictEnum, CoreVerdictEnum, isCoreVerdict, type AnnotationFormData } from "@/lib/validation"
+import { VerdictEnum, isCoreVerdict, type AnnotationFormData } from "@/lib/validation"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
-import { BaseAnnotationForm } from "./base-annotation-form"
 import { useState, useEffect } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertTriangle } from "lucide-react"
@@ -88,7 +87,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
               <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claim Text (Hausa)</Label>
               <Textarea
                 value={(watchedValues as any).translationHausa || ""}
-                onChange={e => editMode && setValue("translationHausa" as any, e.target.value)}
+                onChange={(e) => editMode && setValue("translationHausa" as any, e.target.value)}
                 disabled={!editMode}
                 className="min-h-[100px] mt-2"
               />
@@ -97,7 +96,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
               <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claim Text (Yoruba)</Label>
               <Textarea
                 value={(watchedValues as any).translationYoruba || ""}
-                onChange={e => editMode && setValue("translationYoruba" as any, e.target.value)}
+                onChange={(e) => editMode && setValue("translationYoruba" as any, e.target.value)}
                 disabled={!editMode}
                 className="min-h-[100px] mt-2"
               />
@@ -112,7 +111,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
               <Textarea
                 key={index}
                 value={claim}
-                onChange={e => {
+                onChange={(e) => {
                   if (editMode) {
                     const currentClaims = watchedValues.claims
                     const updatedClaims = currentClaims.map((c, i) => (i === index ? e.target.value : c))
@@ -136,23 +135,16 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
             {watchedValues.verdict || "Not Set"}
           </Badge>
           {editMode && (
-            <Select value={watchedValues.verdict || undefined} onValueChange={val => setValue("verdict", val as any)}>
+            <Select value={watchedValues.verdict || undefined} onValueChange={(val) => setValue("verdict", val as any)}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Change verdict" />
               </SelectTrigger>
               <SelectContent>
-                {/* Show only core verdicts if current verdict is not a core verdict */}
-                {!isCoreVerdict(watchedValues.verdict || "")
-                  ? CoreVerdictEnum.options.map(v => (
-                      <SelectItem key={v} value={v}>
-                        {v}
-                      </SelectItem>
-                    ))
-                  : VerdictEnum.options.map(v => (
-                      <SelectItem key={v} value={v}>
-                        {v}
-                      </SelectItem>
-                    ))}
+                {VerdictEnum.options.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
@@ -193,7 +185,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
                 <Input
                   value={String(link || "")}
                   disabled={!editMode}
-                  onChange={e => {
+                  onChange={(e) => {
                     if (editMode) {
                       const currentLinks = watchedValues.claimLinks
                       const updatedLinks = currentLinks.map((l, i) => (i === index ? e.target.value : l))
@@ -226,7 +218,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
             <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Article Body (Hausa)</Label>
             <Textarea
               value={(watchedValues as any).articleBodyHausa || ""}
-              onChange={e => editMode && setValue("articleBodyHausa" as any, e.target.value)}
+              onChange={(e) => editMode && setValue("articleBodyHausa" as any, e.target.value)}
               disabled={!editMode}
               className="min-h-[120px] mt-2"
             />
@@ -235,7 +227,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
             <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Article Body (Yoruba)</Label>
             <Textarea
               value={(watchedValues as any).articleBodyYoruba || ""}
-              onChange={e => editMode && setValue("articleBodyYoruba" as any, e.target.value)}
+              onChange={(e) => editMode && setValue("articleBodyYoruba" as any, e.target.value)}
               disabled={!editMode}
               className="min-h-[120px] mt-2"
             />
@@ -246,7 +238,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
           <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Article Body</Label>
           <Textarea
             value={watchedValues.articleBody || ""}
-            onChange={e => editMode && setValue("articleBody", e.target.value)}
+            onChange={(e) => editMode && setValue("articleBody", e.target.value)}
             disabled={!editMode}
             className="min-h-[140px] mt-2"
           />
@@ -259,7 +251,7 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
         <Textarea
           placeholder="Add your review comments..."
           value={watchedValues.qaComments || ""}
-          onChange={e => setValue("qaComments", e.target.value)}
+          onChange={(e) => setValue("qaComments", e.target.value)}
           className="min-h-[100px] mt-2"
         />
         {errors.qaComments && <p className="text-sm text-red-600 mt-2">{errors.qaComments.message}</p>}

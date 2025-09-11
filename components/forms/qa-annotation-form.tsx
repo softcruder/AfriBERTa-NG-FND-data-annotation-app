@@ -16,6 +16,7 @@ import { BaseAnnotationForm } from "./base-annotation-form"
 import { useState, useEffect } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertTriangle } from "lucide-react"
+import { BaseQAForm } from "./base-qa-form"
 
 interface QAAnnotationFormProps {
   task: AnnotationTask
@@ -272,8 +273,8 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
 
 export function QAAnnotationForm({ task, user, onComplete, onCancel }: QAAnnotationFormProps) {
   return (
-    <BaseAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode="qa">
+    <BaseQAForm task={task} user={user} onComplete={onComplete} onCancel={onCancel}>
       <QAAnnotationFormContent task={task} user={user} />
-    </BaseAnnotationForm>
+    </BaseQAForm>
   )
 }

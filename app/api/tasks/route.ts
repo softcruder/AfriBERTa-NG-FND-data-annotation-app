@@ -160,8 +160,16 @@ export async function GET(request: NextRequest) {
       )
     }
     let rows = data.slice(1)
+    // Pre-index CSV rows by rowId for fast lookup later
+    const rowById = new Map<string, string[]>()
+    for (const r of rows) {
+      const rid = (r?.[0] || "").trim()
+      if (rid) rowById.set(rid, r)
+    }
 
     // Exclude rows already worked on by matching CSV ID (first column) with annotation rowIds
+
+    const targetsRemainingMap = new Map<string, string[]>()
     // For dual-language workflow: only exclude if ALL required languages are completed
     const spreadsheetId = cfg["ANNOTATION_SPREADSHEET_ID"]
     if (spreadsheetId) {
@@ -172,9 +180,12 @@ export async function GET(request: NextRequest) {
         // Create a map to track which languages have been translated for each row
         const translationMap = new Map<string, Set<string>>()
 
+        // Pre-collect IDs present in CSV for quick checking
+        const csvIds = new Set(rows.map(r => (r?.[0] || "").trim()).filter(Boolean))
+
         anns.forEach(annotation => {
           const rowId = (annotation.rowId || "").trim()
-          if (!rowId) return
+          if (!rowId || !csvIds.has(rowId)) return
 
           if (!translationMap.has(rowId)) {
             translationMap.set(rowId, new Set())
@@ -189,7 +200,7 @@ export async function GET(request: NextRequest) {
 
           // For non-English source language tasks, consider them complete once annotated
           // This is determined by checking if the source language is NOT English
-          const csvRowData = rows.find(r => (r[0] || "").trim() === rowId)
+          const csvRowData = rowById.get(rowId)
           if (csvRowData) {
             const sourceLanguage = (csvRowData[4] || "").trim().toLowerCase()
             if (sourceLanguage !== "en" && sourceLanguage !== "english") {
@@ -206,8 +217,8 @@ export async function GET(request: NextRequest) {
           try {
             const finalDataset = await getFinalDataset(session!.accessToken, finalSpreadsheetId)
             finalDataset.forEach((item: any) => {
-              if (item.id_in_source || item.id) {
-                finalDatasetIds.add((item.id_in_source || item.id).toString().trim())
+              if (item.id_in_source) {
+                finalDatasetIds.add(item.id_in_source?.toString().trim())
               }
             })
           } catch (finalError) {
@@ -216,12 +227,18 @@ export async function GET(request: NextRequest) {
         }
 
         // Filter out rows based on completion status and user language capabilities
-        rows = rows.filter(row => {
+        // Compute final filter and attach hints with a single pass
+        const filtered: string[][] = []
+
+        for (const row of rows) {
           const rowId = (row[0] || "").trim()
-          if (!rowId) return true
+          if (!rowId) {
+            filtered.push(row)
+            continue
+          }
 
           // If already in final dataset, exclude
-          if (finalDatasetIds.has(rowId)) return false
+          if (finalDatasetIds.has(rowId)) continue
 
           const sourceLanguage = (row[4] || "").trim().toLowerCase()
           const completedLanguages = translationMap.get(rowId) || new Set()
@@ -237,27 +254,32 @@ export async function GET(request: NextRequest) {
             const hasYorubaTranslation = completedLanguages.has("yo")
 
             // If both languages are completed, exclude
-            if (hasHausaTranslation && hasYorubaTranslation) return false
+            if (hasHausaTranslation && hasYorubaTranslation) continue
 
             // If user can only work on one language, check if that language is available
-            if (canTranslateHausa && !canTranslateYoruba) {
-              // User can only do Hausa - show only if Hausa is not completed
-              return !hasHausaTranslation
-            } else if (canTranslateYoruba && !canTranslateHausa) {
-              // User can only do Yoruba - show only if Yoruba is not completed
-              return !hasYorubaTranslation
-            } else if (canTranslateHausa && canTranslateYoruba) {
-              // Dual translator - show if either language is not completed
-              return !hasHausaTranslation || !hasYorubaTranslation
-            } else {
-              // User has no translation capabilities - exclude all English tasks
-              return false
+            let include = false
+            const remaining: string[] = []
+            if (canTranslateHausa && !hasHausaTranslation) {
+              include = true
+              remaining.push("ha")
             }
+            if (canTranslateYoruba && !hasYorubaTranslation) {
+              include = true
+              remaining.push("yo")
+            }
+            if (!include) continue
+            targetsRemainingMap.set(rowId, remaining)
+            filtered.push(row)
+            continue
           }
 
           // For non-English tasks, exclude if any annotation exists
-          return !completedLanguages.has("completed")
-        })
+          if (!completedLanguages.has("completed")) {
+            filtered.push(row)
+          }
+        }
+
+        rows = filtered
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         if (message.includes("quota") || message.includes("rate") || message.includes("429")) {
@@ -285,6 +307,11 @@ export async function GET(request: NextRequest) {
       index: start + idx + 1, // original index starting from 1 after header
       data: row,
       header,
+      // For EN rows, surface which targets remain available for this user
+      targetsRemaining:
+        (row[4] || "").trim().toLowerCase() === "en" || (row[4] || "").trim().toLowerCase() === "english"
+          ? targetsRemainingMap?.get((row[0] || "").trim()) || []
+          : undefined,
     }))
 
     return NextResponse.json({ items, total, page, pageSize })

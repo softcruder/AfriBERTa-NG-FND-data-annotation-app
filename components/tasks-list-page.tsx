@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/custom-hooks"
+import { Badge } from "@/components/ui/badge"
 import { useTasks } from "@/custom-hooks/useTasks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -29,7 +30,7 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
     isLoading,
     mutate,
   } = useTasks({ page: currentPage, pageSize, fileId: csvFileId || undefined })
-  const tasks = tasksResp?.items ?? []
+  const tasksRaw = tasksResp?.items ?? []
   const total = tasksResp?.total ?? 0
 
   // If redirected here after a save with ?refresh=1, trigger a refetch once
@@ -72,6 +73,9 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
     updatePageInURL(newPage)
   }
 
+  // Trust server-side filtering; just display items
+  const tasks = tasksRaw
+
   return (
     <div className="container mx-auto p-6">
       <Card>
@@ -109,6 +113,8 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
               tasks.map(t => {
                 const idCol = (t.data?.[0] || "").trim()
                 const rowId = idCol || `${csvFileId ?? ""}_${t.index}`
+                const lang = (t.data?.[4] || "").trim().toLowerCase() || "unknown"
+                const remaining = (t as any).targetsRemaining as string[] | undefined
                 return (
                   <div
                     key={rowId}
@@ -116,7 +122,15 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-muted-foreground">ID: {idCol || "(none)"}</div>
-                      <div className="font-medium truncate">{t.data[1] || t.data[0] || "(empty)"}</div>
+                      <div className="font-medium truncate flex items-center gap-2">
+                        <span className="truncate">{t.data[1] || t.data[0] || "(empty)"}</span>
+                        <Badge variant="outline" className="shrink-0 uppercase">
+                          {lang}
+                        </Badge>
+                        {remaining && remaining.length > 0 && (
+                          <span className="text-xs text-muted-foreground">→ needs: {remaining.join(", ")}</span>
+                        )}
+                      </div>
                     </div>
                     <Link className="w-full sm:w-auto" href={`${basePath}/annotate/${encodeURIComponent(rowId)}`}>
                       <Button size="sm" className="gap-2 w-full sm:w-auto">

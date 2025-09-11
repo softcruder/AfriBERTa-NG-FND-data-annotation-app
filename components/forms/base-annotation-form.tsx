@@ -5,13 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+// import { Input } from "@/components/ui/input" // Not used here
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { Clock, ArrowLeft, ExternalLink, Pause, Play, Save, AlertTriangle } from "lucide-react"
+import { Clock, ArrowLeft, Pause, Play, Save, AlertTriangle } from "lucide-react"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
 import { setCurrentTask } from "@/lib/data-store"
@@ -25,7 +25,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 interface BaseAnnotationFormProps {
   task: AnnotationTask
   user: User
-  onComplete: (task: AnnotationTask) => void
+  onComplete: (task: AnnotationTask) => Promise<void> | void
   onCancel: () => void
   mode: "annotation" | "translation"
   children: React.ReactNode
@@ -36,6 +36,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
   const [submitting, setSubmitting] = useState(false)
   const [markAsInvalid, setMarkAsInvalid] = useState(false)
   const { toast } = useToast()
+  // API submission is delegated to the parent (annotate-task-page); no direct API calls here
 
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
@@ -253,7 +254,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     }
   }
 
-  const onSubmit = (data: AnnotationFormData) => {
+  const onSubmit = async (data: AnnotationFormData) => {
     if (submitting) return
 
     setSubmitting(true)
@@ -263,16 +264,6 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     let finalTranslation = data.translation
     let finalTranslationLanguage = data.translationLanguage
     let finalClaims = data.claims
-
-    if (needsTranslation && data.isDualTranslator) {
-      // For dual translators, use both translations combined
-      finalTranslation = `Hausa: ${data.translationHausa || ""}\nYoruba: ${data.translationYoruba || ""}`
-      finalTranslationLanguage = "ha" // Set a default, but we have both
-      // Update claims to reflect both translations
-      finalClaims = [data.translationHausa || "", data.translationYoruba || ""].filter(Boolean)
-    } else if (needsTranslation && data.translation) {
-      finalClaims = [data.translation]
-    }
 
     const completedTask: AnnotationTask = {
       ...task,
@@ -300,13 +291,19 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
         originalClaim: task.csvRow.data[1] || "",
         language: task.csvRow.data[4] || "",
         originalSourceUrl: task.csvRow.data[7] || "",
-        domain: task.csvRow.data[6] || task.csvRow.data[8] || "", // Try different columns for domain
+        domain: task.csvRow.data[3] || task.csvRow.data[8] || "", // Try different columns for domain
         id_in_source: task.csvRow.data[0] || "",
       },
     }
 
-    localStorage.removeItem(`annotation_progress_${task.id}`)
-    Promise.resolve(onComplete(completedTask)).finally(() => setSubmitting(false))
+    // Delegate submission to parent; only pass the completed task
+    try {
+      localStorage.removeItem(`annotation_progress_${task.id}`)
+      await onComplete(completedTask)
+      setSubmitting(false)
+    } catch {
+      setSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -590,7 +587,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                         <Button
                           type="submit"
                           className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
-                          disabled={timeTracking.isIdle || submitting}
+                          disabled={timeTracking.isIdle}
                           isLoading={submitting}
                         >
                           <Save className="h-4 w-4" />

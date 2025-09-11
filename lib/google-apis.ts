@@ -33,6 +33,11 @@ export interface AnnotationRow {
   article_body_ha?: string
   article_body_yo?: string
   translationLanguage?: "ha" | "yo"
+  // New fields for separated flows
+  requiresTranslation?: boolean
+  originalLanguage?: string
+  translator_ha_id?: string
+  translator_yo_id?: string
 }
 
 export interface PaymentSummary {
@@ -620,6 +625,10 @@ export async function logAnnotation(
       annotation.article_body_ha || "",
       annotation.article_body_yo || "",
       annotation.translationLanguage || "",
+      annotation.requiresTranslation ? "TRUE" : "FALSE",
+      (annotation.originalLanguage || "").toLowerCase(),
+      annotation.translator_ha_id || "",
+      annotation.translator_yo_id || "",
     ]
 
     // Always append using just the sheet name so Sheets computes the table range itself
@@ -656,12 +665,16 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     "Article_Body_HA",
     "Article_Body_YO",
     "Translation_Language",
+    "Requires_Translation",
+    "Original_Language",
+    "Translator_HA_ID",
+    "Translator_YO_ID",
   ]
 
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A1:R1",
+      range: "Annotations_Log!A1:V1",
     })
     const headers = res.data.values?.[0] || []
     let needsUpdate = false
@@ -670,7 +683,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     if (needsUpdate) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Annotations_Log!A1:R1",
+        range: "Annotations_Log!A1:V1",
         valueInputOption: "RAW",
         requestBody: { values: [expected] },
       })
@@ -679,7 +692,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     // If sheet doesn't exist or error reading, attempt to write headers (will create sheet implicitly when possible)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "Annotations_Log!A1:R1",
+      range: "Annotations_Log!A1:V1",
       valueInputOption: "RAW",
       requestBody: { values: [expected] },
     })
@@ -837,7 +850,7 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A2:R",
+      range: "Annotations_Log!A2:V",
     })
 
     const rows = response.data.values || []
@@ -860,6 +873,10 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
       article_body_ha: row[15] || undefined,
       article_body_yo: row[16] || undefined,
       translationLanguage: (row[17] as any) || undefined,
+      requiresTranslation: (row[18] || "").toString().toLowerCase() === "true",
+      originalLanguage: row[19] || undefined,
+      translator_ha_id: row[20] || undefined,
+      translator_yo_id: row[21] || undefined,
     }))
   } catch (error) {
     throw new Error(`Failed to get annotations: ${error instanceof Error ? error.message : "Unknown error"}`)

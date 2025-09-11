@@ -7,7 +7,7 @@ import type { AnnotationTask } from "@/lib/data-store"
 import type { User as LibUser } from "@/lib/auth"
 import { useAuth } from "@/custom-hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
-import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
+import { useCreateRegularAnnotation, useCreateTranslationAnnotation } from "@/custom-hooks/useAnnotations"
 
 type Role = "annotator" | "admin"
 
@@ -22,7 +22,8 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
   const { user, spreadsheetId, csvFileId } = useAuth()
   const [task, setTask] = useState<AnnotationTask | null>(null)
   const [loading, setLoading] = useState(true)
-  const { create: createAnnotation } = useCreateAnnotation()
+  const { create: createRegular } = useCreateRegularAnnotation()
+  const { create: createTranslation } = useCreateTranslationAnnotation()
 
   const targetAfterComplete = useMemo(() => {
     const baseUrl = role === "admin" ? "/dashboard/admin" : "/dashboard/annotator/tasks"
@@ -115,11 +116,12 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
           : 0
 
       const lang = (completedTask.csvRow.data[4] || "").trim().toLowerCase()
-      const isEN = lang === "en"
-      const targetLang = (completedTask.translation ? (completedTask as any).translationLanguage : undefined) as
-        | "ha"
-        | "yo"
-        | undefined
+      const isEN = lang === "en" || lang === "english"
+      const targetLang = (
+        completedTask.translation
+          ? (completedTask as any).translationLanguage
+          : (completedTask.csvData?.language ?? undefined)
+      ) as "ha" | "yo" | undefined
 
       // Map language-specific fields
       const claim_text_ha = isEN
@@ -160,13 +162,30 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
         article_body_ha,
         article_body_yo,
         translationLanguage: targetLang,
+        originalLanguage: isEN ? "en" : lang,
+        requiresTranslation: isEN,
         startTime: completedTask.startTime?.toISOString() || "",
         endTime: completedTask.endTime?.toISOString() || "",
         durationMinutes: duration,
         status: "completed" as const,
       }
 
-      await createAnnotation({ spreadsheetId, annotation })
+      // Route to correct endpoint: EN tasks with translation fields => translation endpoint, otherwise regular
+      const isTranslationSubmission =
+        isEN &&
+        !!(
+          (annotation as any).translation ||
+          (annotation as any).translationLanguage ||
+          (annotation as any).claim_text_ha ||
+          (annotation as any).claim_text_yo ||
+          (annotation as any).article_body_ha ||
+          (annotation as any).article_body_yo
+        )
+      if (isTranslationSubmission) {
+        await createTranslation({ spreadsheetId, annotation })
+      } else {
+        await createRegular({ spreadsheetId, annotation })
+      }
       toast({ title: "Task saved", description: "Annotation saved successfully" })
       router.push(`${targetAfterComplete}?refresh=1`)
     } catch (error) {

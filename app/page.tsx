@@ -62,7 +62,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
 
         {error && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-6 flex items-center">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{getErrorMessage(error)}</AlertDescription>
           </Alert>

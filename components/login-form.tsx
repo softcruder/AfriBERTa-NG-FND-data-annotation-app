@@ -46,7 +46,7 @@ export function LoginForm() {
         <CardDescription>Sign in with your Google account to access the annotation platform</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button onClick={handleGoogleLogin} isLoading={isLoading} className="w-full h-12 text-base" size="lg">
+        <Button onClick={handleGoogleLogin} isLoading={isLoading} className="w-full  h-12 text-base" size="lg">
           <Chrome className="mr-2 h-5 w-5" />
           Continue with Google
         </Button>

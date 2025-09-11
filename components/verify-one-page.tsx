@@ -35,29 +35,56 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
 
   const makeTask = useCallback((): AnnotationTask | null => {
     if (!item) return null
-    // Minimal adapter. Some fields may not exist; fill neutrals
+    // Build a safer, typed adapter. Some fields may not exist; fill neutrals.
+    // Infer original language shown in the UI (csvRow.data[4]) conservatively.
+    const hasHa = Boolean(item.claim_text_ha || item.article_body_ha)
+    const hasYo = Boolean(item.claim_text_yo || item.article_body_yo)
+    const inferredLang = hasHa || hasYo || item.translationLanguage ? "en" : ""
+
+    // Prepare a minimal CSV-shape that downstream forms read from.
+    // Keep indexes consistent with other forms: [1]=claim, [2]=verdict, [4]=language, [5]=claimLinks, [7]=sourceUrl
+    const csvData: string[] = new Array(8).fill("")
+    csvData[0] = item.rowId
+    csvData[1] = item.claimText || ""
+    csvData[2] = item.verdict || ""
+    csvData[4] = inferredLang
+    csvData[5] = (item.claimLinks || []).join("; ")
+    csvData[7] = item.sourceUrl || ""
+
+    // Map row status into the allowed AnnotationTask status union
+    const taskStatus: AnnotationTask["status"] = (() => {
+      switch (item.status) {
+        case "in-progress":
+        case "completed":
+        case "qa-pending":
+        case "qa-approved":
+        case "admin-review":
+          return item.status
+        default:
+          return "qa-pending"
+      }
+    })()
+
     return {
       id: item.rowId,
       rowId: item.rowId,
       annotatorId: item.annotatorId,
-      status: item.status,
-      // Try to infer original language from presence of translation fields
-      csvRow: { data: [item.rowId, item.claimText, "", "", "en"] } as any,
+      status: taskStatus,
+      csvRow: { id: item.rowId, originalIndex: -1, data: csvData, header: [] },
       // The annotation form expects certain arrays/strings
-      claims: [item.claimText],
-      claimText: item.claimText,
-      sourceLinks: item.sourceLinks,
+      claims: [item.claimText || ""],
+      sourceLinks: item.sourceLinks ?? [],
       claimLinks: item.claimLinks || [],
       sourceUrl: item.sourceUrl || "",
       translation: item.translation || "",
-      translationLanguage: item.translationLanguage || undefined,
+      translationLanguage: item.translationLanguage,
       verdict: item.verdict || "",
       // Provide dual fields for QA editing
       translationHausa: item.claim_text_ha || "",
       translationYoruba: item.claim_text_yo || "",
       articleBodyHausa: item.article_body_ha || "",
       articleBodyYoruba: item.article_body_yo || "",
-    } as any
+    }
   }, [item])
 
   const task = makeTask()

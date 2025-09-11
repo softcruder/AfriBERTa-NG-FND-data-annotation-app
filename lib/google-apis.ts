@@ -1052,6 +1052,52 @@ export async function getUsers(accessToken: string, spreadsheetId: string): Prom
   }
 }
 
+/** Get a single user by email from the Users sheet. Returns undefined if not found. */
+export async function getUserByEmail(
+  accessToken: string,
+  spreadsheetId: string,
+  email: string,
+): Promise<User | undefined> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  try {
+    const target = (email || "").trim().toLowerCase()
+    if (!target) return undefined
+
+    // Fetch all user rows in one call and filter locally
+    const usersRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!A2:J" })
+    const userRows = usersRes.data.values || []
+
+    let matchedRow: string[] | undefined = undefined
+    for (let i = 0; i < userRows.length; i++) {
+      const row = userRows[i]
+      const cell = (row[2] || "").trim().toLowerCase()
+      if (cell === target) {
+        matchedRow = row
+        break
+      }
+    }
+    if (!matchedRow) return undefined
+
+    const row = matchedRow
+    const user: User = {
+      id: row[0] || "",
+      name: row[1] || "",
+      email: row[2] || "",
+      role: (row[3] as any) || "annotator",
+      status: (row[4] as any) || "active",
+      totalAnnotations: Number.parseInt(row[5] || "0") || 0,
+      avgTimePerRow: Number.parseFloat(row[6] || "0") || 0,
+      lastActive: row[7] || new Date().toISOString(),
+      joinedDate: row[8] || new Date().toISOString(),
+      translationLanguages: row[9] || "",
+    }
+    return user
+  } catch (error) {
+    throw new Error(`Failed to get user by email: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
 /**
  * Upsert a user by email into Users sheet (append if not found, otherwise update select fields)
  */

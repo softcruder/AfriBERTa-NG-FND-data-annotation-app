@@ -34,7 +34,7 @@ describe("/api/tasks GET", () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     // Clear caches between tests
-    const { csvCache, annotationCache } = await import("@/app/api/tasks/route")
+    const { csvCache, annotationCache } = await import("@/app/api/tasks/cache")
     csvCache.clear()
     annotationCache.clear()
   })

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset, getUsers } from "@/lib/google-apis"
+import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset, getUserByEmail } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { csvCache, annotationsCache, finalDatasetCache, usersCache } from "./cache"
 
 /**
  * List available tasks (rows) from the configured source CSV with pagination.
@@ -11,7 +12,7 @@ import { enforceRateLimit } from "@/lib/rate-limit"
  * - fileId: optional override the CSV file id; if missing, use config[CSV_FILE_ID]
  */
 // naive in-memory cache for CSV per fileId to reduce repeated downloads within a short window
-export const csvCache = new Map<string, { data: string[][]; ts: number }>()
+// moved to ./cache for test access
 const CONFIG = {
   CSV_TTL_MS: 30_000,
   ANNOTATION_TTL_MS: 60_000,
@@ -21,11 +22,8 @@ const CONFIG = {
   MAX_PAGE_SIZE: 100,
 } as const
 
-export const annotationCache = new Map<string, { rowIds: Set<string>; ts: number }>()
-// Lightweight caches for Google Sheet-driven data
-const annotationsCache = new Map<string, { anns: any[]; ts: number }>()
-const finalDatasetCache = new Map<string, { ids: Set<string>; ts: number }>()
-const usersCache = new Map<string, { byEmail: Map<string, string[]>; ts: number }>()
+// Lightweight caches for Google Sheet-driven data (scoped to this module only)
+// These are intentionally not exported to satisfy Next.js route module constraints
 // const ANNOTATION_TTL_MS = 60_000 // Cache annotations longer than CSV
 
 export async function GET(request: NextRequest) {
@@ -185,7 +183,7 @@ export async function GET(request: NextRequest) {
       try {
         // Fetch all annotations to analyze completion by language (with caching)
         let anns: any[]
-        let cachedAnns = annotationsCache.get(spreadsheetId)
+        const cachedAnns = annotationsCache.get(spreadsheetId)
         if (cachedAnns && now - cachedAnns.ts < CONFIG.ANNOTATION_TTL_MS) {
           anns = cachedAnns.anns
         } else {
@@ -193,7 +191,7 @@ export async function GET(request: NextRequest) {
           annotationsCache.set(spreadsheetId, { anns, ts: now })
         }
 
-  // Create a map to track which languages have been translated for each row
+        // Create a map to track which languages have been translated for each row
         const translationMap = new Map<string, Set<string>>()
 
         // Pre-collect IDs present in CSV for quick checking
@@ -253,26 +251,27 @@ export async function GET(request: NextRequest) {
         const userEmail = (session!.user.email || "").toLowerCase()
         let currentUserLanguages: string[] = []
         if (userEmail) {
-          let cachedUsers = usersCache.get(spreadsheetId)
-          if (!cachedUsers || now - cachedUsers.ts >= CONFIG.USER_TTL_MS) {
+          let cacheEntry = usersCache.get(spreadsheetId)
+          if (!cacheEntry) {
+            cacheEntry = { byEmail: new Map(), ts: now }
+            usersCache.set(spreadsheetId, cacheEntry)
+          }
+          const emailCache = cacheEntry.byEmail.get(userEmail)
+          if (emailCache && now - emailCache.ts < CONFIG.USER_TTL_MS) {
+            currentUserLanguages = emailCache.langs
+          } else {
             try {
-              const users = await getUsers(session!.accessToken, spreadsheetId)
-              const byEmail = new Map<string, string[]>()
-              users.forEach(u => {
-                const email = (u.email || "").toLowerCase()
-                const langs = (u.translationLanguages || "")
-                  .split(",")
-                  .map(s => s.trim().toLowerCase())
-                  .filter(Boolean)
-                if (email) byEmail.set(email, langs)
-              })
-              cachedUsers = { byEmail, ts: now }
-              usersCache.set(spreadsheetId, cachedUsers)
+              const user = await getUserByEmail(session!.accessToken, spreadsheetId, userEmail)
+              const langs = (user?.translationLanguages || "")
+                .split(",")
+                .map(s => s.trim().toLowerCase())
+                .filter(Boolean)
+              cacheEntry.byEmail.set(userEmail, { langs, ts: now })
+              currentUserLanguages = langs
             } catch (err) {
-              console.warn("Could not fetch users for language lookup:", err)
+              console.warn("Could not fetch user by email for language lookup:", err)
             }
           }
-          currentUserLanguages = cachedUsers?.byEmail.get(userEmail) || []
         }
 
         // Filter out rows based on completion status and user language capabilities
@@ -335,8 +334,10 @@ export async function GET(request: NextRequest) {
             continue
           }
 
-          // For non-English tasks, exclude if any annotation exists
-          if (!completedLanguages.has("completed")) {
+          // For non-English tasks, only include if user can work in that source language
+          // and exclude if any annotation already exists
+          const canWorkInSource = currentUserLanguages.length === 0 || currentUserLanguages.includes(sourceLanguage)
+          if (canWorkInSource && !completedLanguages.has("completed")) {
             filtered.push(row)
           }
         }

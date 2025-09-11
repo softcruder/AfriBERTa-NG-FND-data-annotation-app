@@ -12,27 +12,6 @@
     {
       "label": "Typecheck and tests",
       "type": "shell",
-      "command": "npm run -s type-check ; npm run -s lint ; npm test --silent",
-      "isBackground": false,
-      "group": "build"
-    },
-    {
-      "label": "Typecheck and tests",
-      "type": "shell",
-      "command": "npm run -s lint ; npm test --silent",
-      "isBackground": false,
-      "group": "build"
-    },
-    {
-      "label": "Typecheck and tests",
-      "type": "shell",
-      "command": "npm run -s lint ; npm test --silent",
-      "isBackground": false,
-      "group": "build"
-    },
-    {
-      "label": "Typecheck and tests",
-      "type": "shell",
       "command": "npm run -s type-check ; npm run -s lint ; npm test --silent"
     }
   ]

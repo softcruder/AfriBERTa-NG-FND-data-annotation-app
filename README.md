@@ -26,7 +26,7 @@ Usage:
 
 Example:
 
-```ts
+\`\`\`ts
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   // admin-only logic here
   return NextResponse.json({ ok: true })
 }
-```
+\`\`\`
 
 Migration notes:
 

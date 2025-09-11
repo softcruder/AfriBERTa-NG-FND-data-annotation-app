@@ -17,41 +17,59 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   useAuth() // ensure session hydration
 
   return (
-    <div className="container mx-auto p-6">
-      {/* Main Content Tabs */}
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
+        <p className="text-muted-foreground">
+          Welcome back, {user.name || user.email}. Manage your annotation platform from here.
+        </p>
+      </div>
+
       <Tabs defaultValue="monitoring" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="monitoring">
-            <Activity className="mr-2 h-4 w-4" />
-            Monitoring
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 bg-muted/50">
+          <TabsTrigger
+            value="monitoring"
+            className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <Activity className="h-4 w-4" />
+            <span className="hidden sm:inline">Monitoring</span>
           </TabsTrigger>
-          <TabsTrigger value="annotators">
-            <Users className="mr-2 h-4 w-4" />
-            Annotators
+          <TabsTrigger
+            value="annotators"
+            className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Annotators</span>
           </TabsTrigger>
-          <TabsTrigger value="payments">
-            <DollarSign className="mr-2 h-4 w-4" />
-            Payments
+          <TabsTrigger
+            value="payments"
+            className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden sm:inline">Payments</span>
           </TabsTrigger>
-          <TabsTrigger value="configuration">
-            <Settings className="mr-2 h-4 w-4" />
-            Configuration
+          <TabsTrigger
+            value="configuration"
+            className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Config</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="monitoring">
+        <TabsContent value="monitoring" className="space-y-6">
           <AnnotationMonitoring />
         </TabsContent>
 
-        <TabsContent value="annotators">
+        <TabsContent value="annotators" className="space-y-6">
           <AnnotatorManagement />
         </TabsContent>
 
-        <TabsContent value="payments">
+        <TabsContent value="payments" className="space-y-6">
           <PaymentOverview />
         </TabsContent>
 
-        <TabsContent value="configuration">
+        <TabsContent value="configuration" className="space-y-6">
           <DataConfiguration />
         </TabsContent>
       </Tabs>

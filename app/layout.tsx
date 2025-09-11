@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { AuthProvider } from "@/custom-hooks/useAuth"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 export const metadata: Metadata = {
   title: "AfriBERTa NG | Data Annotation Platform",
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
     icon: "/logo.ico",
     apple: "/logo.png",
   },
+    generator: 'v0.app'
 }
 
 // SiteHeader reads the user from the AuthProvider; no need to fetch user here.
@@ -27,12 +29,14 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <AuthProvider>
-          <Suspense fallback={null}>
-            {children}
-            <Toaster />
-          </Suspense>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <Suspense fallback={null}>
+              {children}
+              <Toaster />
+            </Suspense>
+          </AuthProvider>
+        </ErrorBoundary>
         <Analytics />
       </body>
     </html>

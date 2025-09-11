@@ -8,6 +8,11 @@ import type { User as LibUser } from "@/lib/auth"
 import { useAuth } from "@/custom-hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import { useCreateRegularAnnotation, useCreateTranslationAnnotation } from "@/custom-hooks/useAnnotations"
+import { useErrorHandler } from "@/hooks/use-error-handler"
+import { LoadingState } from "@/components/ui/loading-state"
+import { ErrorState } from "@/components/ui/error-state"
+import { TaskService } from "@/lib/task-service"
+import { AnnotationMapper } from "@/lib/annotation-mapper"
 
 type Role = "annotator" | "admin"
 
@@ -22,6 +27,8 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
   const { user, spreadsheetId, csvFileId } = useAuth()
   const [task, setTask] = useState<AnnotationTask | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const { handleError } = useErrorHandler()
   const { create: createRegular } = useCreateRegularAnnotation()
   const { create: createTranslation } = useCreateTranslationAnnotation()
 
@@ -48,47 +55,24 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
     let cancelled = false
     ;(async () => {
       try {
+        setError(null)
         if (!csvFileId) {
-          toast({ title: "Missing config", description: "CSV file not configured", variant: "destructive" })
-          router.push(targetAfterComplete)
-          return
+          throw new Error("CSV file not configured")
         }
 
-        // Fetch CSV from API and find the row by ID in the first column
-        const res = await fetch(`/api/drive/csv/${encodeURIComponent(csvFileId)}`)
-        if (!res.ok) throw new Error("Failed to load CSV")
-        const json = (await res.json()) as { data: string[][] }
-        const csv = json.data
-        const header = csv?.[0]
-        const targetId = (rowId || "").trim()
-        const foundIndex = (csv || []).findIndex((r, i) => i > 0 && (r?.[0] || "").trim() === targetId)
-        if (foundIndex === -1) throw new Error("Row not found in CSV by ID")
-        const row = csv?.[foundIndex]
-        if (!row || !Array.isArray(row)) throw new Error("Row not found in CSV")
-
-        // Build initial AnnotationTask consistent with dashboard starter
-        const extractedClaim = row[1] ?? ""
-        const verdict = row[2] || ""
-        const sourceUrl = row[7] || ""
-        const claimLinks = row[5] || ""
-        const linksArray = [sourceUrl, ...claimLinks.split(/;\s*/)].filter(Boolean)
-
-        const newTask: AnnotationTask = {
-          id: `task_${Date.now()}`,
-          rowId,
-          csvRow: { id: rowId, originalIndex: foundIndex, data: row, header },
-          startTime: new Date(),
-          claims: [extractedClaim],
-          sourceLinks: linksArray.length ? linksArray : [""],
-          verdict,
-          status: "in-progress",
-        }
+        const newTask = await TaskService.createTaskFromCSV(csvFileId, rowId)
 
         if (!cancelled) setTask(newTask)
       } catch (e) {
         if (!cancelled) {
-          toast({ title: "Load failed", description: "Could not load the selected row", variant: "destructive" })
-          router.push(targetAfterComplete)
+          const errorMessage = handleError(e, { context: "loadTask", rowId })
+          setError("Could not load the selected task. Please try again or contact support.")
+
+          setTimeout(() => {
+            if (!cancelled) {
+              router.push(targetAfterComplete)
+            }
+          }, 3000)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -98,99 +82,28 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
     return () => {
       cancelled = true
     }
-  }, [rowId, router, targetAfterComplete, toast, csvFileId])
-
-  if (!user) return null
-  const libUser = user as unknown as LibUser
+  }, [rowId, router, targetAfterComplete, csvFileId, handleError])
 
   const handleTaskComplete = async (completedTask: AnnotationTask) => {
     try {
       if (!spreadsheetId) {
-        toast({ title: "Missing config", description: "No spreadsheet configured", variant: "destructive" })
-        return
+        throw new Error("No spreadsheet configured")
       }
 
-      const duration =
-        completedTask.startTime && completedTask.endTime
-          ? Math.round((completedTask.endTime.getTime() - completedTask.startTime.getTime()) / (1000 * 60))
-          : 0
+      const annotation = AnnotationMapper.taskToAnnotation(completedTask, libUser.id)
 
-      const lang = (completedTask.csvRow.data[4] || "").trim().toLowerCase()
-      const isEN = lang === "en" || lang === "english"
-      const targetLang = (
-        completedTask.translation
-          ? (completedTask as any).translationLanguage
-          : (completedTask.csvData?.language ?? undefined)
-      ) as "ha" | "yo" | undefined
+      const submissionType = TaskService.determineSubmissionType(completedTask)
 
-      // Map language-specific fields
-      const claim_text_ha = isEN
-        ? targetLang === "ha"
-          ? completedTask.translationHausa || completedTask.claims.join(" | ")
-          : completedTask.translationHausa || undefined
-        : undefined
-
-      const claim_text_yo = isEN
-        ? targetLang === "yo"
-          ? completedTask.translationYoruba || completedTask.claims.join(" | ")
-          : completedTask.translationYoruba || undefined
-        : undefined
-
-      const article_body_ha = isEN
-        ? targetLang === "ha"
-          ? completedTask.articleBodyHausa || completedTask.articleBody || ""
-          : completedTask.articleBodyHausa || undefined
-        : undefined
-
-      const article_body_yo = isEN
-        ? targetLang === "yo"
-          ? completedTask.articleBodyYoruba || completedTask.articleBody || ""
-          : completedTask.articleBodyYoruba || undefined
-        : undefined
-
-      const annotation = {
-        rowId: completedTask.rowId,
-        annotatorId: libUser.id,
-        claimText: completedTask.claims.join(" | "),
-        sourceLinks: completedTask.sourceLinks,
-        translation: completedTask.translation,
-        verdict: completedTask.verdict,
-        sourceUrl: (completedTask as any).sourceUrl || completedTask.sourceLinks[0] || "",
-        claimLinks: (completedTask as any).claimLinks ?? (completedTask.sourceLinks || []).slice(1),
-        claim_text_ha,
-        claim_text_yo,
-        article_body_ha,
-        article_body_yo,
-        translationLanguage: targetLang,
-        originalLanguage: isEN ? "en" : lang,
-        requiresTranslation: isEN,
-        startTime: completedTask.startTime?.toISOString() || "",
-        endTime: completedTask.endTime?.toISOString() || "",
-        durationMinutes: duration,
-        status: "completed" as const,
-      }
-
-      // Route to correct endpoint: EN tasks with translation fields => translation endpoint, otherwise regular
-      const isTranslationSubmission =
-        isEN &&
-        !!(
-          (annotation as any).translation ||
-          (annotation as any).translationLanguage ||
-          (annotation as any).claim_text_ha ||
-          (annotation as any).claim_text_yo ||
-          (annotation as any).article_body_ha ||
-          (annotation as any).article_body_yo
-        )
-      if (isTranslationSubmission) {
+      if (submissionType === "translation") {
         await createTranslation({ spreadsheetId, annotation })
       } else {
         await createRegular({ spreadsheetId, annotation })
       }
+
       toast({ title: "Task saved", description: "Annotation saved successfully" })
       router.push(`${targetAfterComplete}?refresh=1`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      toast({ title: "Save failed", description: message, variant: "destructive" })
+      handleError(error, { context: "saveTask", taskId: completedTask.id })
     }
   }
 
@@ -198,7 +111,30 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
     router.push(`${targetAfterComplete}?refresh=1`)
   }
 
-  if (loading) return <div className="container mx-auto p-6">Loading task…</div>
+  if (!user) return null
+  const libUser = user as unknown as LibUser
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <LoadingState type="spinner" message="Loading annotation task..." className="min-h-screen" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <ErrorState
+          title="Failed to Load Task"
+          message={error}
+          onRetry={() => window.location.reload()}
+          onGoBack={() => router.push(targetAfterComplete)}
+        />
+      </div>
+    )
+  }
+
   if (!task) return null
 
   return (

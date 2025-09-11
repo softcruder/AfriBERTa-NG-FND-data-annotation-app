@@ -7,10 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { Clock, FileText, CheckCircle, Play, DollarSign, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react"
-import { AnnotationForm } from "@/components/annotation-form"
+import {
+  Clock,
+  FileText,
+  CheckCircle,
+  Play,
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react"
 import { PaymentDashboard } from "@/components/payment-dashboard"
-// import { LogoutButton } from "@/components/logout-button"
 import { getCurrentTask, setCurrentTask } from "@/lib/data-store"
 import type { AnnotationTask } from "@/lib/data-store"
 import { useAuth, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
@@ -205,94 +213,117 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Removed page-level header to avoid duplicate headers on dashboard */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Annotator Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user.name || user.email}. Ready to continue your annotation work?
+          </p>
+        </div>
 
-        {/* Stats Cards: stack on mobile, grid on md+ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8">
-          <Card className="shadow-sm border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-50/50 to-background">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Completed Today</CardTitle>
-              <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="text-sm font-medium text-muted-foreground">Completed Today</CardTitle>
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{completedToday}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">rows annotated</p>
+              <div className="text-2xl font-bold text-foreground">{completedToday}</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                <TrendingUp className="h-3 w-3" />
+                rows annotated
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50/50 to-background">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Time Worked</CardTitle>
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <CardTitle className="text-sm font-medium text-muted-foreground">Time Worked</CardTitle>
+              <Clock className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{timeWorkedToday}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">today</p>
+              <div className="text-2xl font-bold text-foreground">{timeWorkedToday}</div>
+              <p className="text-xs text-muted-foreground">today</p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+          <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50/50 to-background">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-300">Pending Tasks</CardTitle>
-              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <CardTitle className="text-sm font-medium text-muted-foreground">Available Tasks</CardTitle>
+              <FileText className="h-5 w-5 text-amber-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{pendingTasks || "-"}</div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">rows remaining</p>
+              <div className="text-2xl font-bold text-foreground">{tasksTotal || "-"}</div>
+              <p className="text-xs text-muted-foreground">rows remaining</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs: full width, readable on mobile */}
         <Tabs defaultValue="annotation" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-100 dark:bg-slate-800">
-            <TabsTrigger value="annotation" className="gap-2 text-xs md:text-base py-2 md:py-3">
+          <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-muted/50">
+            <TabsTrigger
+              value="annotation"
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
               <Play className="h-4 w-4" />
               Annotation
             </TabsTrigger>
-            <TabsTrigger value="payments" className="gap-2 text-xs md:text-base py-2 md:py-3">
+            <TabsTrigger
+              value="payments"
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
               <DollarSign className="h-4 w-4" />
               Payments
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="annotation">
-            <div className="grid w-full gap-[24px] grid-cols-2">
-              <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
-                  <CardTitle className="text-slate-900 dark:text-slate-100 text-md md:text-lg">
+          <TabsContent value="annotation" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Play className="h-5 w-5 text-primary" />
                     Ready to Start Annotating?
                   </CardTitle>
-                  <CardDescription className="text-sm">
+                  <CardDescription>
                     Click below to begin your next annotation task. The system will automatically track your time and
                     progress.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="p-4 md:p-6">
+                <CardContent>
                   <Button
                     size="lg"
-                    className="w-full h-12 gap-2 bg-primary hover:bg-primary/90 text-base md:text-lg"
+                    className="w-full h-12 gap-2 bg-primary hover:bg-primary/90 text-base shadow-md"
                     onClick={() => tasks[0] && startTaskFromRow(tasks[0])}
-                    isLoading={isLoading}
+                    disabled={isLoading || !tasks[0]}
                   >
-                    <Play className="h-4 w-4" />
-                    Start First Task
+                    {isLoading ? (
+                      <>Loading...</>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4" />
+                        {tasks[0] ? "Start Next Task" : "No Tasks Available"}
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
-              {/* Minimal QA section */}
-              <Card className="shadow-sm border-slate-200 dark:border-slate-700">
+
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5" /> Quality Assurance
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-blue-600" />
+                    Quality Assurance
                   </CardTitle>
                   <CardDescription>Verify recently completed annotations</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {qaItems.map(item => (
-                    <div key={item.rowId} className="p-3 border rounded-lg flex items-center justify-between gap-4">
+                  {qaItems.slice(0, 3).map((item) => (
+                    <div
+                      key={item.rowId}
+                      className="p-3 border rounded-lg flex items-center justify-between gap-4 hover:bg-muted/50 transition-colors"
+                    >
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-muted-foreground truncate">{item.claimText}</div>
+                        <div className="text-sm font-medium truncate">{item.claimText}</div>
                         <div className="text-xs text-muted-foreground">
                           By: {item.annotatorId} · Status: {item.status}
                         </div>
@@ -300,6 +331,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="shrink-0 bg-transparent"
                         onClick={async () => {
                           try {
                             if (!spreadsheetId) return
@@ -311,19 +343,19 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                           } catch {}
                         }}
                       >
-                        Mark Verified
+                        Verify
                       </Button>
                     </div>
                   ))}
                   {qaItems.length === 0 && (
-                    <div className="text-sm text-muted-foreground">No items pending verification.</div>
+                    <div className="text-sm text-muted-foreground text-center py-4">No items pending verification.</div>
                   )}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="payments">
+          <TabsContent value="payments" className="space-y-6">
             <PaymentDashboard user={user} />
           </TabsContent>
         </Tabs>
@@ -339,7 +371,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                {tasks.map(t => (
+                {tasks.map((t) => (
                   <div
                     key={t.index}
                     className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
@@ -359,7 +391,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setTasksPage(p => Math.max(1, p - 1))}
+                  onClick={() => setTasksPage((p) => Math.max(1, p - 1))}
                   disabled={tasksPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" /> Prev
@@ -370,7 +402,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setTasksPage(p => p + 1)}
+                  onClick={() => setTasksPage((p) => p + 1)}
                   disabled={tasksPage >= Math.ceil(tasksTotal / pageSize)}
                 >
                   Next <ChevronRight className="h-4 w-4" />

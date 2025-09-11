@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { DollarSign, Clock, TrendingUp, Award } from "lucide-react"
+import { DollarSign, Clock, TrendingUp, Award, Target, Zap } from "lucide-react"
 import type { User } from "@/lib/auth"
 import { calculatePayment, calculateEfficiencyMetrics, formatCurrency } from "@/lib/payment-calculator"
 import { useAuth, useAnnotations, usePaymentConfig } from "@/custom-hooks"
@@ -68,11 +68,11 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
   const getEfficiencyColor = (status: string) => {
     switch (status) {
       case "excellent":
-        return "text-orange-600"
+        return "text-emerald-600"
       case "good":
         return "text-blue-600"
       case "average":
-        return "text-yellow-600"
+        return "text-amber-600"
       default:
         return "text-red-600"
     }
@@ -80,10 +80,10 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
   const getEfficiencyBadge = (status: string) => {
     const colors = {
-      excellent: "bg-orange-100 text-orange-800",
-      good: "bg-blue-100 text-blue-800",
-      average: "bg-yellow-100 text-yellow-800",
-      "below-average": "bg-red-100 text-red-800",
+      excellent: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      good: "bg-blue-100 text-blue-800 border-blue-200",
+      average: "bg-amber-100 text-amber-800 border-amber-200",
+      "below-average": "bg-red-100 text-red-800 border-red-200",
     }
     return (
       <Badge variant="outline" className={colors[status as keyof typeof colors]}>
@@ -94,36 +94,41 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
   return (
     <div className="space-y-6">
-      {/* Payment Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Payment Dashboard</h2>
+        <p className="text-muted-foreground">Track your earnings, performance metrics, and payment breakdown.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-50/50 to-background">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Earnings</CardTitle>
+            <DollarSign className="h-5 w-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(payment.totalPayment)}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(payment.totalPayment)}</div>
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+              <Target className="h-3 w-3" />
               {stats.totalRows} rows • {stats.translations} translations
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50/50 to-background">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today&apos;s Earnings</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Today's Earnings</CardTitle>
+            <DollarSign className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(todayPayment.totalPayment)}</div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(todayPayment.totalPayment)}</div>
             <p className="text-xs text-muted-foreground">{stats.completedToday} rows completed</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50/50 to-background">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Efficiency</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Efficiency</CardTitle>
+            <Zap className="h-5 w-5 text-amber-600" />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${getEfficiencyColor(efficiency.status)}`}>
@@ -133,13 +138,13 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50/50 to-background">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Time Worked</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Time Worked</CardTitle>
+            <Clock className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalHours.toFixed(1)}h</div>
+            <div className="text-2xl font-bold text-foreground">{stats.totalHours.toFixed(1)}h</div>
             <p className="text-xs text-muted-foreground">{stats.hoursToday.toFixed(1)}h today</p>
           </CardContent>
         </Card>
@@ -147,78 +152,82 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
       {/* Detailed Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Payment Breakdown</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Payment Breakdown
+            </CardTitle>
             <CardDescription>Detailed breakdown of your earnings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Base Payment ({stats.totalRows} rows)</span>
-              <span className="font-medium">{formatCurrency(payment.breakdown.annotationPayment)}</span>
+            <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm font-medium">Base Payment ({stats.totalRows} rows)</span>
+              <span className="font-bold text-foreground">{formatCurrency(payment.breakdown.annotationPayment)}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
-                Translation Bonus ({stats.translations} translations)
-              </span>
-              <span className="font-medium">{formatCurrency(payment.breakdown.translationPayment)}</span>
+            <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm font-medium">Translation Bonus ({stats.translations} translations)</span>
+              <span className="font-bold text-foreground">{formatCurrency(payment.breakdown.translationPayment)}</span>
             </div>
             {payment.breakdown.bonus > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Performance Bonus</span>
-                <span className="font-medium text-orange-600">{formatCurrency(payment.breakdown.bonus)}</span>
+              <div className="flex justify-between items-center p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <span className="text-sm font-medium text-emerald-800">Performance Bonus</span>
+                <span className="font-bold text-emerald-600">{formatCurrency(payment.breakdown.bonus)}</span>
               </div>
             )}
-            <div className="border-t pt-2">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total Earnings</span>
-                <span className="text-lg font-bold">{formatCurrency(payment.totalPayment)}</span>
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <span className="font-semibold text-foreground">Total Earnings</span>
+                <span className="text-xl font-bold text-primary">{formatCurrency(payment.totalPayment)}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Performance Metrics</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Performance Metrics
+            </CardTitle>
             <CardDescription>Your annotation performance and efficiency</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Efficiency Rating</span>
+                <span className="text-sm font-medium text-muted-foreground">Efficiency Rating</span>
                 {getEfficiencyBadge(efficiency.status)}
               </div>
-              <Progress value={Math.min(efficiency.efficiency, 100)} className="h-2" />
-              <p className="text-xs text-muted-foreground">{efficiency.recommendation}</p>
+              <Progress value={Math.min(efficiency.efficiency, 100)} className="h-3" />
+              <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">{efficiency.recommendation}</p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Progress to Bonus</span>
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium text-muted-foreground">Progress to Bonus</span>
+                <span className="text-sm font-bold text-foreground">
                   {stats.totalRows}/{paymentRates.bonusThreshold} rows
                 </span>
               </div>
-              <Progress value={(stats.totalRows / (paymentRates.bonusThreshold || 50)) * 100} className="h-2" />
+              <Progress value={(stats.totalRows / (paymentRates.bonusThreshold || 50)) * 100} className="h-3" />
               {stats.totalRows >= (paymentRates.bonusThreshold || 50) && (
-                <div className="flex items-center gap-1 text-orange-600">
+                <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
                   <Award className="h-4 w-4" />
-                  <span className="text-xs font-medium">Bonus Unlocked!</span>
+                  <span className="text-sm font-medium">Bonus Unlocked!</span>
                 </div>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="text-center">
-                <div className="text-lg font-bold">{payment.avgAnnotationsPerHour.toFixed(1)}</div>
-                <div className="text-xs text-muted-foreground">Rows/Hour</div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <div className="text-xl font-bold text-foreground">{payment.avgAnnotationsPerHour.toFixed(1)}</div>
+                <div className="text-xs text-muted-foreground font-medium">Rows/Hour</div>
               </div>
-              <div className="text-center">
-                <div className="text-lg font-bold">
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <div className="text-xl font-bold text-foreground">
                   {((stats.translations / Math.max(stats.totalRows, 1)) * 100).toFixed(0)}%
                 </div>
-                <div className="text-xs text-muted-foreground">Translation Rate</div>
+                <div className="text-xs text-muted-foreground font-medium">Translation Rate</div>
               </div>
             </div>
           </CardContent>

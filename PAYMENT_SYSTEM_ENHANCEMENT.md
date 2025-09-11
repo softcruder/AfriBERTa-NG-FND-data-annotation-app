@@ -15,7 +15,7 @@ The payment system was missing several critical features:
 
 Added new fields to track comprehensive payment data:
 
-```typescript
+\`\`\`typescript
 interface PaymentSummary {
   // Existing fields
   annotatorId: string
@@ -36,7 +36,7 @@ interface PaymentSummary {
   approvedTranslations: number // Only qa-approved translations
   redeemableAmount: number // Final payable amount (approved items only)
 }
-```
+\`\`\`
 
 ### 2. Enhanced Payment Formulas
 
@@ -67,7 +67,7 @@ Updated the payment overview UI to show:
 
 Extended from 8 columns (A-H) to 13 columns (A-M):
 
-```
+\`\`\`
 A: Annotator_ID
 B: Total_Rows
 C: Translations
@@ -81,7 +81,7 @@ J: QA_Total               (NEW)
 K: Approved_Annotations   (NEW)
 L: Approved_Translations  (NEW)
 M: Redeemable_Amount      (NEW)
-```
+\`\`\`
 
 ## Benefits for Annotators
 

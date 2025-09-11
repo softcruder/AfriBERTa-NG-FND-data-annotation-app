@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useForm, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useEffect, useRef, useState } from "react"
@@ -28,6 +30,7 @@ interface BaseQAFormProps {
 export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQAFormProps) {
   const [showOriginalDesktop, setShowOriginalDesktop] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
   const { toast } = useToast()
 
   const form = useForm<AnnotationFormData>({
@@ -101,6 +104,15 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
     setCurrentTask(updated)
   }, [values, getValues, task])
 
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      if (type === "change") {
+        setHasChanges(true)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [form])
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     const ok = await trigger()
     if (ok) handleSubmit(onSubmit)(e)
@@ -170,6 +182,11 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
                   <Badge variant="outline" className="text-xs w-fit">
                     QA Review: NGN20
                   </Badge>
+                  {hasChanges && (
+                    <Badge variant="secondary" className="text-xs w-fit">
+                      Unsaved Changes
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -190,7 +207,7 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
-              <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2">
+              <Button variant="outline" size="sm" onClick={handleCancel} className="gap-2 bg-transparent">
                 <ArrowLeft className="h-4 w-4" />
                 <span className="hidden sm:inline">Go Back</span>
                 <span className="sm:hidden">Back</span>
@@ -240,7 +257,7 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
                       variant="outline"
                       size="sm"
                       className="bg-transparent"
-                      onClick={() => setShowOriginalDesktop(v => !v)}
+                      onClick={() => setShowOriginalDesktop((v) => !v)}
                     >
                       {showOriginalDesktop ? "Hide" : "Show"}
                     </Button>
@@ -290,7 +307,7 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
                       <Textarea
                         placeholder="Add notes for admin or annotator..."
                         value={values.qaComments || ""}
-                        onChange={e => setValue("qaComments", e.target.value)}
+                        onChange={(e) => setValue("qaComments", e.target.value)}
                         className="min-h-[80px]"
                       />
                     </div>
@@ -301,12 +318,12 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
                       <div className="flex-1 relative">
                         <Button
                           type="submit"
-                          className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
+                          className="w-full h-11 gap-2 bg-green-600 hover:bg-green-700 text-white"
                           disabled={timeTracking.isIdle || submitting}
                           isLoading={submitting}
                         >
                           <Save className="h-4 w-4" />
-                          {submitting ? "Saving..." : "Save QA Edits"}
+                          {submitting ? "Saving & Approving..." : "Save Changes & Approve"}
                         </Button>
                         {timeTracking.isIdle && (
                           <div className="absolute -top-8 left-0 right-0 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">

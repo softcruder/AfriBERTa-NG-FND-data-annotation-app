@@ -14,20 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import {
-  LogOut,
-  ShieldCheck,
-  Trash2,
-  Settings as SettingsIcon,
-  Home,
-  Users,
-  DollarSign,
-  Activity,
-  FileText,
-} from "lucide-react"
+import { LogOut, ShieldCheck, Trash2, SettingsIcon, Home, Users, DollarSign, Activity, FileText } from "lucide-react"
 import { useAnonymizeSelf } from "@/custom-hooks/useAnonymize"
 import { useRequest } from "@/hooks/useRequest"
 import { MobileSidebar } from "@/components/mobile-sidebar"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 import { useAuth } from "@/custom-hooks/useAuth"
 
@@ -70,53 +61,66 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-slate-900/70">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-3 min-w-0">
           {/* Mobile sidebar trigger */}
           {isDashboard && <MobileSidebar />}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <Image src="/logo.png" alt="Logo" width={28} height={28} className="rounded" />
+            <span className="hidden sm:block font-semibold text-sm">AfriBERTa NG</span>
           </Link>
-          {/* Inline nav removed to avoid duplication and extra requests; sidebar handles navigation */}
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
           {isDashboard && (
-            <Button variant="outline" size="sm" onClick={goVerify} isLoading={navLoading}>
-              <ShieldCheck className="h-4 w-4" /> Verify
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goVerify}
+              disabled={navLoading}
+              className="gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20"
+            >
+              {navLoading ? <LoadingSpinner size="sm" /> : <ShieldCheck className="h-4 w-4" />}
+              Verify
             </Button>
           )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              {/* Avatar trigger with refined hover/focus styles */}
               <Button
                 variant="ghost"
                 size="sm"
                 aria-label="User menu"
-                className="p-0 rounded-full hover:bg-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-transparent"
+                className="p-0 rounded-full hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-accent/50"
               >
-                <Avatar className="size-8">
+                <Avatar className="size-8 ring-2 ring-background shadow-sm">
                   <AvatarImage src={user?.picture || "/placeholder-user.png"} alt={user?.name || "User"} />
-                  <AvatarFallback>{initial}</AvatarFallback>
+                  <AvatarFallback className="bg-primary/10 text-primary font-medium">{initial}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="max-w-[240px] flex items-center justify-between gap-2">
-                <span className="truncate">{user?.email || "Signed in"}</span>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="flex items-center justify-between gap-2">
+                <div className="flex flex-col space-y-1">
+                  <span className="text-sm font-medium truncate">{user?.name || "User"}</span>
+                  <span className="text-xs text-muted-foreground truncate">{user?.email || "Signed in"}</span>
+                </div>
                 <span
-                  className="text-[10px] px-1.5 py-0.5 rounded border bg-muted text-muted-foreground uppercase tracking-wide"
+                  className="text-[10px] px-2 py-1 rounded-full border bg-primary/10 text-primary uppercase tracking-wide font-medium"
                   aria-label={`Role: ${role}`}
                 >
                   {role}
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+
               <DropdownMenuItem asChild>
                 <Link href={isAdmin ? "/dashboard/admin" : "/dashboard/annotator"} className="flex items-center gap-2">
                   <Home className="h-4 w-4" /> Dashboard
                 </Link>
               </DropdownMenuItem>
+
               {isAnnotator && (
                 <>
                   <DropdownMenuItem asChild>
@@ -131,6 +135,7 @@ export function SiteHeader() {
                   </DropdownMenuItem>
                 </>
               )}
+
               {isAdmin && (
                 <>
                   <DropdownMenuItem asChild>
@@ -149,22 +154,32 @@ export function SiteHeader() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin/verify" className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4" /> Verify Tasks
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/dashboard/admin/config" className="flex items-center gap-2">
                       <SettingsIcon className="h-4 w-4" /> Config
                     </Link>
                   </DropdownMenuItem>
                 </>
               )}
-              {/* <DropdownMenuItem onClick={goVerify} className="gap-2">
-                <ShieldCheck className="h-4 w-4" /> Verify others&apos; work
-              </DropdownMenuItem> */}
-              <DropdownMenuItem onClick={handleAnonymize} className="gap-2">
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                onClick={handleAnonymize}
+                className="gap-2 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+              >
                 <Trash2 className="h-4 w-4" /> Delete my data
               </DropdownMenuItem>
+
               <DropdownMenuSeparator />
+
               <DropdownMenuItem
                 onClick={handleLogout}
-                className="text-red-600 hover:bg-red-500 active:bg-red-500 active:text-white hover:text-white gap-2"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700 gap-2"
               >
                 <LogOut className="h-4 w-4" /> Logout
               </DropdownMenuItem>

@@ -24,9 +24,5 @@ export default async function DashboardPage() {
 
   const { user } = session
 
-  return (
-    <div className="min-h-screen bg-background">
-      {user.role === "admin" ? <AdminDashboard user={user} /> : <AnnotatorDashboard user={user} />}
-    </div>
-  )
+  return <>{user.role === "admin" ? <AdminDashboard user={user} /> : <AnnotatorDashboard user={user} />}</>
 }

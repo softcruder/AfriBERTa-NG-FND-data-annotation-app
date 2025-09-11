@@ -19,7 +19,14 @@ export function VerifyListPage() {
   const { verify, loading } = useVerifyAnnotation()
   const { toast } = useToast()
 
-  const items = (data?.items || []).filter((a: any) => !a.verifiedBy && a.status !== "verified")
+  const items = (data?.items || [])
+    .filter((a: any) => !a.verifiedBy && a.status !== "verified")
+    .filter((a: any) => {
+      if (user?.role === "admin") return true
+      // Non-admins should not see admin-review or invalid items
+      if (a.status === "admin-review" || a.status === "invalid") return false
+      return true
+    })
 
   return (
     <div className="container mx-auto p-6">

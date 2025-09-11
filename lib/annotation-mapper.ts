@@ -63,7 +63,7 @@ export class AnnotationMapper {
       claimText: task.claims.join(" | "),
       sourceLinks: task.sourceLinks,
       translation: task.translation,
-      verdict: task.verdict,
+      verdict: task.verdict ?? "",
       sourceUrl: (task as any).sourceUrl || task.sourceLinks[0] || "",
       claimLinks: (task as any).claimLinks ?? (task.sourceLinks || []).slice(1),
       claim_text_ha,

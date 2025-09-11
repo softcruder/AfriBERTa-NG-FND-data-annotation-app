@@ -198,6 +198,12 @@ export async function GET(request: NextRequest) {
         const csvIds = new Set(rows.map(r => (r?.[0] || "").trim()).filter(Boolean))
 
         anns.forEach(annotation => {
+          // If current user is not admin, skip annotations that are escalated or invalid so tasks remain available
+          if (session!.user.role !== "admin") {
+            if (annotation.status === "admin-review" || annotation.status === "invalid") {
+              return
+            }
+          }
           const rowId = (annotation.rowId || "").trim()
           if (!rowId || !csvIds.has(rowId)) return
 

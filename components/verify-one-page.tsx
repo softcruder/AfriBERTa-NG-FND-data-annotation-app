@@ -61,12 +61,50 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
 
   const backHref = `/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`
 
-  const handlePeerApprove = (updates?: any, isEditing?: boolean) => {
-    // Implementation for handlePeerApprove
+  const handlePeerApprove = async (updates?: any, editingMode?: boolean) => {
+    if (!spreadsheetId || !item) return
+    setActionError(null)
+    try {
+      const res = await verify({
+        spreadsheetId,
+        rowId: item.rowId,
+        ...(updates ? { contentUpdates: updates } : {}),
+      } as any)
+      if ((res as any)?.success) {
+        toast({
+          title: "Approved",
+          description: editingMode ? "Edits saved and annotation approved." : "Annotation approved.",
+        })
+        await mutate()
+        if (editingMode) {
+          setIsEditing(false)
+          setHasUnsavedChanges(false)
+          setPendingUpdates({})
+        }
+      } else if ((res as any)?.error) {
+        setActionError((res as any).error || "Approval failed")
+      }
+    } catch (err: any) {
+      handleError(err, { fallback: "Failed to approve annotation" })
+    }
   }
 
-  const handleReject = () => {
-    // Implementation for handleReject
+  const handleReject = async () => {
+    if (!spreadsheetId || !item) return
+    setActionError(null)
+    try {
+      // Escalate to admin by sending isApproved: false so backend sets status=admin-review
+      const res = await verify({ spreadsheetId, rowId: item.rowId, isApproved: false } as any)
+      if ((res as any)?.success) {
+        toast({ title: "Escalated", description: "Annotation escalated to admin review." })
+        await mutate()
+        router.push(`/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`)
+      } else if ((res as any)?.error) {
+        setActionError((res as any).error || "Escalation failed")
+      }
+    } catch (err: any) {
+      handleError(err, { fallback: "Failed to escalate annotation" })
+    }
   }
 
   if (isLoading)
@@ -180,6 +218,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               <Button
                 onClick={() => setIsEditing(true)}
                 variant="outline"
+                disabled={loading}
                 size="lg"
                 className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
               >

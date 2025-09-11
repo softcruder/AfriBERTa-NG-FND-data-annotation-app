@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset, getUsers } from "@/lib/google-apis"
+import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset, getUserByEmail } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 /**
@@ -25,7 +25,7 @@ export const annotationCache = new Map<string, { rowIds: Set<string>; ts: number
 // Lightweight caches for Google Sheet-driven data
 const annotationsCache = new Map<string, { anns: any[]; ts: number }>()
 const finalDatasetCache = new Map<string, { ids: Set<string>; ts: number }>()
-const usersCache = new Map<string, { byEmail: Map<string, string[]>; ts: number }>()
+const usersCache = new Map<string, { byEmail: Map<string, { langs: string[]; ts: number }>; ts: number }>()
 // const ANNOTATION_TTL_MS = 60_000 // Cache annotations longer than CSV
 
 export async function GET(request: NextRequest) {
@@ -193,7 +193,7 @@ export async function GET(request: NextRequest) {
           annotationsCache.set(spreadsheetId, { anns, ts: now })
         }
 
-  // Create a map to track which languages have been translated for each row
+        // Create a map to track which languages have been translated for each row
         const translationMap = new Map<string, Set<string>>()
 
         // Pre-collect IDs present in CSV for quick checking
@@ -253,26 +253,27 @@ export async function GET(request: NextRequest) {
         const userEmail = (session!.user.email || "").toLowerCase()
         let currentUserLanguages: string[] = []
         if (userEmail) {
-          let cachedUsers = usersCache.get(spreadsheetId)
-          if (!cachedUsers || now - cachedUsers.ts >= CONFIG.USER_TTL_MS) {
+          let cacheEntry = usersCache.get(spreadsheetId)
+          if (!cacheEntry) {
+            cacheEntry = { byEmail: new Map(), ts: now }
+            usersCache.set(spreadsheetId, cacheEntry)
+          }
+          const emailCache = cacheEntry.byEmail.get(userEmail)
+          if (emailCache && now - emailCache.ts < CONFIG.USER_TTL_MS) {
+            currentUserLanguages = emailCache.langs
+          } else {
             try {
-              const users = await getUsers(session!.accessToken, spreadsheetId)
-              const byEmail = new Map<string, string[]>()
-              users.forEach(u => {
-                const email = (u.email || "").toLowerCase()
-                const langs = (u.translationLanguages || "")
-                  .split(",")
-                  .map(s => s.trim().toLowerCase())
-                  .filter(Boolean)
-                if (email) byEmail.set(email, langs)
-              })
-              cachedUsers = { byEmail, ts: now }
-              usersCache.set(spreadsheetId, cachedUsers)
+              const user = await getUserByEmail(session!.accessToken, spreadsheetId, userEmail)
+              const langs = (user?.translationLanguages || "")
+                .split(",")
+                .map(s => s.trim().toLowerCase())
+                .filter(Boolean)
+              cacheEntry.byEmail.set(userEmail, { langs, ts: now })
+              currentUserLanguages = langs
             } catch (err) {
-              console.warn("Could not fetch users for language lookup:", err)
+              console.warn("Could not fetch user by email for language lookup:", err)
             }
           }
-          currentUserLanguages = cachedUsers?.byEmail.get(userEmail) || []
         }
 
         // Filter out rows based on completion status and user language capabilities
@@ -296,6 +297,7 @@ export async function GET(request: NextRequest) {
           const userLanguages = currentUserLanguages
           const canTranslateHausa = userLanguages.includes("ha")
           const canTranslateYoruba = userLanguages.includes("yo")
+          console.log("User languages:", userLanguages, canTranslateHausa, canTranslateYoruba)
 
           // For English source tasks, check language-specific completion and capabilities
           if (sourceLanguage === "en" || sourceLanguage === "english") {
@@ -335,8 +337,10 @@ export async function GET(request: NextRequest) {
             continue
           }
 
-          // For non-English tasks, exclude if any annotation exists
-          if (!completedLanguages.has("completed")) {
+          // For non-English tasks, only include if user can work in that source language
+          // and exclude if any annotation already exists
+          const canWorkInSource = currentUserLanguages.length === 0 || currentUserLanguages.includes(sourceLanguage)
+          if (canWorkInSource && !completedLanguages.has("completed")) {
             filtered.push(row)
           }
         }

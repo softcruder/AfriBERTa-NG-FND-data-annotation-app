@@ -1052,6 +1052,56 @@ export async function getUsers(accessToken: string, spreadsheetId: string): Prom
   }
 }
 
+/** Get a single user by email from the Users sheet. Returns undefined if not found. */
+export async function getUserByEmail(
+  accessToken: string,
+  spreadsheetId: string,
+  email: string,
+): Promise<User | undefined> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+
+  try {
+    const target = (email || "").trim().toLowerCase()
+    if (!target) return undefined
+
+    // Step 1: Fetch only the Email column to find the row index quickly
+    const emailsRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!C2:C" })
+    const emailRows = emailsRes.data.values || []
+
+    let rowIndex = -1
+    for (let i = 0; i < emailRows.length; i++) {
+      const cell = (emailRows[i]?.[0] || "").trim().toLowerCase()
+      if (cell === target) {
+        rowIndex = i
+        break
+      }
+    }
+    if (rowIndex === -1) return undefined
+
+    // Step 2: Fetch the exact row for this user
+    const rowNumber = rowIndex + 2 // header is row 1, data starts at row 2
+    const rowRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: `Users!A${rowNumber}:J${rowNumber}` })
+    const row = rowRes.data.values?.[0]
+    if (!row) return undefined
+
+    const user: User = {
+      id: row[0] || "",
+      name: row[1] || "",
+      email: row[2] || "",
+      role: (row[3] as any) || "annotator",
+      status: (row[4] as any) || "active",
+      totalAnnotations: Number.parseInt(row[5] || "0") || 0,
+      avgTimePerRow: Number.parseFloat(row[6] || "0") || 0,
+      lastActive: row[7] || new Date().toISOString(),
+      joinedDate: row[8] || new Date().toISOString(),
+      translationLanguages: row[9] || "",
+    }
+    return user
+  } catch (error) {
+    throw new Error(`Failed to get user by email: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+}
+
 /**
  * Upsert a user by email into Users sheet (append if not found, otherwise update select fields)
  */

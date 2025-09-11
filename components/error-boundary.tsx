@@ -11,12 +11,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 interface ErrorBoundaryState {
   hasError: boolean
   error?: Error
-  errorInfo?: string
+  errorInfo?: string // always a string when set (empty string instead of null)
 }
 
 interface ErrorBoundaryProps {
   children: ReactNode
   fallback?: ReactNode
+  /**
+   * Callback when an error is captured. componentStack provided as string (may be empty).
+   */
   onError?: (error: Error, errorInfo: string) => void
 }
 
@@ -36,13 +39,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("[v0] Error caught by boundary:", error, errorInfo)
 
+    const stack = errorInfo.componentStack || ""
     this.setState({
       error,
-      errorInfo: errorInfo.componentStack || undefined,
+      errorInfo: stack,
     })
-
-    // Call optional error handler
-    this.props.onError?.(error, errorInfo.componentStack || "")
+    this.props.onError?.(error, stack)
   }
 
   handleRetry = () => {

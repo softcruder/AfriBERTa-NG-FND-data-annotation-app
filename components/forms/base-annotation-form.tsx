@@ -361,9 +361,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
   return (
     <FormProvider {...form}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <div className="container mx-auto p-6 max-w-6xl">
+        <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-6 max-w-6xl">
           {/* Header */}
-          <div className="mb-8 bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="mb-6 sm:mb-8 bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700 sticky top-[56px] z-30">
             {/* Top Row: Title, User & Time */}
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="min-w-0 flex-1">
@@ -465,9 +465,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
             </div>
           </div>
 
-          <form onSubmit={handleFormSubmit}>
+          <form onSubmit={handleFormSubmit} className="pb-24 sm:pb-0">
             <div
-              className={`grid grid-cols-1 gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}
+              className={`grid grid-cols-1 gap-5 sm:gap-6 ${showOriginalDesktop ? "lg:grid-cols-[18rem_1fr]" : "lg:grid-cols-[7rem_1fr]"}`}
             >
               {/* Original Data Sidebar */}
               <div className="hidden lg:block">
@@ -539,11 +539,11 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
               {/* Main Form Content */}
               <div>
                 <Card className="shadow-sm border-slate-200 dark:border-slate-700">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800/50 pb-4 sm:pb-6">
                     <CardTitle className="text-lg text-slate-900 dark:text-slate-100">{getModeTitle()}</CardTitle>
                     <CardDescription>Edit and annotate the claim data</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6 p-6">
+                  <CardContent className="space-y-6 p-4 sm:p-6">
                     {/* Task Validity Toggle */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -582,7 +582,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                     {/* Form content passed as children */}
                     {children}
 
-                    <div className="flex gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+                    <div className="hidden sm:flex gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
                       <div className="flex-1 relative">
                         <Button
                           type="submit"
@@ -608,6 +608,35 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
               </div>
             </div>
           </form>
+
+          {/* Mobile Sticky Submit Bar */}
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-3 flex gap-2 items-center shadow-lg [padding-bottom:env(safe-area-inset-bottom)]">
+            <Button
+              type="button"
+              onClick={handleCancel}
+              variant="outline"
+              size="sm"
+              className="h-11 w-24 shrink-0 bg-transparent"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form={undefined}
+              // We'll manually trigger submit for mobile to ensure validation
+              onClick={e => {
+                const formEl = e.currentTarget.closest("div")?.parentElement?.querySelector("form")
+                formEl?.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }))
+              }}
+              className="flex-1 h-11 gap-2 bg-primary hover:bg-primary/90"
+              disabled={timeTracking.isIdle}
+              isLoading={submitting}
+              aria-label="Complete and submit annotation"
+            >
+              <Save className="h-4 w-4" />
+              {submitting ? "Submitting..." : "Submit"}
+            </Button>
+          </div>
         </div>
       </div>
     </FormProvider>

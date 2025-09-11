@@ -7,7 +7,7 @@ export interface AnnotationData {
   claimText: string
   sourceLinks: string[]
   translation?: string
-  verdict: string
+  verdict: string // allow empty string when verdict not set yet
   sourceUrl: string
   claimLinks: string[]
   claim_text_ha?: string

@@ -189,6 +189,7 @@
 
 /* Three dots loading animation */
 @keyframes loading-dots {
+
   0%,
   20% {
     opacity: 0.3;
@@ -221,10 +222,12 @@
 
 /* Added skeleton loading animation */
 @keyframes skeleton-pulse {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -239,6 +242,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -253,6 +257,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -277,4 +282,43 @@
 
 .error-text {
   color: var(--destructive);
+}
+
+/* Utility: subtle scroll shadow for vertically scrollable panes */
+.scroll-shadow {
+  position: relative;
+}
+
+.scroll-shadow:before,
+.scroll-shadow:after {
+  content: "";
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.scroll-shadow:before {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0));
+}
+
+.dark .scroll-shadow:before {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
+}
+
+.scroll-shadow:after {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0));
+}
+
+.dark .scroll-shadow:after {
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
+}
+
+/* Utility: safe bottom padding for devices with gesture bars */
+.safe-bottom-padding {
+  padding-bottom: env(safe-area-inset-bottom);
 }

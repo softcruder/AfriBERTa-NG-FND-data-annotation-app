@@ -43,28 +43,33 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
     metrics.annotatorPerformance.reduce((acc, perf) => acc + perf.qualityScore, 0) / metrics.annotatorPerformance.length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Quality Assurance Dashboard</h2>
-          <p className="text-muted-foreground">Monitor annotation quality and performance metrics</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="space-y-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">Quality Assurance Dashboard</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-prose">
+            Monitor annotation quality and performance metrics
+          </p>
         </div>
-        <Button onClick={handleRefresh} variant="outline">
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleRefresh} variant="outline" size="sm" className="shrink-0 h-9">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            <span className="hidden xs:inline">Refresh</span>
+            <span className="xs:hidden">Reload</span>
+          </Button>
+        </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-blue-600" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
-                <p className="text-2xl font-bold">{completionRate.toFixed(1)}%</p>
+                <p className="text-[11px] sm:text-sm font-medium text-muted-foreground">Completion Rate</p>
+                <p className="text-lg sm:text-2xl font-bold">{completionRate.toFixed(1)}%</p>
               </div>
             </div>
             <Progress value={completionRate} className="mt-2" />
@@ -72,17 +77,17 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-orange-600" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Quality Score</p>
-                <p className="text-2xl font-bold">{averageQuality.toFixed(1)}/10</p>
+                <p className="text-[11px] sm:text-sm font-medium text-muted-foreground">Quality Score</p>
+                <p className="text-lg sm:text-2xl font-bold">{averageQuality.toFixed(1)}/10</p>
               </div>
             </div>
             <Badge
               variant={averageQuality >= 8 ? "default" : averageQuality >= 6 ? "secondary" : "destructive"}
-              className="mt-2"
+              className="mt-2 text-[10px] sm:text-xs"
             >
               {averageQuality >= 8 ? "Excellent" : averageQuality >= 6 ? "Good" : "Needs Improvement"}
             </Badge>
@@ -90,24 +95,24 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-orange-600" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Time/Task</p>
-                <p className="text-2xl font-bold">{metrics.averageTimePerTask.toFixed(1)}m</p>
+                <p className="text-[11px] sm:text-sm font-medium text-muted-foreground">Avg Time/Task</p>
+                <p className="text-lg sm:text-2xl font-bold">{metrics.averageTimePerTask.toFixed(1)}m</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-purple-600" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Annotators</p>
-                <p className="text-2xl font-bold">{metrics.annotatorPerformance.length}</p>
+                <p className="text-[11px] sm:text-sm font-medium text-muted-foreground">Active Annotators</p>
+                <p className="text-lg sm:text-2xl font-bold">{metrics.annotatorPerformance.length}</p>
               </div>
             </div>
           </CardContent>
@@ -115,7 +120,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
       </div>
 
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex flex-wrap gap-1 p-1">
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="quality">Quality Issues</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -128,18 +133,23 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
               <CardDescription>Individual performance metrics and efficiency scores</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {metrics.annotatorPerformance.map(annotator => (
-                  <div key={annotator.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium">{annotator.name}</h4>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <span>Completed: {annotator.completed}</span>
-                        <span>Avg Time: {annotator.averageTime.toFixed(1)}m</span>
-                        <span>Quality: {annotator.qualityScore.toFixed(1)}/10</span>
+                  <div
+                    key={annotator.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg bg-card/30"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium truncate" title={annotator.name}>
+                        {annotator.name}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px] sm:text-sm text-muted-foreground">
+                        <span className="truncate">Completed: {annotator.completed}</span>
+                        <span className="truncate">Avg Time: {annotator.averageTime.toFixed(1)}m</span>
+                        <span className="truncate">Quality: {annotator.qualityScore.toFixed(1)}/10</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge
                         variant={
                           annotator.efficiency >= 90
@@ -148,6 +158,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
                               ? "secondary"
                               : "destructive"
                         }
+                        className="text-[10px] sm:text-xs"
                       >
                         {annotator.efficiency.toFixed(0)}% Efficiency
                       </Badge>
@@ -159,6 +170,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
                               ? "secondary"
                               : "destructive"
                         }
+                        className="text-[10px] sm:text-xs"
                       >
                         {annotator.qualityScore >= 8
                           ? "High Quality"
@@ -216,6 +228,7 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
                                 ? "secondary"
                                 : "default"
                           }
+                          className="text-[10px] sm:text-xs"
                         >
                           {flag.severity.toUpperCase()}
                         </Badge>
@@ -241,40 +254,40 @@ export function QADashboard({ metrics, onRefresh }: QADashboardProps) {
               <CardDescription>Detailed performance analytics and trends</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h4 className="font-medium">Productivity Trends</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm">Tasks Completed Today</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="font-medium text-sm sm:text-base">Productivity Trends</h4>
+                  <div className="space-y-2 text-[11px] sm:text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="truncate">Tasks Completed Today</span>
                       <span className="font-medium">{metrics.completedAnnotations}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Average Quality Score</span>
+                    <div className="flex justify-between gap-4">
+                      <span className="truncate">Average Quality Score</span>
                       <span className="font-medium">{averageQuality.toFixed(1)}/10</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Efficiency Rate</span>
+                    <div className="flex justify-between gap-4">
+                      <span className="truncate">Efficiency Rate</span>
                       <span className="font-medium">{completionRate.toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="font-medium">Quality Metrics</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm">High Quality Annotations</span>
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="font-medium text-sm sm:text-base">Quality Metrics</h4>
+                  <div className="space-y-2 text-[11px] sm:text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="truncate">High Quality Annotations</span>
                       <span className="font-medium">
                         {metrics.annotatorPerformance.filter(a => a.qualityScore >= 8).length}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Flagged for Review</span>
+                    <div className="flex justify-between gap-4">
+                      <span className="truncate">Flagged for Review</span>
                       <span className="font-medium">{metrics.flaggedAnnotations.length}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">Critical Issues</span>
+                    <div className="flex justify-between gap-4">
+                      <span className="truncate">Critical Issues</span>
                       <span className="font-medium text-red-600">
                         {metrics.flaggedAnnotations.filter(f => f.severity === "high").length}
                       </span>

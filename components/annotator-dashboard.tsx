@@ -24,6 +24,7 @@ import type { AnnotationTask } from "@/lib/data-store"
 import { useAuth, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
 import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
+import Link from "next/link"
 
 interface AnnotatorDashboardProps {
   user: User
@@ -39,9 +40,9 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   const { spreadsheetId, csvFileId } = useAuth()
   const { data: tasksResp } = useTasks({ page: tasksPage, pageSize, fileId: csvFileId || undefined })
   const { data: annotations, mutate: mutateAnnotations } = useAnnotations(spreadsheetId)
-  const { anonymize, loading: anonymizing } = useAnonymizeSelf()
-  const { create: createAnnotation } = useCreateAnnotation()
-  const { verify: verifyAnnotation } = useVerifyAnnotation()
+  // const { anonymize, loading: anonymizing } = useAnonymizeSelf()
+  // const { create: createAnnotation } = useCreateAnnotation()
+  // const { verify: verifyAnnotation } = useVerifyAnnotation()
 
   useEffect(() => {
     const task = getCurrentTask()
@@ -102,112 +103,6 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleAnonymize = async () => {
-    try {
-      const res = await anonymize()
-      if ((res as any)?.success) {
-        toast({ title: "Data anonymized", description: "Your annotations are now anonymized." })
-      }
-    } catch {
-      toast({ title: "Failed", description: "Could not anonymize data.", variant: "destructive" })
-    }
-  }
-
-  const handleTaskComplete = async (completedTask: AnnotationTask) => {
-    try {
-      if (!spreadsheetId) {
-        toast({
-          title: "Configuration Missing",
-          description: "No spreadsheet configured. Please contact admin.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      const duration =
-        completedTask.startTime && completedTask.endTime
-          ? Math.round((completedTask.endTime.getTime() - completedTask.startTime.getTime()) / (1000 * 60))
-          : 0
-
-      const lang = (completedTask.csvRow.data[4] || "").trim().toLowerCase()
-      const isEN = lang === "en"
-      const targetLang = (completedTask.translation ? (completedTask as any).translationLanguage : undefined) as
-        | "ha"
-        | "yo"
-        | undefined
-
-      // Map language-specific fields
-      const claim_text_ha = isEN
-        ? targetLang === "ha"
-          ? completedTask.translationHausa || completedTask.claims.join(" | ")
-          : completedTask.translationHausa || undefined
-        : undefined
-
-      const claim_text_yo = isEN
-        ? targetLang === "yo"
-          ? completedTask.translationYoruba || completedTask.claims.join(" | ")
-          : completedTask.translationYoruba || undefined
-        : undefined
-
-      const article_body_ha = isEN
-        ? targetLang === "ha"
-          ? completedTask.articleBodyHausa || completedTask.articleBody || ""
-          : completedTask.articleBodyHausa || undefined
-        : undefined
-
-      const article_body_yo = isEN
-        ? targetLang === "yo"
-          ? completedTask.articleBodyYoruba || completedTask.articleBody || ""
-          : completedTask.articleBodyYoruba || undefined
-        : undefined
-
-      const annotation = {
-        rowId: completedTask.rowId,
-        annotatorId: user.id,
-        claimText: completedTask.claims.join(" | "),
-        sourceLinks: completedTask.sourceLinks,
-        translation: completedTask.translation,
-        verdict: completedTask.verdict,
-        sourceUrl: (completedTask as any).sourceUrl || completedTask.sourceLinks[0] || "",
-        claimLinks: (completedTask as any).claimLinks ?? (completedTask.sourceLinks || []).slice(1),
-        claim_text_ha,
-        claim_text_yo,
-        article_body_ha,
-        article_body_yo,
-        translationLanguage: targetLang,
-        startTime: completedTask.startTime?.toISOString() || "",
-        endTime: completedTask.endTime?.toISOString() || "",
-        durationMinutes: duration,
-        status: "completed" as const,
-      }
-
-      await createAnnotation({ spreadsheetId, annotation })
-
-      setCurrentTask(null)
-      setCurrentTaskState(null)
-      // refresh annotations to update stats and QA lists
-      mutateAnnotations()
-
-      toast({
-        title: "Task Completed",
-        description: "Your annotation has been saved successfully!",
-        variant: "success",
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      toast({
-        title: "Save Failed",
-        description: message,
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleTaskCancel = () => {
-    setCurrentTask(null)
-    setCurrentTaskState(null)
   }
 
   return (
@@ -317,7 +212,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                   <CardDescription>Verify recently completed annotations</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {qaItems.slice(0, 3).map((item) => (
+                  {qaItems.slice(0, 3).map(item => (
                     <div
                       key={item.rowId}
                       className="p-3 border rounded-lg flex items-center justify-between gap-4 hover:bg-muted/50 transition-colors"
@@ -332,18 +227,18 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                         size="sm"
                         variant="outline"
                         className="shrink-0 bg-transparent"
-                        onClick={async () => {
-                          try {
-                            if (!spreadsheetId) return
-                            const res = await verifyAnnotation({ spreadsheetId: spreadsheetId!, rowId: item.rowId })
-                            if ((res as any)?.success !== false) {
-                              await mutateAnnotations()
-                              toast({ title: "Verified", description: "Annotation marked as verified." })
-                            }
-                          } catch {}
-                        }}
+                        // onClick={async () => {
+                        //   try {
+                        //     if (!spreadsheetId) return
+                        //     const res = await verifyAnnotation({ spreadsheetId: spreadsheetId!, rowId: item.rowId })
+                        //     if ((res as any)?.success !== false) {
+                        //       await mutateAnnotations()
+                        //       toast({ title: "Verified", description: "Annotation marked as verified." })
+                        //     }
+                        //   } catch {}
+                        // }}
                       >
-                        Verify
+                        <Link href={`/dashboard/annotator/verify/${encodeURIComponent(item.rowId)}`}>Verify</Link>
                       </Button>
                     </div>
                   ))}
@@ -371,7 +266,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                {tasks.map((t) => (
+                {tasks.map(t => (
                   <div
                     key={t.index}
                     className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
@@ -391,7 +286,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setTasksPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setTasksPage(p => Math.max(1, p - 1))}
                   disabled={tasksPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" /> Prev
@@ -402,7 +297,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setTasksPage((p) => p + 1)}
+                  onClick={() => setTasksPage(p => p + 1)}
                   disabled={tasksPage >= Math.ceil(tasksTotal / pageSize)}
                 >
                   Next <ChevronRight className="h-4 w-4" />

@@ -41,9 +41,7 @@ function RegularAnnotationFormContent() {
     const isUnrated = !["true", "false", "misleading"].includes(ratingStatus) || !currentVerdict
     setCanEditClaim(isUnrated)
 
-    // Verdict is editable if unrated or not a core verdict (TRUE/FALSE/MISLEADING)
-    const isNonCoreVerdict = !isCoreVerdict(currentVerdict)
-    setCanEditVerdict(isUnrated || isNonCoreVerdict)
+    setCanEditVerdict(true)
   }, [watchedValues.verdict])
 
   const addClaim = () => {
@@ -102,7 +100,7 @@ function RegularAnnotationFormContent() {
         </div>
         <Select
           value={watchedValues.verdict || undefined}
-          onValueChange={val => setValue("verdict", val as any)}
+          onValueChange={(val) => setValue("verdict", val as any)}
           disabled={!canEditVerdict}
         >
           <SelectTrigger>
@@ -111,12 +109,12 @@ function RegularAnnotationFormContent() {
           <SelectContent>
             {/* Show only core verdicts if current verdict is not a core verdict */}
             {!isCoreVerdict(watchedValues.verdict ?? "") && canEditVerdict
-              ? CoreVerdictEnum.options.map(v => (
+              ? CoreVerdictEnum.options.map((v) => (
                   <SelectItem key={v} value={v}>
                     {v}
                   </SelectItem>
                 ))
-              : VerdictEnum.options.map(v => (
+              : VerdictEnum.options.map((v) => (
                   <SelectItem key={v} value={v}>
                     {v}
                   </SelectItem>
@@ -127,11 +125,6 @@ function RegularAnnotationFormContent() {
         {!canEditVerdict && (
           <p className="text-xs text-muted-foreground">
             Verdict is set to a final value (TRUE/FALSE/MISLEADING). No further editing allowed.
-          </p>
-        )}
-        {canEditVerdict && !isCoreVerdict(watchedValues.verdict ?? "") && (
-          <p className="text-xs text-orange-600">
-            Current verdict requires correction. Please select TRUE, FALSE, or MISLEADING.
           </p>
         )}
       </div>
@@ -155,7 +148,7 @@ function RegularAnnotationFormContent() {
               <Textarea
                 placeholder={canEditClaim ? "Edit the extracted claim text..." : `Enter claim ${index + 1}...`}
                 value={claim}
-                onChange={e => updateClaim(index, e.target.value)}
+                onChange={(e) => updateClaim(index, e.target.value)}
                 className="min-h-[100px] resize-none break-all"
                 disabled={!canEditClaim && index === 0}
               />
@@ -209,7 +202,7 @@ function RegularAnnotationFormContent() {
                 <Input
                   placeholder={`Enter claim link ${index + 1}...`}
                   value={String(link || "")}
-                  onChange={e => updateClaimLink(index, e.target.value)}
+                  onChange={(e) => updateClaimLink(index, e.target.value)}
                   className="break-all"
                 />
                 {link && (
@@ -238,7 +231,7 @@ function RegularAnnotationFormContent() {
           {errors.claimLinks && (
             <p className="text-sm text-red-600 mt-2">
               {Array.isArray(errors.claimLinks)
-                ? errors.claimLinks.find(error => error)?.message || "Invalid claim links"
+                ? errors.claimLinks.find((error) => error)?.message || "Invalid claim links"
                 : errors.claimLinks.message || "Invalid claim links"}
             </p>
           )}
@@ -251,7 +244,7 @@ function RegularAnnotationFormContent() {
         <Textarea
           placeholder="Edit article body..."
           value={watchedValues.articleBody || ""}
-          onChange={e => setValue("articleBody", e.target.value)}
+          onChange={(e) => setValue("articleBody", e.target.value)}
           className="min-h-[140px] mt-2 break-all"
         />
       </div>

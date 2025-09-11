@@ -1,6 +1,4 @@
 "use client"
-
-import React from "react"
 import { useFormContext } from "react-hook-form"
 import { ExternalLink, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
-import { VerdictEnum, CoreVerdictEnum, isCoreVerdict, type AnnotationFormData } from "@/lib/validation"
+import { VerdictEnum, isCoreVerdict, type AnnotationFormData } from "@/lib/validation"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
 import { BaseAnnotationForm } from "./base-annotation-form"
@@ -91,7 +89,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
               <Textarea
                 placeholder="Enter Hausa translation of the claim..."
                 value={watchedValues.translationHausa || ""}
-                onChange={e => setValue("translationHausa", e.target.value)}
+                onChange={(e) => setValue("translationHausa", e.target.value)}
                 className="min-h-[120px] mt-2 break-all"
               />
               {errors.translationHausa && (
@@ -107,7 +105,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
               <Textarea
                 placeholder="Enter Yoruba translation of the claim..."
                 value={watchedValues.translationYoruba || ""}
-                onChange={e => setValue("translationYoruba", e.target.value)}
+                onChange={(e) => setValue("translationYoruba", e.target.value)}
                 className="min-h-[120px] mt-2 break-all"
               />
               {errors.translationYoruba && (
@@ -131,7 +129,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
               ) : (
                 <Tabs
                   value={watchedValues.translationLanguage || undefined}
-                  onValueChange={val => setValue("translationLanguage", val as any)}
+                  onValueChange={(val) => setValue("translationLanguage", val as any)}
                   className="mt-2"
                 >
                   <TabsList className="grid grid-cols-2 w-fit">
@@ -151,7 +149,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
               <Textarea
                 placeholder="Enter translated claim text..."
                 value={watchedValues.translation || ""}
-                onChange={e => setValue("translation", e.target.value)}
+                onChange={(e) => setValue("translation", e.target.value)}
                 className="min-h-[120px] mt-2 break-all"
               />
               {errors.translation && <p className="text-sm text-red-600 mt-2">{errors.translation.message}</p>}
@@ -165,23 +163,16 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
         <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
           Rating / Verdict <span className="text-red-500">*</span>
         </Label>
-        <Select value={watchedValues.verdict || undefined} onValueChange={val => setValue("verdict", val as any)}>
+        <Select value={watchedValues.verdict || undefined} onValueChange={(val) => setValue("verdict", val as any)}>
           <SelectTrigger>
             <SelectValue placeholder="Select verdict" />
           </SelectTrigger>
           <SelectContent>
-            {/* Show only core verdicts if current verdict is not a core verdict */}
-            {!isCoreVerdict(watchedValues.verdict || "")
-              ? CoreVerdictEnum.options.map(v => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))
-              : CoreVerdictEnum.options.map(v => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
+            {VerdictEnum.options.map((v) => (
+              <SelectItem key={v} value={v}>
+                {v}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {errors.verdict && <p className="text-sm text-red-600 mt-2">{errors.verdict.message}</p>}
@@ -225,7 +216,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
                 <Input
                   placeholder={`Enter claim link ${index + 1}...`}
                   value={String(link || "")}
-                  onChange={e => updateClaimLink(index, e.target.value)}
+                  onChange={(e) => updateClaimLink(index, e.target.value)}
                   className="break-all"
                 />
                 {link && (
@@ -254,7 +245,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
           {errors.claimLinks && (
             <p className="text-sm text-red-600 mt-2">
               {Array.isArray(errors.claimLinks)
-                ? errors.claimLinks.find(error => error)?.message || "Invalid claim links"
+                ? errors.claimLinks.find((error) => error)?.message || "Invalid claim links"
                 : errors.claimLinks.message || "Invalid claim links"}
             </p>
           )}
@@ -272,7 +263,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
             <Textarea
               placeholder="Enter Hausa translation of article body..."
               value={watchedValues.articleBodyHausa || ""}
-              onChange={e => setValue("articleBodyHausa", e.target.value)}
+              onChange={(e) => setValue("articleBodyHausa", e.target.value)}
               className="min-h-[140px] mt-2 break-all"
             />
             {errors.articleBodyHausa && <p className="text-sm text-red-600 mt-2">{errors.articleBodyHausa.message}</p>}
@@ -284,7 +275,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
             <Textarea
               placeholder="Enter Yoruba translation of article body..."
               value={watchedValues.articleBodyYoruba || ""}
-              onChange={e => setValue("articleBodyYoruba", e.target.value)}
+              onChange={(e) => setValue("articleBodyYoruba", e.target.value)}
               className="min-h-[140px] mt-2 break-all"
             />
             {errors.articleBodyYoruba && (
@@ -303,7 +294,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
               <Textarea
                 placeholder="Enter Hausa translation of article body..."
                 value={watchedValues.articleBodyHausa || ""}
-                onChange={e => setValue("articleBodyHausa", e.target.value)}
+                onChange={(e) => setValue("articleBodyHausa", e.target.value)}
                 className="min-h-[140px] mt-2 break-all"
               />
               {errors.articleBodyHausa && (
@@ -318,7 +309,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
               <Textarea
                 placeholder="Enter Yoruba translation of article body..."
                 value={watchedValues.articleBodyYoruba || ""}
-                onChange={e => setValue("articleBodyYoruba", e.target.value)}
+                onChange={(e) => setValue("articleBodyYoruba", e.target.value)}
                 className="min-h-[140px] mt-2 break-all"
               />
               {errors.articleBodyYoruba && (
@@ -335,7 +326,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
           <Textarea
             placeholder="Enter translated article body..."
             value={watchedValues.articleBody || ""}
-            onChange={e => setValue("articleBody", e.target.value)}
+            onChange={(e) => setValue("articleBody", e.target.value)}
             className="min-h-[140px] mt-2 break-all"
           />
           {errors.articleBody && <p className="text-sm text-red-600 mt-2">{errors.articleBody.message}</p>}

@@ -802,10 +802,10 @@ export async function ensureFinalDatasetHeaders(accessToken: string, spreadsheet
     const existingHeaders = response.data.values?.[0]
     const requiredHeaders = [
       "id",
-      "claim",
+      "claim_text",
       "label",
       "language",
-      "reasoning",
+      "reason",
       "sources",
       "claim_source",
       "domain",
@@ -1167,6 +1167,120 @@ export async function updateAnnotationStatus(
         data: updateData,
       },
     })
+  }
+}
+
+/** Update core editable annotation content fields (claims / translation / verdict / links / article bodies). */
+export async function updateAnnotationContent(
+  accessToken: string,
+  spreadsheetId: string,
+  rowId: string,
+  updates: Partial<
+    Pick<
+      AnnotationRow,
+      | "claimText"
+      | "sourceLinks"
+      | "translation"
+      | "verdict"
+      | "sourceUrl"
+      | "claimLinks"
+      | "claim_text_ha"
+      | "claim_text_yo"
+      | "article_body_ha"
+      | "article_body_yo"
+      | "translationLanguage"
+    >
+  >,
+): Promise<void> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:R" })
+  const rows = res.data.values || []
+  const idx = rows.findIndex(r => (r[0] || "") === rowId)
+  if (idx === -1) throw new Error(`Annotation rowId ${rowId} not found`)
+  const rowNum = idx + 2
+
+  // Build batch updates only for provided fields
+  const data: { range: string; values: any[][] }[] = []
+  const map: Record<string, string> = {
+    claimText: "C", // Claim_Text
+    sourceLinks: "D", // Source_Links
+    translation: "E", // Translation
+    verdict: "K", // Verdict (existing placement)
+    sourceUrl: "L", // Source_URL
+    claimLinks: "M", // Claim_Links
+    claim_text_ha: "N", // Claim_Text_HA
+    claim_text_yo: "O", // Claim_Text_YO
+    article_body_ha: "P", // Article_Body_HA
+    article_body_yo: "Q", // Article_Body_YO
+    translationLanguage: "R", // Translation_Language
+  }
+
+  if (updates.claimText !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.claimText}${rowNum}:${map.claimText}${rowNum}`,
+      values: [[updates.claimText]],
+    })
+  if (updates.sourceLinks !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.sourceLinks}${rowNum}:${map.sourceLinks}${rowNum}`,
+      values: [[(updates.sourceLinks || []).filter(Boolean).join("; ")]],
+    })
+  if (updates.translation !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.translation}${rowNum}:${map.translation}${rowNum}`,
+      values: [[updates.translation]],
+    })
+  if (updates.verdict !== undefined)
+    data.push({ range: `Annotations_Log!${map.verdict}${rowNum}:${map.verdict}${rowNum}`, values: [[updates.verdict]] })
+  if (updates.sourceUrl !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.sourceUrl}${rowNum}:${map.sourceUrl}${rowNum}`,
+      values: [[updates.sourceUrl]],
+    })
+  if (updates.claimLinks !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.claimLinks}${rowNum}:${map.claimLinks}${rowNum}`,
+      values: [[(updates.claimLinks || []).filter(Boolean).join("; ")]],
+    })
+  if (updates.claim_text_ha !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.claim_text_ha}${rowNum}:${map.claim_text_ha}${rowNum}`,
+      values: [[updates.claim_text_ha]],
+    })
+  if (updates.claim_text_yo !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.claim_text_yo}${rowNum}:${map.claim_text_yo}${rowNum}`,
+      values: [[updates.claim_text_yo]],
+    })
+  if (updates.article_body_ha !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.article_body_ha}${rowNum}:${map.article_body_ha}${rowNum}`,
+      values: [[updates.article_body_ha]],
+    })
+  if (updates.article_body_yo !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.article_body_yo}${rowNum}:${map.article_body_yo}${rowNum}`,
+      values: [[updates.article_body_yo]],
+    })
+  if (updates.translationLanguage !== undefined)
+    data.push({
+      range: `Annotations_Log!${map.translationLanguage}${rowNum}:${map.translationLanguage}${rowNum}`,
+      values: [[updates.translationLanguage]],
+    })
+
+  if (data.length === 0) return
+  await sheets.spreadsheets.values.batchUpdate({ spreadsheetId, requestBody: { valueInputOption: "RAW", data } })
+}
+
+/** Check if a final dataset already contains an entry with given id (or id_ha/id_yo). */
+export async function finalDatasetHasId(accessToken: string, spreadsheetId: string, id: string): Promise<boolean> {
+  const { sheets } = initializeGoogleAPIs(accessToken)
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotated_Dataset!A2:A" })
+    const ids = (res.data.values || []).map(r => r[0])
+    return ids.includes(id) || ids.includes(`${id}_ha`) || ids.includes(`${id}_yo`)
+  } catch {
+    return false
   }
 }
 

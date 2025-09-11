@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useAuth, useAnnotations } from "@/custom-hooks"
+import React from "react"
+import { useAuth } from "@/custom-hooks"
+import { usePaginatedAnnotations } from "@/custom-hooks/usePaginatedAnnotations"
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,11 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function VerifyListPage() {
   const { spreadsheetId } = useAuth()
-  const { data: annotations, mutate, isLoading } = useAnnotations(spreadsheetId)
+  const [page, setPage] = React.useState(1)
+  const pageSize = 20
+  const { data, isLoading, mutate } = usePaginatedAnnotations(spreadsheetId, page, pageSize)
   const { verify, loading } = useVerifyAnnotation()
   const { toast } = useToast()
 
-  const items = (annotations || []).filter((a: any) => !a.verifiedBy && a.status !== "verified")
+  const items = (data?.items || []).filter((a: any) => !a.verifiedBy && a.status !== "verified")
 
   return (
     <div className="container mx-auto p-6">
@@ -81,6 +85,31 @@ export function VerifyListPage() {
                 </div>
               </div>
             ))
+          )}
+          {!isLoading && data && data.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-xs text-muted-foreground">
+                Page {data.page} of {data.totalPages}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= data.totalPages}
+                  onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

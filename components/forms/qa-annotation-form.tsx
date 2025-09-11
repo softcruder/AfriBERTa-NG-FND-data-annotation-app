@@ -82,16 +82,25 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
               className="min-h-[80px] mt-2 bg-slate-50 dark:bg-slate-800"
             />
           </div>
-          <div>
-            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-              Translation ({watchedValues.translationLanguage === "ha" ? "Hausa" : "Yoruba"})
-            </Label>
-            <Textarea
-              value={watchedValues.translation || ""}
-              onChange={e => editMode && setValue("translation", e.target.value)}
-              disabled={!editMode}
-              className="min-h-[120px] mt-2"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claim Text (Hausa)</Label>
+              <Textarea
+                value={(watchedValues as any).translationHausa || ""}
+                onChange={e => editMode && setValue("translationHausa" as any, e.target.value)}
+                disabled={!editMode}
+                className="min-h-[100px] mt-2"
+              />
+            </div>
+            <div>
+              <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Claim Text (Yoruba)</Label>
+              <Textarea
+                value={(watchedValues as any).translationYoruba || ""}
+                onChange={e => editMode && setValue("translationYoruba" as any, e.target.value)}
+                disabled={!editMode}
+                className="min-h-[100px] mt-2"
+              />
+            </div>
           </div>
         </div>
       ) : (
@@ -210,17 +219,38 @@ function QAAnnotationFormContent({ task, user }: { task: AnnotationTask; user: U
       </div>
 
       {/* Article Body */}
-      <div>
-        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
-          Article Body {needsTranslation && "(Translated)"}
-        </Label>
-        <Textarea
-          value={watchedValues.articleBody || ""}
-          onChange={e => editMode && setValue("articleBody", e.target.value)}
-          disabled={!editMode}
-          className="min-h-[140px] mt-2"
-        />
-      </div>
+      {needsTranslation ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Article Body (Hausa)</Label>
+            <Textarea
+              value={(watchedValues as any).articleBodyHausa || ""}
+              onChange={e => editMode && setValue("articleBodyHausa" as any, e.target.value)}
+              disabled={!editMode}
+              className="min-h-[120px] mt-2"
+            />
+          </div>
+          <div>
+            <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Article Body (Yoruba)</Label>
+            <Textarea
+              value={(watchedValues as any).articleBodyYoruba || ""}
+              onChange={e => editMode && setValue("articleBodyYoruba" as any, e.target.value)}
+              disabled={!editMode}
+              className="min-h-[120px] mt-2"
+            />
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Label className="text-base font-medium text-slate-900 dark:text-slate-100">Article Body</Label>
+          <Textarea
+            value={watchedValues.articleBody || ""}
+            onChange={e => editMode && setValue("articleBody", e.target.value)}
+            disabled={!editMode}
+            className="min-h-[140px] mt-2"
+          />
+        </div>
+      )}
 
       {/* QA Comments */}
       <div>

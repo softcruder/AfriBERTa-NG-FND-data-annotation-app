@@ -63,7 +63,7 @@ export function SiteHeader() {
 
   const goVerify = () => {
     setNavLoading(true)
-    const target = role === "admin" ? "/dashboard/admin/metrics" : "/dashboard/annotator/verify"
+    const target = role === "admin" ? "/dashboard/admin/verify" : "/dashboard/annotator/verify"
     router.push(target)
     // give a brief grace period for transition; Next will reset when page renders
     setTimeout(() => setNavLoading(false), 1200)

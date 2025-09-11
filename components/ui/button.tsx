@@ -52,21 +52,19 @@ function Button({
     <Comp
       data-slot="button"
       aria-busy={isLoading || undefined}
-      className={cn(buttonVariants({ variant, size, className }), isLoading && "relative text-transparent")}
+      className={cn(buttonVariants({ variant, size, className }), isLoading && "relative")}
       disabled={isLoading || disabled}
       {...props}
     >
-      <span className={"flex gap-[16px] items-center justify-center"}>
-        {children}
+      <span className={"inline-flex items-center justify-center gap-2"}>
         {isLoading && (
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex items-center gap-1">
-              <span className="size-1.5 bg-current rounded-full loading-dot"></span>
-              <span className="size-1.5 bg-current rounded-full loading-dot"></span>
-              <span className="size-1.5 bg-current rounded-full loading-dot"></span>
-            </span>
+          <span aria-hidden className="inline-flex items-center justify-center gap-1">
+            <span className="size-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.2s]"></span>
+            <span className="size-1.5 bg-current rounded-full animate-bounce [animation-delay:-0.1s]"></span>
+            <span className="size-1.5 bg-current rounded-full animate-bounce"></span>
           </span>
         )}
+        <span className={cn(isLoading && "opacity-70")}>{children}</span>
       </span>
     </Comp>
   )

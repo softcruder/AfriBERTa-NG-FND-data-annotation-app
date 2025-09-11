@@ -130,6 +130,31 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         | "yo"
         | undefined
 
+      // Map language-specific fields
+      const claim_text_ha = isEN
+        ? targetLang === "ha"
+          ? completedTask.translationHausa || completedTask.claims.join(" | ")
+          : completedTask.translationHausa || undefined
+        : undefined
+
+      const claim_text_yo = isEN
+        ? targetLang === "yo"
+          ? completedTask.translationYoruba || completedTask.claims.join(" | ")
+          : completedTask.translationYoruba || undefined
+        : undefined
+
+      const article_body_ha = isEN
+        ? targetLang === "ha"
+          ? completedTask.articleBodyHausa || completedTask.articleBody || ""
+          : completedTask.articleBodyHausa || undefined
+        : undefined
+
+      const article_body_yo = isEN
+        ? targetLang === "yo"
+          ? completedTask.articleBodyYoruba || completedTask.articleBody || ""
+          : completedTask.articleBodyYoruba || undefined
+        : undefined
+
       const annotation = {
         rowId: completedTask.rowId,
         annotatorId: user.id,
@@ -139,10 +164,10 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         verdict: completedTask.verdict,
         sourceUrl: (completedTask as any).sourceUrl || completedTask.sourceLinks[0] || "",
         claimLinks: (completedTask as any).claimLinks ?? (completedTask.sourceLinks || []).slice(1),
-        claim_text_ha: isEN && targetLang === "ha" ? completedTask.claims.join(" | ") : undefined,
-        claim_text_yo: isEN && targetLang === "yo" ? completedTask.claims.join(" | ") : undefined,
-        article_body_ha: isEN && targetLang === "ha" ? completedTask.articleBody || "" : undefined,
-        article_body_yo: isEN && targetLang === "yo" ? completedTask.articleBody || "" : undefined,
+        claim_text_ha,
+        claim_text_yo,
+        article_body_ha,
+        article_body_yo,
         translationLanguage: targetLang,
         startTime: completedTask.startTime?.toISOString() || "",
         endTime: completedTask.endTime?.toISOString() || "",

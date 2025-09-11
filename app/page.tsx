@@ -55,7 +55,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-3 text-balance">AfriBERTa NG</h1>
           <h2 className="text-xl font-semibold text-primary mb-2">Data Annotation Platform</h2>
-          <p className="text-muted-foreground text-balance">For cross-lingual fake news detection system</p>
+          <p className="text-muted-foreground text-balance">
+            For developing an explainable cross-lingual fake news detection/classification model, using transfer
+            learning techniques.
+          </p>
         </div>
 
         {error && (

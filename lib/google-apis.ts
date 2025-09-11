@@ -1064,26 +1064,22 @@ export async function getUserByEmail(
     const target = (email || "").trim().toLowerCase()
     if (!target) return undefined
 
-    // Step 1: Fetch only the Email column to find the row index quickly
-    const emailsRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!C2:C" })
-    const emailRows = emailsRes.data.values || []
+    // Fetch all user rows in one call and filter locally
+    const usersRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Users!A2:J" })
+    const userRows = usersRes.data.values || []
 
-    let rowIndex = -1
-    for (let i = 0; i < emailRows.length; i++) {
-      const cell = (emailRows[i]?.[0] || "").trim().toLowerCase()
+    let matchedRow: string[] | undefined = undefined
+    for (let i = 0; i < userRows.length; i++) {
+      const row = userRows[i]
+      const cell = (row[2] || "").trim().toLowerCase()
       if (cell === target) {
-        rowIndex = i
+        matchedRow = row
         break
       }
     }
-    if (rowIndex === -1) return undefined
+    if (!matchedRow) return undefined
 
-    // Step 2: Fetch the exact row for this user
-    const rowNumber = rowIndex + 2 // header is row 1, data starts at row 2
-    const rowRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: `Users!A${rowNumber}:J${rowNumber}` })
-    const row = rowRes.data.values?.[0]
-    if (!row) return undefined
-
+    const row = matchedRow
     const user: User = {
       id: row[0] || "",
       name: row[1] || "",

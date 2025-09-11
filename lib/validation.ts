@@ -189,10 +189,20 @@ export const annotationFormSchema = z
     },
     {
       message: "Article body translation is required for your selected target language",
-      path: (data) =>
-        data.translationLanguage === "yo"
-          ? ["articleBodyYoruba"]
-          : ["articleBodyHausa"],
+      path: ["articleBodyHausa"],
+    },
+  )
+  .refine(
+    data => {
+      // For single-language annotators doing translation with Yoruba, require Yoruba article body
+      if (data.needsTranslation && !data.isDualTranslator && data.translationLanguage === "yo") {
+        return Boolean(data.articleBodyYoruba && data.articleBodyYoruba.trim().length > 0)
+      }
+      return true
+    },
+    {
+      message: "Article body translation is required for your selected target language",
+      path: ["articleBodyYoruba"],
     },
   )
 

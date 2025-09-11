@@ -17,7 +17,7 @@ import { useState, useEffect } from "react"
 interface RegularAnnotationFormProps {
   task: AnnotationTask
   user: User
-  onComplete: (task: AnnotationTask) => void
+  onComplete: (task: AnnotationTask) => Promise<void> | void
   onCancel: () => void
 }
 

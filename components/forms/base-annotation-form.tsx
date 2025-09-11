@@ -5,13 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+// import { Input } from "@/components/ui/input" // Not used here
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { Clock, ArrowLeft, ExternalLink, Pause, Play, Save, AlertTriangle } from "lucide-react"
+import { Clock, ArrowLeft, Pause, Play, Save, AlertTriangle } from "lucide-react"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
 import { setCurrentTask } from "@/lib/data-store"
@@ -25,9 +25,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 interface BaseAnnotationFormProps {
   task: AnnotationTask
   user: User
-  onComplete: (task: AnnotationTask) => void
+  onComplete: (task: AnnotationTask) => Promise<void> | void
   onCancel: () => void
-  mode: "annotation" | "translation" | "qa"
+  mode: "annotation" | "translation"
   children: React.ReactNode
 }
 
@@ -36,10 +36,11 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
   const [submitting, setSubmitting] = useState(false)
   const [markAsInvalid, setMarkAsInvalid] = useState(false)
   const { toast } = useToast()
+  // API submission is delegated to the parent (annotate-task-page); no direct API calls here
 
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
-  const isQAMode = mode === "qa"
+  const isQAMode = false
 
   // Check if user is a dual translator
   const userIsDualTranslator = isDualTranslator(user.translationLanguages?.join(",") || "")
@@ -120,14 +121,13 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       translationHausa: task.translationHausa || "",
       translationYoruba: task.translationYoruba || "",
       isDualTranslator: userIsDualTranslator,
-      articleBodyHausa: task.articleBodyHausa || "",
-      articleBodyYoruba: task.articleBodyYoruba || "",
+      articleBodyHausa: task.articleBodyHausa || (task as any).article_body_ha || "",
+      articleBodyYoruba: task.articleBodyYoruba || (task as any).article_body_yo || "",
       needsTranslation,
       verdict: (task.verdict as any) || undefined,
       isValid: task.isValid ?? true,
       invalidityReason: task.invalidityReason || "",
       isQAMode,
-      qaComments: "",
     },
   })
 
@@ -178,6 +178,9 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
       translationYoruba: currentFormData.translationYoruba,
       articleBodyHausa: currentFormData.articleBodyHausa,
       articleBodyYoruba: currentFormData.articleBodyYoruba,
+      // Mirror to snake_case for QA adapter compatibility when needed
+      ...(currentFormData.articleBodyHausa ? { article_body_ha: currentFormData.articleBodyHausa } : {}),
+      ...(currentFormData.articleBodyYoruba ? { article_body_yo: currentFormData.articleBodyYoruba } : {}),
       verdict: currentFormData.verdict,
       isValid: currentFormData.isValid,
       invalidityReason: currentFormData.invalidityReason,
@@ -251,18 +254,8 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     }
   }
 
-  const onSubmit = (data: AnnotationFormData) => {
+  const onSubmit = async (data: AnnotationFormData) => {
     if (submitting) return
-
-    // Prevent self-verification in QA mode
-    if (isQAMode && task.annotatorId === user.id) {
-      toast({
-        title: "Self-verification Not Allowed",
-        description: "You cannot perform QA on your own annotation. Please assign this task to another annotator.",
-        variant: "destructive",
-      })
-      return
-    }
 
     setSubmitting(true)
     timeTracking.stop()
@@ -271,16 +264,6 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     let finalTranslation = data.translation
     let finalTranslationLanguage = data.translationLanguage
     let finalClaims = data.claims
-
-    if (needsTranslation && data.isDualTranslator) {
-      // For dual translators, use both translations combined
-      finalTranslation = `Hausa: ${data.translationHausa || ""}\nYoruba: ${data.translationYoruba || ""}`
-      finalTranslationLanguage = "ha" // Set a default, but we have both
-      // Update claims to reflect both translations
-      finalClaims = [data.translationHausa || "", data.translationYoruba || ""].filter(Boolean)
-    } else if (needsTranslation && data.translation) {
-      finalClaims = [data.translation]
-    }
 
     const completedTask: AnnotationTask = {
       ...task,
@@ -308,13 +291,19 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
         originalClaim: task.csvRow.data[1] || "",
         language: task.csvRow.data[4] || "",
         originalSourceUrl: task.csvRow.data[7] || "",
-        domain: task.csvRow.data[6] || task.csvRow.data[8] || "", // Try different columns for domain
+        domain: task.csvRow.data[3] || task.csvRow.data[8] || "", // Try different columns for domain
         id_in_source: task.csvRow.data[0] || "",
       },
     }
 
-    localStorage.removeItem(`annotation_progress_${task.id}`)
-    Promise.resolve(onComplete(completedTask)).finally(() => setSubmitting(false))
+    // Delegate submission to parent; only pass the completed task
+    try {
+      localStorage.removeItem(`annotation_progress_${task.id}`)
+      await onComplete(completedTask)
+      setSubmitting(false)
+    } catch {
+      setSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -344,8 +333,6 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
     switch (mode) {
       case "translation":
         return "Translation & Annotation"
-      case "qa":
-        return "Quality Assurance Review"
       default:
         return "Annotation Task"
     }
@@ -361,8 +348,6 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
         } else {
           return "Translation: NGN70 + Annotation: NGN100"
         }
-      case "qa":
-        return "QA Review: NGN20"
       default:
         return "Annotation: NGN100"
     }
@@ -556,9 +541,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                 <Card className="shadow-sm border-slate-200 dark:border-slate-700">
                   <CardHeader className="bg-slate-50 dark:bg-slate-800/50">
                     <CardTitle className="text-lg text-slate-900 dark:text-slate-100">{getModeTitle()}</CardTitle>
-                    <CardDescription>
-                      {mode === "qa" ? "Review and verify the annotation" : "Edit and annotate the claim data"}
-                    </CardDescription>
+                    <CardDescription>Edit and annotate the claim data</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 p-6">
                     {/* Task Validity Toggle */}
@@ -604,7 +587,7 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                         <Button
                           type="submit"
                           className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
-                          disabled={timeTracking.isIdle || submitting || (isQAMode && task.annotatorId === user.id)}
+                          disabled={timeTracking.isIdle}
                           isLoading={submitting}
                         >
                           <Save className="h-4 w-4" />
@@ -613,11 +596,6 @@ export function BaseAnnotationForm({ task, user, onComplete, onCancel, mode, chi
                         {timeTracking.isIdle && (
                           <div className="absolute -top-8 left-0 right-0 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
                             Resume activity to enable submission
-                          </div>
-                        )}
-                        {isQAMode && task.annotatorId === user.id && (
-                          <div className="absolute -top-8 left-0 right-0 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded px-2 py-1">
-                            Self-verification not allowed
                           </div>
                         )}
                       </div>

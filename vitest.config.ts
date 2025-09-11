@@ -1,8 +1,9 @@
 import { defineConfig } from "vitest/config"
-import tsconfigPaths from "vite-tsconfig-paths"
+import { fileURLToPath, URL } from "node:url"
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  // Note: tsconfig paths are already handled by Next.js/tsconfig in app code.
+  // Removing vite-tsconfig-paths here avoids ESM require issues in Vitest.
   test: {
     environment: "jsdom",
     globals: true,
@@ -14,5 +15,13 @@ export default defineConfig({
   },
   esbuild: {
     target: "node14",
+  },
+  resolve: {
+    alias: [
+      {
+        find: /^@\//,
+        replacement: fileURLToPath(new URL("./", import.meta.url)),
+      },
+    ],
   },
 })

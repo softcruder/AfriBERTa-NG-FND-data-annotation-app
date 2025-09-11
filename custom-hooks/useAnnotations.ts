@@ -18,9 +18,38 @@ export function useAnnotations(spreadsheetId?: string): {
   return { data: data?.annotations ?? EMPTY_ANN_ARR, error, isLoading, mutate }
 }
 
+// Dedicated hook for regular annotation submissions
+export function useCreateRegularAnnotation() {
+  const { request, loading, error, data } = useRequest<{ success: boolean; warning?: string }>()
+
+  const create = (payload: { spreadsheetId: string; annotation: AnnotationRow | AnnotationFormData }) => {
+    return request.post("/annotations/regular", payload)
+  }
+
+  return { create, loading, error, data }
+}
+
+// Dedicated hook for translation annotation submissions
+export function useCreateTranslationAnnotation() {
+  const { request, loading, error, data } = useRequest<{ success: boolean; warning?: string }>()
+
+  const create = (payload: { spreadsheetId: string; annotation: AnnotationRow | AnnotationFormData }) => {
+    return request.post("/annotations/translation", payload)
+  }
+
+  return { create, loading, error, data }
+}
+
+// Backward-compat wrapper (optional)
 export function useCreateAnnotation() {
   const { request, loading, error, data } = useRequest<{ success: boolean }>()
-  const create = (payload: { spreadsheetId: string; annotation: AnnotationRow | AnnotationFormData }) =>
-    request.post("/annotations", payload)
+
+  const create = (payload: { spreadsheetId: string; annotation: AnnotationRow | AnnotationFormData }) => {
+    const a: any = payload.annotation
+    const isTranslation = !!(a.translation || a.translationLanguage || a.translationHausa || a.translationYoruba)
+    const endpoint = isTranslation ? "/annotations/translation" : "/annotations/regular"
+    return request.post(endpoint, payload)
+  }
+
   return { create, loading, error, data }
 }

@@ -236,7 +236,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
         <QAFormRouter
           task={task as any}
           user={user as any}
-          onComplete={(completed) => {
+          onComplete={completed => {
             const diff: Record<string, any> = {}
             const fields = [
               "claims",
@@ -250,7 +250,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               "qaComments",
               "translationLanguage",
             ] as const
-            fields.forEach((f) => {
+            fields.forEach(f => {
               const nv = (completed as any)[f]
               if (typeof nv === "undefined") return
               ;(diff as any)[f] = nv

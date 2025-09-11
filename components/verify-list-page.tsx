@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export function VerifyListPage() {
-  const { spreadsheetId } = useAuth()
+  const { spreadsheetId, user } = useAuth()
   const [page, setPage] = React.useState(1)
   const pageSize = 20
   const { data, isLoading, mutate } = usePaginatedAnnotations(spreadsheetId, page, pageSize)
@@ -60,28 +60,28 @@ export function VerifyListPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link href={`/dashboard/annotator/verify/${encodeURIComponent(item.rowId)}`}>
-                    <Button variant="outline" size="sm">
-                      Details
-                    </Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    isLoading={loading}
-                    onClick={async () => {
-                      try {
-                        if (!spreadsheetId) return
-                        const res = await verify({ spreadsheetId, rowId: item.rowId })
-                        if ((res as any)?.success !== false) {
-                          await mutate()
-                          toast({ title: "Verified", description: "Annotation marked as verified." })
-                        }
-                      } catch {}
-                    }}
-                    disabled={false}
-                  >
-                    Verify
+                  <Button variant="outline" size="sm">
+                    <Link href={`/dashboard/annotator/verify/${encodeURIComponent(item.rowId)}`}>Verify Details</Link>
                   </Button>
+                  {user?.role === "admin" && (
+                    <Button
+                      size="sm"
+                      isLoading={loading}
+                      onClick={async () => {
+                        try {
+                          if (!spreadsheetId) return
+                          const res = await verify({ spreadsheetId, rowId: item.rowId })
+                          if ((res as any)?.success !== false) {
+                            await mutate()
+                            toast({ title: "Verified", description: "Annotation marked as verified." })
+                          }
+                        } catch {}
+                      }}
+                      disabled={false}
+                    >
+                      Verify
+                    </Button>
+                  )}
                 </div>
               </div>
             ))

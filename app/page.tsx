@@ -57,8 +57,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <Image
                 src="/logo.png"
                 alt="AfriBERTa NG Logo"
-                width={80}
-                height={80}
+                width={70}
+                height={70}
                 className="rounded-xl shadow-lg ring-4 ring-primary/10"
               />
               <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-primary/10 to-transparent" />
@@ -67,8 +67,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <h1 className="text-4xl font-bold text-foreground mb-3 text-balance tracking-tight">AfriBERTa NG</h1>
           <h2 className="text-xl font-semibold text-primary mb-4 text-balance">Data Annotation Platform</h2>
           <p className="text-muted-foreground text-balance leading-relaxed max-w-sm mx-auto">
-            Developing an explainable cross-lingual fake news detection model using advanced transfer learning
-            techniques.
+            Developing an explainable cross-lingual fake news detection model using transfer learning techniques.
           </p>
         </div>
 
@@ -79,7 +78,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </Alert>
         )}
 
-        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-6 shadow-lg">
+        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-1 shadow-lg">
           <LoginForm />
         </div>
 

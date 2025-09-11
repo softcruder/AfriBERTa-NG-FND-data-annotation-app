@@ -9,7 +9,7 @@ interface ErrorResponse {
   error?: string
 }
 interface HomePageProps {
-  searchParams?: Promise<ErrorResponse> | ErrorResponse
+  searchParams?: Promise<ErrorResponse> | Promise<ErrorResponse | undefined> | undefined
 }
 
 async function getSession() {

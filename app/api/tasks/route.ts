@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset } from "@/lib/google-apis"
+import { downloadCSVFile, getAppConfig, getAnnotations, getFinalDataset, getUsers } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
 /**
@@ -15,11 +15,17 @@ export const csvCache = new Map<string, { data: string[][]; ts: number }>()
 const CONFIG = {
   CSV_TTL_MS: 30_000,
   ANNOTATION_TTL_MS: 60_000,
+  FINAL_DATASET_TTL_MS: 120_000,
+  USER_TTL_MS: 60_000,
   DEFAULT_PAGE_SIZE: 10,
   MAX_PAGE_SIZE: 100,
 } as const
 
 export const annotationCache = new Map<string, { rowIds: Set<string>; ts: number }>()
+// Lightweight caches for Google Sheet-driven data
+const annotationsCache = new Map<string, { anns: any[]; ts: number }>()
+const finalDatasetCache = new Map<string, { ids: Set<string>; ts: number }>()
+const usersCache = new Map<string, { byEmail: Map<string, string[]>; ts: number }>()
 // const ANNOTATION_TTL_MS = 60_000 // Cache annotations longer than CSV
 
 export async function GET(request: NextRequest) {
@@ -34,7 +40,10 @@ export async function GET(request: NextRequest) {
     if (isNaN(page)) {
       return NextResponse.json({ error: "Invalid page parameter" }, { status: 400 })
     }
-    const pageSize = Math.min(CONFIG.MAX_PAGE_SIZE, Math.max(1, Number.parseInt(searchParams.get("pageSize") || "5")))
+    const pageSize = Math.min(
+      CONFIG.MAX_PAGE_SIZE,
+      Math.max(1, Number.parseInt(searchParams.get("pageSize") || String(CONFIG.DEFAULT_PAGE_SIZE))),
+    )
     const overrideFileId = searchParams.get("fileId") || undefined
 
     // Fetch config once and reuse
@@ -174,10 +183,17 @@ export async function GET(request: NextRequest) {
     const spreadsheetId = cfg["ANNOTATION_SPREADSHEET_ID"]
     if (spreadsheetId) {
       try {
-        // Fetch all annotations to analyze completion by language
-        const anns = await getAnnotations(session!.accessToken, spreadsheetId)
+        // Fetch all annotations to analyze completion by language (with caching)
+        let anns: any[]
+        let cachedAnns = annotationsCache.get(spreadsheetId)
+        if (cachedAnns && now - cachedAnns.ts < CONFIG.ANNOTATION_TTL_MS) {
+          anns = cachedAnns.anns
+        } else {
+          anns = await getAnnotations(session!.accessToken, spreadsheetId)
+          annotationsCache.set(spreadsheetId, { anns, ts: now })
+        }
 
-        // Create a map to track which languages have been translated for each row
+  // Create a map to track which languages have been translated for each row
         const translationMap = new Map<string, Set<string>>()
 
         // Pre-collect IDs present in CSV for quick checking
@@ -215,15 +231,48 @@ export async function GET(request: NextRequest) {
         const finalDatasetIds = new Set<string>()
         if (finalSpreadsheetId) {
           try {
-            const finalDataset = await getFinalDataset(session!.accessToken, finalSpreadsheetId)
-            finalDataset.forEach((item: any) => {
-              if (item.id_in_source) {
-                finalDatasetIds.add(item.id_in_source?.toString().trim())
-              }
-            })
+            let cachedFinal = finalDatasetCache.get(finalSpreadsheetId)
+            if (cachedFinal && now - cachedFinal.ts < CONFIG.FINAL_DATASET_TTL_MS) {
+              // Reuse cached ids
+              cachedFinal.ids.forEach(id => finalDatasetIds.add(id))
+            } else {
+              const finalDataset = await getFinalDataset(session!.accessToken, finalSpreadsheetId)
+              finalDataset.forEach((item: any) => {
+                if (item.id_in_source) {
+                  finalDatasetIds.add(item.id_in_source?.toString().trim())
+                }
+              })
+              finalDatasetCache.set(finalSpreadsheetId, { ids: new Set(finalDatasetIds), ts: now })
+            }
           } catch (finalError) {
             console.warn("Could not fetch final dataset for filtering:", finalError)
           }
+        }
+
+        // Determine current user's translation capabilities from Users sheet (not from session)
+        const userEmail = (session!.user.email || "").toLowerCase()
+        let currentUserLanguages: string[] = []
+        if (userEmail) {
+          let cachedUsers = usersCache.get(spreadsheetId)
+          if (!cachedUsers || now - cachedUsers.ts >= CONFIG.USER_TTL_MS) {
+            try {
+              const users = await getUsers(session!.accessToken, spreadsheetId)
+              const byEmail = new Map<string, string[]>()
+              users.forEach(u => {
+                const email = (u.email || "").toLowerCase()
+                const langs = (u.translationLanguages || "")
+                  .split(",")
+                  .map(s => s.trim().toLowerCase())
+                  .filter(Boolean)
+                if (email) byEmail.set(email, langs)
+              })
+              cachedUsers = { byEmail, ts: now }
+              usersCache.set(spreadsheetId, cachedUsers)
+            } catch (err) {
+              console.warn("Could not fetch users for language lookup:", err)
+            }
+          }
+          currentUserLanguages = cachedUsers?.byEmail.get(userEmail) || []
         }
 
         // Filter out rows based on completion status and user language capabilities
@@ -244,7 +293,7 @@ export async function GET(request: NextRequest) {
           const completedLanguages = translationMap.get(rowId) || new Set()
 
           // Get user's translation capabilities
-          const userLanguages = session!.user.translationLanguages || []
+          const userLanguages = currentUserLanguages
           const canTranslateHausa = userLanguages.includes("ha")
           const canTranslateYoruba = userLanguages.includes("yo")
 
@@ -256,19 +305,32 @@ export async function GET(request: NextRequest) {
             // If both languages are completed, exclude
             if (hasHausaTranslation && hasYorubaTranslation) continue
 
+            // If user has no languages configured, include row as long as any target remains
+            const remaining: string[] = []
+            if (!hasHausaTranslation) remaining.push("ha")
+            if (!hasYorubaTranslation) remaining.push("yo")
+
+            if (userLanguages.length === 0) {
+              // Allow browsing even without configured languages
+              if (remaining.length === 0) continue
+              targetsRemainingMap.set(rowId, remaining)
+              filtered.push(row)
+              continue
+            }
+
             // If user can only work on one language, check if that language is available
             let include = false
-            const remaining: string[] = []
+            const userRemaining: string[] = []
             if (canTranslateHausa && !hasHausaTranslation) {
               include = true
-              remaining.push("ha")
+              userRemaining.push("ha")
             }
             if (canTranslateYoruba && !hasYorubaTranslation) {
               include = true
-              remaining.push("yo")
+              userRemaining.push("yo")
             }
             if (!include) continue
-            targetsRemainingMap.set(rowId, remaining)
+            targetsRemainingMap.set(rowId, userRemaining)
             filtered.push(row)
             continue
           }

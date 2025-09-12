@@ -358,7 +358,9 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-muted-foreground">ID: {(t.data?.[0] || "").trim() || "(none)"}</div>
-                      <div className="font-medium truncate">{t.data[1] || t.data[0] || "(empty)"}</div>
+                      <div className="font-medium max-w-[14rem] sm:max-w-[100%] line-clamp-1 truncate">
+                        {t.data[1] || t.data[0] || "(empty)"}
+                      </div>
                     </div>
                     <Button size="sm" onClick={() => startTaskFromRow(t)} className="gap-2 w-full sm:w-auto">
                       <Play className="h-4 w-4" /> Start

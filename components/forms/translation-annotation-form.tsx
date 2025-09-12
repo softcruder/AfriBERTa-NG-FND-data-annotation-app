@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
-import { VerdictEnum, isCoreVerdict, type AnnotationFormData } from "@/lib/validation"
+import { CoreVerdictEnum, isCoreVerdict, type AnnotationFormData } from "@/lib/validation"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
 import { BaseAnnotationForm } from "./base-annotation-form"
@@ -169,7 +169,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
             <SelectValue placeholder="Select verdict" />
           </SelectTrigger>
           <SelectContent>
-            {VerdictEnum.options.map(v => (
+            {CoreVerdictEnum.options.map(v => (
               <SelectItem key={v} value={v}>
                 {v}
               </SelectItem>

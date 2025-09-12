@@ -62,13 +62,36 @@ export interface PaymentSummary {
 export type AppConfig = Record<string, string>
 
 // Initialize Google APIs with OAuth token
-export function initializeGoogleAPIs(accessToken: string) {
+// Lightweight in-memory client cache keyed by access token (short TTL to avoid stale tokens)
+interface CachedGoogleClients {
+  drive: ReturnType<typeof google.drive>
+  sheets: ReturnType<typeof google.sheets>
+  auth: any
+  expires: number
+}
+const GOOGLE_CLIENT_CACHE = new Map<string, CachedGoogleClients>()
+const GOOGLE_CLIENT_TTL_MS = 60_000 // 1 minute per token instance
+
+export function initializeGoogleAPIs(accessToken: string, opts?: { reuse?: boolean; logPerf?: (info: any) => void }) {
+  const reuse = opts?.reuse !== false
+  const now = Date.now()
+  if (reuse) {
+    const cached = GOOGLE_CLIENT_CACHE.get(accessToken)
+    if (cached && cached.expires > now) {
+      opts?.logPerf?.({ evt: "google_client", mode: "cache_hit" })
+      return { drive: cached.drive, sheets: cached.sheets, auth: cached.auth }
+    }
+  }
   const auth = new google.auth.OAuth2()
   auth.setCredentials({ access_token: accessToken })
-
   const drive = google.drive({ version: "v3", auth })
   const sheets = google.sheets({ version: "v4", auth })
-
+  if (reuse) {
+    GOOGLE_CLIENT_CACHE.set(accessToken, { drive, sheets, auth, expires: now + GOOGLE_CLIENT_TTL_MS })
+    opts?.logPerf?.({ evt: "google_client", mode: "cache_miss_created" })
+  } else {
+    opts?.logPerf?.({ evt: "google_client", mode: "no_reuse" })
+  }
   return { drive, sheets, auth }
 }
 
@@ -488,6 +511,32 @@ export async function setAppConfig(accessToken: string, entries: AppConfig): Pro
     console.error("Error in setAppConfig:", error)
     throw error
   }
+}
+
+// --- Specific config helpers ---
+const FORMULA_LAST_UPDATE_KEY_PREFIX = "FORMULA_LAST_UPDATE_" // followed by spreadsheetId
+
+export async function getFormulaLastUpdateMap(accessToken: string): Promise<Record<string, number>> {
+  const cfg = await getAppConfigSafe(accessToken)
+  const map: Record<string, number> = {}
+  if (!cfg) return map
+  for (const [k, v] of Object.entries(cfg)) {
+    if (k.startsWith(FORMULA_LAST_UPDATE_KEY_PREFIX)) {
+      const id = k.substring(FORMULA_LAST_UPDATE_KEY_PREFIX.length)
+      const ts = Number(v)
+      if (id && !Number.isNaN(ts)) map[id] = ts
+    }
+  }
+  return map
+}
+
+export async function setFormulaLastUpdate(
+  accessToken: string,
+  spreadsheetId: string,
+  timestamp?: number,
+): Promise<void> {
+  const ts = timestamp ?? Date.now()
+  await setAppConfig(accessToken, { [`${FORMULA_LAST_UPDATE_KEY_PREFIX}${spreadsheetId}`]: String(ts) })
 }
 
 export async function listDriveFiles(

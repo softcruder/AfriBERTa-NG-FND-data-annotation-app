@@ -160,7 +160,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         </div>
 
         {/* Mobile summary chip bar (visible on very small screens) */}
-        <div className="mt-4 flex sm:hidden gap-2 overflow-x-auto pb-2 -mx-1 px-1" aria-label="Quick stats summary">
+        <div className="mt-4 flex flex-wrap sm:hidden gap-2 pb-2 -mx-1 px-1" aria-label="Quick stats summary">
           <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-primary/10 text-primary text-xs font-medium shrink-0">
             <CheckCircle className="h-3.5 w-3.5" /> {completedToday} done
           </div>

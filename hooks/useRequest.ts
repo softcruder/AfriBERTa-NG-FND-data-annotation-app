@@ -1,12 +1,27 @@
 import { useState } from "react"
 import useSWR, { type SWRConfiguration, type Key } from "swr"
-import requestService from "@/services/httpService"
+import requestService, { ExtendedAxiosRequestConfig, httpEvents } from "@/services/httpService"
 import { AxiosRequestConfig, AxiosResponse } from "axios"
 
 export function useRequest<T = any, E = any>() {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<E | null>(null)
   const [data, setData] = useState<T | null>(null)
+
+  // Subscribe once to unauthorized events (consumer components can decide how to redirect / logout)
+  // We intentionally do NOT redirect here to keep hook side-effect-light; but we could expose a callback prop in future.
+  // Example placeholder: clear local cache if needed.
+  // NOTE: Avoid adding window navigation directly to maintain separation of concerns.
+  // If required, an auth provider can also subscribe to httpEvents. This ensures no duplicate listeners per component.
+  // (No cleanup complexity here because module-level singleton; but we can expose an unsubscribe via useEffect if needed.)
+  // For safety we add a lazy subscription only once.
+  if (typeof window !== "undefined" && !(window as any).__httpUnauthorizedSubscribed) {
+    httpEvents.onUnauthorized(() => {
+      // Mark a global flag; auth provider may watch storage events if desired.
+      // console.debug("Received unauthorized event from http layer")
+    })
+    ;(window as any).__httpUnauthorizedSubscribed = true
+  }
 
   const handleRequest = async (promise: Promise<AxiosResponse<T>>): Promise<T> => {
     setLoading(true)
@@ -24,15 +39,15 @@ export function useRequest<T = any, E = any>() {
   }
 
   const request = {
-    get: (url: string, config?: AxiosRequestConfig) => handleRequest(requestService.get<T>(url, config)),
-    post: (url: string, data?: any, config?: AxiosRequestConfig) =>
+    get: (url: string, config?: ExtendedAxiosRequestConfig) => handleRequest(requestService.get<T>(url, config)),
+    post: (url: string, data?: any, config?: ExtendedAxiosRequestConfig) =>
       handleRequest(requestService.post<T>(url, data, config)),
-    put: (url: string, data?: any, config?: AxiosRequestConfig) =>
+    put: (url: string, data?: any, config?: ExtendedAxiosRequestConfig) =>
       handleRequest(requestService.put<T>(url, data, config)),
-    patch: (url: string, data?: any, config?: AxiosRequestConfig) =>
+    patch: (url: string, data?: any, config?: ExtendedAxiosRequestConfig) =>
       handleRequest(requestService.patch<T>(url, data, config)),
-    delete: (url: string, config?: AxiosRequestConfig) => handleRequest(requestService.delete<T>(url, config)),
-    send: (config: AxiosRequestConfig) => handleRequest(requestService.request<T>(config)),
+    delete: (url: string, config?: ExtendedAxiosRequestConfig) => handleRequest(requestService.delete<T>(url, config)),
+    send: (config: ExtendedAxiosRequestConfig) => handleRequest(requestService.request<T>(config)),
   }
 
   return { loading, error, data, request }

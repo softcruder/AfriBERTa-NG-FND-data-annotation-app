@@ -23,7 +23,7 @@ export function useCreateRegularAnnotation() {
   const { request, loading, error, data } = useRequest<{ success: boolean; warning?: string }>()
 
   const create = (payload: { spreadsheetId: string; annotation: AnnotationRow | AnnotationFormData }) => {
-    return request.post("/annotations/regular", payload)
+    return request.post("/annotations/regular", { ...payload, forceFormulateUpdate: true }, { retryAttempts: 0 })
   }
 
   return { create, loading, error, data }
@@ -34,7 +34,7 @@ export function useCreateTranslationAnnotation() {
   const { request, loading, error, data } = useRequest<{ success: boolean; warning?: string }>()
 
   const create = (payload: { spreadsheetId: string; annotation: AnnotationRow | AnnotationFormData }) => {
-    return request.post("/annotations/translation", payload)
+    return request.post("/annotations/translation", { ...payload, forceFormulateUpdate: false }, { retryAttempts: 0 })
   }
 
   return { create, loading, error, data }
@@ -48,7 +48,7 @@ export function useCreateAnnotation() {
     const a: any = payload.annotation
     const isTranslation = !!(a.translation || a.translationLanguage || a.translationHausa || a.translationYoruba)
     const endpoint = isTranslation ? "/annotations/translation" : "/annotations/regular"
-    return request.post(endpoint, payload)
+    return request.post(endpoint, { ...payload, forceFormulateUpdate: false }, { retryAttempts: 0 })
   }
 
   return { create, loading, error, data }

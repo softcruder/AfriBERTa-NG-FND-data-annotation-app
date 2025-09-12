@@ -94,6 +94,8 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
 
       const submissionType = TaskService.determineSubmissionType(completedTask)
 
+      // console.log("Submitting annotation", { submissionType, annotation, completedTask })
+
       if (submissionType === "translation") {
         await createTranslation({ spreadsheetId, annotation })
       } else {

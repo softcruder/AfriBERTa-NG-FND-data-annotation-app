@@ -33,29 +33,42 @@ export class AnnotationMapper {
     const targetLang = (task.translation ? (task as any).translationLanguage : undefined) as "ha" | "yo" | undefined
 
     // Map language-specific fields
-    const claim_text_ha = isEN
-      ? targetLang === "ha"
-        ? task.translationHausa || task.claims.join(" | ")
-        : task.translationHausa || undefined
-      : undefined
+    // Behavior:
+    // 1. If original is EN, we store translated claim/article body into the corresponding *_ha / *_yo fields depending on targetLang.
+    // 2. If original is HA or YO (direct annotation), we store the original claim/article body directly in that language column.
+    // 3. We always prefer explicit per-language fields (translationHausa / articleBodyHausa etc.) over generic ones.
 
-    const claim_text_yo = isEN
-      ? targetLang === "yo"
-        ? task.translationYoruba || task.claims.join(" | ")
-        : task.translationYoruba || undefined
-      : undefined
+    let claim_text_ha: string | undefined
+    let claim_text_yo: string | undefined
+    let article_body_ha: string | undefined
+    let article_body_yo: string | undefined
 
-    const article_body_ha = isEN
-      ? targetLang === "ha"
-        ? task.articleBodyHausa || task.articleBody || ""
-        : task.articleBodyHausa || undefined
-      : undefined
+    const combinedClaim = task.claims.join(" | ")
 
-    const article_body_yo = isEN
-      ? targetLang === "yo"
-        ? task.articleBodyYoruba || task.articleBody || ""
-        : task.articleBodyYoruba || undefined
-      : undefined
+    if (isEN) {
+      if (targetLang === "ha") {
+        claim_text_ha = task.translationHausa || combinedClaim
+        article_body_ha = task.articleBodyHausa || task.articleBody || ""
+      } else if (targetLang === "yo") {
+        claim_text_yo = task.translationYoruba || combinedClaim
+        article_body_yo = task.articleBodyYoruba || task.articleBody || ""
+      } else {
+        // If target language not explicitly specified but translations exist, capture them
+        if (task.translationHausa) claim_text_ha = task.translationHausa
+        if (task.translationYoruba) claim_text_yo = task.translationYoruba
+        if (task.articleBodyHausa) article_body_ha = task.articleBodyHausa
+        if (task.articleBodyYoruba) article_body_yo = task.articleBodyYoruba
+      }
+    } else {
+      // Direct Hausa or Yoruba annotation (no translation required)
+      if (lang === "ha") {
+        claim_text_ha = task.translationHausa || combinedClaim
+        article_body_ha = task.articleBodyHausa || task.articleBody || ""
+      } else if (lang === "yo") {
+        claim_text_yo = task.translationYoruba || combinedClaim
+        article_body_yo = task.articleBodyYoruba || task.articleBody || ""
+      }
+    }
 
     return {
       rowId: task.rowId,

@@ -363,16 +363,16 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Invalidation Reason<span className="text-red-600">*</span></label>
+                  <label className="text-sm font-medium">
+                    Invalidation Reason<span className="text-red-600">*</span>
+                  </label>
                   <Input
                     value={invalidReason}
                     onChange={e => setInvalidReason(e.target.value)}
                     placeholder="E.g. Not fact-check related, duplicate, spam, etc."
                     aria-invalid={invalidReason.trim().length === 0 ? true : undefined}
                   />
-                  {invalidReason.trim().length === 0 && (
-                    <p className="text-xs text-red-600">Reason is required.</p>
-                  )}
+                  {invalidReason.trim().length === 0 && <p className="text-xs text-red-600">Reason is required.</p>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Admin Comments (optional)</label>
@@ -386,7 +386,9 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               </div>
               <DialogFooter className="pt-2">
                 <DialogClose asChild>
-                  <Button type="button" variant="outline">Cancel</Button>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
                 </DialogClose>
                 <Button
                   type="button"

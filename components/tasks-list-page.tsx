@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/custom-hooks"
 import { Badge } from "@/components/ui/badge"
@@ -77,28 +77,32 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
   const tasks = tasksRaw
 
   return (
-    <div className="container mx-auto p-6">
-      <Card>
-        <CardHeader className="flex justify-between items-center">
-          <CardTitle>Available Tasks</CardTitle>
-          <CardDescription>
-            Showing {tasks.length} of {total} rows
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="text-sm text-muted-foreground">{isLoading ? "Loading…" : ""}</div>
-            <Button variant="outline" size="sm" onClick={() => mutate()}>
+    <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <div>
+            <CardTitle className="text-lg sm:text-xl">Available Tasks</CardTitle>
+            <CardDescription className="mt-0.5">
+              Showing {tasks.length} of {total} rows
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button variant="outline" size="sm" onClick={() => mutate()} className="shrink-0">
               Refresh
             </Button>
           </div>
-          <div className="space-y-2">
+        </CardHeader>
+        <CardContent className="space-y-4 p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="text-xs sm:text-sm text-muted-foreground">{isLoading ? "Loading…" : ""}</div>
+          </div>
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
             {isLoading && (
               <div className="space-y-2">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
+                    className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-card/30"
                   >
                     <div className="flex-1 min-w-0">
                       <Skeleton className="h-4 w-24 mb-1" />
@@ -118,23 +122,33 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
                 return (
                   <div
                     key={rowId}
-                    className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
+                    className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-card/30 hover:bg-accent/30 transition-colors"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-muted-foreground">ID: {idCol || "(none)"}</div>
-                      <div className="font-medium truncate flex items-center gap-2">
-                        <span className="truncate">{t.data[1] || t.data[0] || "(empty)"}</span>
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className="text-[11px] sm:text-xs text-muted-foreground mb-0.5">ID: {idCol || "(none)"}</div>
+                      <div className="font-medium flex items-center gap-2 text-sm sm:text-base">
+                        <span
+                          className="max-w-[14rem] sm:max-w-[100%] line-clamp-1 sm:line-clamp-1"
+                          title={t.data[1] || t.data[0] || "(empty)"}
+                        >
+                          {t.data[1] || t.data[0] || "(empty)"}
+                        </span>
                         <Badge variant="outline" className="shrink-0 uppercase">
                           {lang}
                         </Badge>
                         {remaining && remaining.length > 0 && (
-                          <span className="text-xs text-muted-foreground">→ needs: {remaining.join(", ")}</span>
+                          <span
+                            className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[10rem]"
+                            title={`Needs: ${remaining.join(", ")}`}
+                          >
+                            → needs: {remaining.join(", ")}
+                          </span>
                         )}
                       </div>
                     </div>
                     <Link className="w-full sm:w-auto" href={`${basePath}/annotate/${encodeURIComponent(rowId)}`}>
-                      <Button size="sm" className="gap-2 w-full sm:w-auto">
-                        <Play className="h-4 w-4" /> Start
+                      <Button size="sm" className="gap-2 w-full sm:w-auto" aria-label={`Start task ${rowId}`}>
+                        <Play className="h-4 w-4" /> <span className="sm:inline">Start</span>
                       </Button>
                     </Link>
                   </div>
@@ -142,21 +156,30 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
               })}
             {!isLoading && tasks.length === 0 && <div className="text-sm text-muted-foreground">No tasks to show.</div>}
           </div>
-          <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={currentPage === 1}>
-              <ChevronLeft className="h-4 w-4" /> Prev
-            </Button>
-            <div className="text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="flex w-full sm:w-auto justify-between gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="flex-1 sm:flex-initial"
+              >
+                <ChevronLeft className="h-4 w-4" /> Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage >= Math.ceil(total / pageSize)}
+                className="flex-1 sm:flex-initial"
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="text-xs sm:text-sm text-muted-foreground">
               Page {currentPage} of {Math.max(1, Math.ceil(total / pageSize))}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNextPage}
-              disabled={currentPage >= Math.ceil(total / pageSize)}
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         </CardContent>
       </Card>

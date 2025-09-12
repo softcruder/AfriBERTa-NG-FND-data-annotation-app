@@ -45,87 +45,67 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
     return AnnotationMapper.annotationRowToTask(item)
   }, [item])
 
-  const handlePeerApprove = async (updates?: any, isAutoApproval = false) => {
-    if (!spreadsheetId) return
+  const canAccessAnnotation = useMemo(() => {
+    if (!item || !user) return false
+    // If annotation is for admin-review, only admins can access it
+    if (item.status === "admin-review" && user.role !== "admin") {
+      return false
+    }
+    return true
+  }, [item, user])
+
+  const userTranslationLanguages = useMemo(() => {
+    if (!user?.translationLanguages) return []
+    return user.translationLanguages
+  }, [user])
+
+  const backHref = `/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`
+
+  const handlePeerApprove = async (updates?: any, editingMode?: boolean) => {
+    if (!spreadsheetId || !item) return
     setActionError(null)
     try {
       const res = await verify({
         spreadsheetId,
-        rowId: id,
-        isApproved: true,
-        contentUpdates: updates,
-        qaComments: pendingUpdates.qaComments || undefined,
+        rowId: item.rowId,
+        ...(updates ? { contentUpdates: updates } : {}),
       } as any)
       if ((res as any)?.success) {
-        setPendingUpdates({})
-        setHasUnsavedChanges(false)
-        await mutate()
         toast({
-          title: isAutoApproval ? "Changes Saved & Approved" : "QA Approved",
-          description: isAutoApproval
-            ? "Your edits have been saved and the annotation approved."
-            : "Annotation moved to QA-approved.",
+          title: "Approved",
+          description: editingMode ? "Edits saved and annotation approved." : "Annotation approved.",
         })
-        router.push(`/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`)
-      } else {
-        throw new Error("Failed to approve annotation")
-      }
-    } catch (error) {
-      const message = handleError(error, { context: "peerApprove", rowId: id })
-      setActionError("Failed to approve annotation. Please try again.")
-    }
-  }
-
-  const handleAdminFinalize = async () => {
-    if (!spreadsheetId) return
-    setActionError(null)
-    try {
-      const res = await verify({ spreadsheetId, rowId: id, adminFinalize: true } as any)
-      if ((res as any)?.success) {
         await mutate()
-        toast({ title: "Verified", description: "Annotation verified & added to dataset (if unique)." })
-        router.push("/dashboard/admin/verify")
-      } else {
-        throw new Error("Failed to finalize annotation")
+        if (editingMode) {
+          setIsEditing(false)
+          setHasUnsavedChanges(false)
+          setPendingUpdates({})
+        }
+      } else if ((res as any)?.error) {
+        setActionError((res as any).error || "Approval failed")
       }
-    } catch (error) {
-      handleError(error, { context: "adminFinalize", rowId: id })
-      setActionError("Failed to finalize annotation. Please try again.")
+    } catch (err: any) {
+      handleError(err, { fallback: "Failed to approve annotation" })
     }
   }
 
   const handleReject = async () => {
-    if (!spreadsheetId) return
+    if (!spreadsheetId || !item) return
     setActionError(null)
     try {
-      if (user?.role === "admin") {
-        await adminVerify({
-          spreadsheetId,
-          rowId: id,
-          action: "needs-revision",
-          comments: pendingUpdates.qaComments || "",
-        })
-        toast({ title: "Sent for revision", description: "Annotator will be notified to revise." })
-      } else {
-        await verify({
-          spreadsheetId,
-          rowId: id,
-          isApproved: false,
-          qaComments: pendingUpdates.qaComments || "",
-        } as any)
-        toast({ title: "Escalated to admin", description: "Annotation sent to admin review." })
+      // Escalate to admin by sending isApproved: false so backend sets status=admin-review
+      const res = await verify({ spreadsheetId, rowId: item.rowId, isApproved: false } as any)
+      if ((res as any)?.success) {
+        toast({ title: "Escalated", description: "Annotation escalated to admin review." })
+        await mutate()
+        router.push(`/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`)
+      } else if ((res as any)?.error) {
+        setActionError((res as any).error || "Escalation failed")
       }
-      setPendingUpdates({})
-      setHasUnsavedChanges(false)
-      await mutate()
-      router.push(`/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`)
-    } catch (error) {
-      handleError(error, { context: "reject", rowId: id })
-      setActionError("Failed to reject annotation. Please try again.")
+    } catch (err: any) {
+      handleError(err, { fallback: "Failed to escalate annotation" })
     }
   }
-
-  const backHref = `/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`
 
   if (isLoading)
     return (
@@ -175,6 +155,26 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
       </div>
     )
 
+  if (!canAccessAnnotation) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              This annotation is under admin review and can only be accessed by administrators.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href={backHref}>
+              <Button variant="outline">Go Back</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -218,6 +218,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               <Button
                 onClick={() => setIsEditing(true)}
                 variant="outline"
+                disabled={loading}
                 size="lg"
                 className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
               >
@@ -271,38 +272,165 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
       )}
 
       {!isEditing && task && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Annotation Details</CardTitle>
-            <CardDescription>Review the current annotation content</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">Claims</h4>
-              <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md">
-                {task.claims.join(", ") || "No claims"}
-              </div>
-            </div>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Annotation Details</CardTitle>
+              <CardDescription>Review the current annotation content and source information</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Source Information Section */}
+              <div className="border-b pb-4">
+                <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-3">Source Information</h4>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {item.sourceUrl && (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source URL</label>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2 rounded-md break-all">
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          {item.sourceUrl}
+                        </a>
+                      </div>
+                    </div>
+                  )}
 
-            {task.translation && (
+                  {item.sourceLinks && item.sourceLinks.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Source Links</label>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2 rounded-md">
+                        {item.sourceLinks.map((link, index) => (
+                          <div key={index} className="break-all">
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              {link}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {item.claimLinks && item.claimLinks.length > 0 && (
+                  <div className="mt-4">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Claim Links</label>
+                    <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2 rounded-md">
+                      {item.claimLinks.map((link, index) => (
+                        <div key={index} className="break-all">
+                          <a
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            {link}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Claims Section */}
               <div>
-                <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">Translation</h4>
+                <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">Claims</h4>
                 <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md">
-                  {task.translation}
+                  {task.claims.join(", ") || "No claims"}
                 </div>
               </div>
-            )}
 
-            {(task as any).verdict && (
-              <div>
-                <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">Verdict</h4>
-                <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md">
-                  {(task as any).verdict}
+              {userTranslationLanguages.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-3">
+                    Article Bodies (Your Languages)
+                  </h4>
+                  <div className="space-y-4">
+                    {userTranslationLanguages.includes("ha") && item.article_body_ha && (
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Hausa Article Body
+                        </label>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md max-h-40 overflow-y-auto">
+                          {item.article_body_ha}
+                        </div>
+                      </div>
+                    )}
+
+                    {userTranslationLanguages.includes("yo") && item.article_body_yo && (
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Yoruba Article Body
+                        </label>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md max-h-40 overflow-y-auto">
+                          {item.article_body_yo}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Translation Section */}
+              {task.translation && (
+                <div>
+                  <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">Translation</h4>
+                  <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md">
+                    {task.translation}
+                  </div>
+                </div>
+              )}
+
+              {/* Verdict Section */}
+              {(task as any).verdict && (
+                <div>
+                  <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">Verdict</h4>
+                  <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-md">
+                    {(task as any).verdict}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-3">Dataset Information</h4>
+                <div className="grid gap-4 md:grid-cols-2 text-sm">
+                  <div>
+                    <label className="font-medium text-slate-700 dark:text-slate-300">Status</label>
+                    <div className="text-slate-600 dark:text-slate-400">{item.status}</div>
+                  </div>
+
+                  {item.translationLanguage && (
+                    <div>
+                      <label className="font-medium text-slate-700 dark:text-slate-300">Translation Language</label>
+                      <div className="text-slate-600 dark:text-slate-400">{item.translationLanguage}</div>
+                    </div>
+                  )}
+
+                  {item.originalLanguage && (
+                    <div>
+                      <label className="font-medium text-slate-700 dark:text-slate-300">Original Language</label>
+                      <div className="text-slate-600 dark:text-slate-400">{item.originalLanguage}</div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="font-medium text-slate-700 dark:text-slate-300">Requires Translation</label>
+                    <div className="text-slate-600 dark:text-slate-400">{item.requiresTranslation ? "Yes" : "No"}</div>
+                  </div>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )

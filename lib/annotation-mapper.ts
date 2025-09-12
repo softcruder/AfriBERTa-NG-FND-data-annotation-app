@@ -7,7 +7,7 @@ export interface AnnotationData {
   claimText: string
   sourceLinks: string[]
   translation?: string
-  verdict: string
+  verdict: string // allow empty string when verdict not set yet
   sourceUrl: string
   claimLinks: string[]
   claim_text_ha?: string
@@ -63,7 +63,7 @@ export class AnnotationMapper {
       claimText: task.claims.join(" | "),
       sourceLinks: task.sourceLinks,
       translation: task.translation,
-      verdict: task.verdict,
+      verdict: task.verdict ?? "",
       sourceUrl: (task as any).sourceUrl || task.sourceLinks[0] || "",
       claimLinks: (task as any).claimLinks ?? (task.sourceLinks || []).slice(1),
       claim_text_ha,

@@ -139,7 +139,9 @@ export function AnnotateTaskPage({ rowId, role }: AnnotateTaskPageProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <AnnotationForm task={task} user={libUser} onComplete={handleTaskComplete} onCancel={handleTaskCancel} />
+      <div className="w-full mx-auto max-w-7xl">
+        <AnnotationForm task={task} user={libUser} onComplete={handleTaskComplete} onCancel={handleTaskCancel} />
+      </div>
     </div>
   )
 }

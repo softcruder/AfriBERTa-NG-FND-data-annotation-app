@@ -31,17 +31,17 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
 
 export async function GET(request: NextRequest) {
-  const { response, session } = await requireSession(request)
-  if (response) return response
-  // do work with session!.accessToken
-  return NextResponse.json({ user: session!.user })
+const { response, session } = await requireSession(request)
+if (response) return response
+// do work with session!.accessToken
+return NextResponse.json({ user: session!.user })
 }
 
 export async function POST(request: NextRequest) {
-  const { response, session } = await requireSession(request, { role: "admin" })
-  if (response) return response // 403 for non-admins
-  // admin-only logic here
-  return NextResponse.json({ ok: true })
+const { response, session } = await requireSession(request, { role: "admin" })
+if (response) return response // 403 for non-admins
+// admin-only logic here
+return NextResponse.json({ ok: true })
 }
 \`\`\`
 
@@ -69,3 +69,18 @@ Once types are tightened across hooks/components, consider enabling stricter che
 - ESLint: enable rules like `@typescript-eslint/no-explicit-any`, `no-unsafe-assignment`, and tighten import rules.
 
 Do this incrementally: enable strict options, fix surfaced issues, and keep tests green. If needed, scope strictness to `app/` and `components/` first via ESLint overrides.
+
+## Recent UX / Accessibility Improvements (2025-09-12)
+
+The following enhancements were introduced to improve mobile usability, performance, and accessibility:
+
+- Mobile task text truncation: Long claim text in task rows now uses multi-line clamp (2 lines on very small screens) to prevent layout overflow.
+- Focus-visible refinement: Adaptive focus ring system distinguishes keyboard vs pointer modality with a root `data-input-modality` attribute and improved contrast rings.
+- Summary chip bar (mobile): High-density horizontally scrollable stat chips for quick glance metrics on small devices.
+- Lazy loading: Heavy panels (e.g., payments dashboard) are dynamically imported to reduce initial Time To Interactive on mobile.
+- Tab removal on mobile: Annotation/Payments tab interface hidden below `sm` breakpoint; replaced with simplified stacked sections.
+- Motion reduction: Global `prefers-reduced-motion` handling disables non-essential animations for users requesting reduced motion.
+- Custom 404: New design-system aligned `app/not-found.tsx` with clear recovery actions.
+- Test coverage: Added mobile truncation test for `TasksListPage`.
+
+These changes aim to streamline annotator workflows on constrained devices while maintaining accessibility and performance.

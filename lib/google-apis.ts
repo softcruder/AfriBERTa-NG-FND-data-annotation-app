@@ -1442,7 +1442,8 @@ export async function updateUser(
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Users!A${rowNumber}:I${rowNumber}`,
+      // Include column J (translationLanguages)
+      range: `Users!A${rowNumber}:J${rowNumber}`,
       valueInputOption: "RAW",
       requestBody: {
         values: [
@@ -1456,6 +1457,7 @@ export async function updateUser(
             updatedUser.avgTimePerRow,
             updatedUser.lastActive,
             updatedUser.joinedDate,
+            updatedUser.translationLanguages || "",
           ],
         ],
       },

@@ -30,13 +30,15 @@ export function AdminVerifyListPage() {
   }, [data, filter])
 
   return (
-    <div className="container mx-auto p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Verification</CardTitle>
-          <CardDescription>Review QA-approved or flagged items and finalize verification</CardDescription>
+    <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg sm:text-xl">Admin Verification</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Review QA-approved or flagged items and finalize verification
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 p-4 sm:p-6">
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <Button
@@ -93,48 +95,58 @@ export function AdminVerifyListPage() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="text-muted-foreground">No items pending admin verification.</div>
+            <div className="text-muted-foreground text-sm">No items pending admin verification.</div>
           ) : (
-            items.map((item: any) => (
-              <div key={item.rowId} className="p-3 border rounded-lg flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{item.claimText}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                    <Badge variant="outline">{item.annotatorId}</Badge>
-                    <Badge
-                      variant={
-                        item.status === "qa-approved"
-                          ? "default"
-                          : item.status === "admin-review"
-                            ? "destructive"
-                            : "secondary"
-                      }
+            <div className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
+              {items.map((item: any) => (
+                <div
+                  key={item.rowId}
+                  className="p-3 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-card/30 hover:bg-accent/30 transition-colors"
+                >
+                  <div className="flex-1 min-w-0 w-full">
+                    <div className="font-medium truncate" title={item.claimText}>
+                      {item.claimText}
+                    </div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge variant="outline" className="truncate max-w-[8rem]" title={item.annotatorId}>
+                        {item.annotatorId}
+                      </Badge>
+                      <Badge
+                        variant={
+                          item.status === "qa-approved"
+                            ? "default"
+                            : item.status === "admin-review"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {item.status === "completed" && !item.verifiedBy ? "unverified" : item.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Link
+                      href={`/dashboard/admin/verify/${encodeURIComponent(item.rowId)}`}
+                      className="w-full sm:w-auto"
                     >
-                      {item.status === "completed" && !item.verifiedBy ? "unverified" : item.status}
-                    </Badge>
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                        Review
+                      </Button>
+                    </Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Link href={`/dashboard/admin/verify/${encodeURIComponent(item.rowId)}`}>
-                    <Button variant="outline" size="sm">
-                      Review
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
           {!isLoading && data && data.totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4">
-              <div className="text-xs text-muted-foreground">
-                Page {data.page} of {data.totalPages}
-              </div>
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <div className="flex w-full sm:w-auto justify-between gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="flex-1 sm:flex-initial"
                 >
                   Prev
                 </Button>
@@ -143,9 +155,13 @@ export function AdminVerifyListPage() {
                   size="sm"
                   disabled={page >= data.totalPages}
                   onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
+                  className="flex-1 sm:flex-initial"
                 >
                   Next
                 </Button>
+              </div>
+              <div className="text-[11px] sm:text-xs text-muted-foreground">
+                Page {data.page} of {data.totalPages}
               </div>
             </div>
           )}

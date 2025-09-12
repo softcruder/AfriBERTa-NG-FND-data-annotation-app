@@ -116,7 +116,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
 
         <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50/50 to-background">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Today's Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Today&apos;s Earnings</CardTitle>
             <DollarSign className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>

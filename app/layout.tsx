@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { AuthProvider } from "@/custom-hooks/useAuth"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { InputModalityListener } from "@/components/input-modality-listener"
 
 export const metadata: Metadata = {
   title: "AfriBERTa NG | Data Annotation Platform",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     icon: "/logo.ico",
     apple: "/logo.png",
   },
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 // SiteHeader reads the user from the AuthProvider; no need to fetch user here.
@@ -32,6 +33,7 @@ export default async function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <Suspense fallback={null}>
+              <InputModalityListener />
               {children}
               <Toaster />
             </Suspense>

@@ -54,6 +54,6 @@ describe("TasksListPage mobile truncation", () => {
   it("applies line clamp classes to long claim text", () => {
     render(<TasksListPage basePath="/dashboard/annotator" />)
     const textEl = screen.getByText(/A very long claim text/)
-    expect(textEl.className).toMatch(/line-clamp-2/)
+    expect(textEl.className).toMatch(/max-w-\[14rem\] sm:max-w-\[100%\] line-clamp-2 sm:line-clamp-1/)
   })
 })

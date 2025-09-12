@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios"
 
 const requestService = axios.create({
   baseURL: "/api",
-  timeout: 15000,
+  timeout: 20000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -41,7 +41,13 @@ requestService.interceptors.response.use(
     const config: any = error.config || {}
     const status = error.response?.status
 
-    // Network/timeout or 5xx: retry with backoff up to 2 times
+    // If the request was explicitly canceled (navigation / component unmount), do NOT retry.
+    // Retrying a canceled successful POST was causing duplicate submissions (first completed server-side, second hit 409).
+    if ((error as any).code === "ERR_CANCELED" || axios.isCancel?.(error)) {
+      return Promise.reject(error)
+    }
+
+    // Network/timeout or 5xx: retry with backoff up to 2 times (exclude client aborts above)
     const retriable = !status || status >= 500
     if (retriable) {
       config.__retryCount = config.__retryCount || 0

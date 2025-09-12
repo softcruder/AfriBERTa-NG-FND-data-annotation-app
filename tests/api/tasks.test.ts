@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { GET as tasksGET } from "@/app/api/tasks/route"
 import { NextRequest } from "next/server"
 
+// Default mock: admin session unless overridden within a test (we monkey patch inside cases)
 vi.mock("@/lib/auth", () => ({
   getSessionFromCookie: vi.fn(() => ({
     accessToken: "token",
-    user: { email: "admin@example.com" },
+    user: { email: "admin@example.com", id: "admin-1", role: "admin" },
   })),
 }))
 
@@ -173,6 +174,39 @@ describe("/api/tasks GET", () => {
       expect(res.status).toBe(400)
       const json = await res.json()
       expect(json.error).toBe("Invalid page parameter")
+    })
+  })
+
+  describe("Annotation status filtering policy", () => {
+    it("hides restricted statuses for annotator (admin-review, invalid, needs-revision not owned)", async () => {
+      const { getSessionFromCookie } = (await import("@/lib/auth")) as any
+      // Switch to annotator user
+      getSessionFromCookie.mockReturnValueOnce({
+        accessToken: "token",
+        user: { email: "ann@example.com", id: "ann-1", role: "annotator" },
+        expiresAt: Date.now() + 60_000,
+      })
+      const { getAppConfig, downloadCSVFile, getAnnotations } = (await import("@/lib/google-apis")) as any
+      getAppConfig.mockResolvedValueOnce({ CSV_FILE_ID: "csv123", ANNOTATION_SPREADSHEET_ID: "sheet123" })
+      downloadCSVFile.mockResolvedValueOnce([
+        ["id", "text", "c3", "c4", "lang"],
+        ["r1", "Row 1 text", "", "", "en"],
+        ["r2", "Row 2 text", "", "", "en"],
+        ["r3", "Row 3 text", "", "", "en"],
+        ["r4", "Row 4 text", "", "", "en"],
+      ])
+      getAnnotations.mockResolvedValueOnce([
+        { rowId: "r1", status: "admin-review", translationLanguage: "ha" },
+        { rowId: "r2", status: "invalid", translationLanguage: "yo" },
+        { rowId: "r3", status: "needs-revision", annotatorId: "other", translationLanguage: "ha" },
+        { rowId: "r4", status: "needs-revision", annotatorId: "ann-1", translationLanguage: "yo" },
+      ])
+      const req = makeRequest("http://localhost/api/tasks")
+      const res = await tasksGET(req)
+      const json = await res.json()
+      // r1, r2, r3 should be hidden; r4 should remain (owned needs-revision)
+      const remainingIds = json.items.map((it: any) => it.data[0])
+      expect(remainingIds).toEqual(["r4"])
     })
   })
 })

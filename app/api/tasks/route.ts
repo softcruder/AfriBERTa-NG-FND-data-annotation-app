@@ -197,14 +197,32 @@ export async function GET(request: NextRequest) {
         // Pre-collect IDs present in CSV for quick checking
         const csvIds = new Set(rows.map(r => (r?.[0] || "").trim()).filter(Boolean))
 
+        // Track rows that should be hidden from non-admin users due to review / invalidation states
+        // Policy (2025-09-12): Hide rows with any annotation in one of these states for non-admins:
+        // - admin-review: escalation; prevent duplicate work until resolved
+        // - invalid: rejected content; should not be reattempted unless explicitly reset
+        // - needs-revision: Only original annotator may see it again (for correction); others should not pick it up
+        const restrictedRowIds = new Set<string>()
+        const needsRevisionRowIds = new Set<string>() // Track separately to allow original annotator re-access
+
         anns.forEach(annotation => {
-          // If current user is not admin, skip annotations that are escalated or invalid so tasks remain available
+          const rowId = (annotation.rowId || "").trim()
           if (session!.user.role !== "admin") {
             if (annotation.status === "admin-review" || annotation.status === "invalid") {
+              if (rowId) restrictedRowIds.add(rowId)
+              return // Skip further processing for completion marks
+            }
+            if (annotation.status === "needs-revision") {
+              if (rowId) {
+                needsRevisionRowIds.add(rowId)
+                // Only allow visibility if current user is original annotator
+                if (annotation.annotatorId !== session!.user.id) {
+                  restrictedRowIds.add(rowId)
+                }
+              }
               return
             }
           }
-          const rowId = (annotation.rowId || "").trim()
           if (!rowId || !csvIds.has(rowId)) return
 
           if (!translationMap.has(rowId)) {
@@ -290,6 +308,9 @@ export async function GET(request: NextRequest) {
             filtered.push(row)
             continue
           }
+
+          // If a row is restricted (admin-review, invalid, or needs-revision not owned), hide it for non-admins
+          if (session!.user.role !== "admin" && restrictedRowIds.has(rowId)) continue
 
           // If already in final dataset, exclude
           if (finalDatasetIds.has(rowId)) continue

@@ -115,13 +115,13 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Annotator Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back, {user.name || user.email}. Ready to continue your annotation work?
-          </p>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight text-foreground">
+            Welcome back, {user.name || user.email}.
+          </h1>
+          <p className="text-muted-foreground">Ready to continue your annotation work?</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-50/50 to-background">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Completed Today</CardTitle>
@@ -326,15 +326,6 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                 {qaItems.length === 0 && (
                   <div className="text-xs text-muted-foreground text-center py-3">No verification pending.</div>
                 )}
-              </div>
-            </div>
-            <div>
-              <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-emerald-600" /> Payments Snapshot
-              </h2>
-              <div className="border rounded-lg p-4 bg-muted/30">
-                <p className="text-xs text-muted-foreground mb-2">Open full payment details on larger screens.</p>
-                <PaymentDashboard user={user} />
               </div>
             </div>
           </div>

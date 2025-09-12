@@ -7,9 +7,9 @@ import { AnnotationFormRouter } from "./forms/annotation-form-router"
 interface AnnotationFormProps {
   task: AnnotationTask
   user: User
-  onComplete: (task: AnnotationTask) => void
+  onComplete: (task: AnnotationTask) => Promise<void>
   onCancel: () => void
-  mode?: "annotation" | "translation" | "qa"
+  mode?: "annotation" | "translation"
 }
 
 export function AnnotationForm({ task, user, onComplete, onCancel, mode }: AnnotationFormProps) {

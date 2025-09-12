@@ -3,7 +3,6 @@
 import React from "react"
 import type { User } from "@/lib/auth"
 import type { AnnotationTask } from "@/lib/data-store"
-// import { isDualTranslator } from "@/lib/payment-calculator"
 import { RegularAnnotationForm } from "./regular-annotation-form"
 import { TranslationAnnotationForm } from "./translation-annotation-form"
 import { QAAnnotationForm } from "./qa-annotation-form"

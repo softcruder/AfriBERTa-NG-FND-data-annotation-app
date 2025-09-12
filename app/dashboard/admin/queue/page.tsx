@@ -1,3 +1,4 @@
+"use client"
 import { QueueMonitor } from "@/components/queue-monitor"
 import { ForceRefreshSession } from "@/components/force-refresh-session"
 

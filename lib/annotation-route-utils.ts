@@ -1,7 +1,7 @@
 // Shared utilities for annotation API routes (regular & translation)
 // Provides: perf logging, rowId cache with TTL, background formula update queue.
 
-import { updatePaymentFormulas } from "@/lib/google-apis"
+import { updatePaymentFormulas, setFormulaLastUpdate } from "@/lib/google-apis"
 
 // ---- Performance Logging ----
 export function logPerf(label: string, start: number, extra?: Record<string, any>) {
@@ -41,6 +41,7 @@ interface FormulaQueueEntry {
 }
 const formulaQueue = new Map<string, FormulaQueueEntry>()
 let formulaWorkerScheduled = false
+const lastFormulaUpdate = new Map<string, number>() // spreadsheetId -> epoch ms
 
 export function enqueueFormulaUpdate(spreadsheetId: string, accessToken: string) {
   formulaQueue.set(spreadsheetId, { ts: Date.now(), accessToken })
@@ -68,6 +69,12 @@ async function runFormulaWorker() {
       }
       await updatePaymentFormulas(accessToken, spreadsheetId)
       logPerf("formula_bg_updated", now(), { spreadsheetId })
+      const ts = Date.now()
+      lastFormulaUpdate.set(spreadsheetId, ts)
+      // Fire and forget persistence; errors are logged but not thrown
+      setFormulaLastUpdate(accessToken, spreadsheetId, ts).catch(err =>
+        console.warn("[annot-utils] failed to persist last formula update", spreadsheetId, err),
+      )
     } catch (e) {
       console.warn("[annot-utils] background formula update failed", spreadsheetId, e)
     }
@@ -81,4 +88,21 @@ async function runFormulaWorker() {
 export function isRowIdDuplicate(rowId: string | undefined | null, existing: Set<string>): boolean {
   if (!rowId) return false
   return existing.has(rowId.trim())
+}
+
+// ---- Inspection / Metrics API ----
+export function getFormulaQueueDepth(): number {
+  return formulaQueue.size
+}
+export function getFormulaQueueEntries(): { spreadsheetId: string; enqueuedAt: number }[] {
+  return [...formulaQueue.entries()].map(([spreadsheetId, entry]) => ({ spreadsheetId, enqueuedAt: entry.ts }))
+}
+export function getLastFormulaUpdate(spreadsheetId: string): number | undefined {
+  return lastFormulaUpdate.get(spreadsheetId)
+}
+export function setLastFormulaUpdate(spreadsheetId: string, ts?: number) {
+  lastFormulaUpdate.set(spreadsheetId, ts ?? Date.now())
+}
+export function getAllLastFormulaUpdates(): { spreadsheetId: string; updatedAt: number }[] {
+  return [...lastFormulaUpdate.entries()].map(([spreadsheetId, updatedAt]) => ({ spreadsheetId, updatedAt }))
 }

@@ -50,6 +50,7 @@ export function SidebarLinks({ onNavigate }: SidebarLinksProps) {
           <NavLink href="/dashboard/admin/annotators" label="Annotators" Icon={Users} />
           <NavLink href="/dashboard/admin/verify" label="Verify" Icon={ShieldCheck} />
           <NavLink href="/dashboard/admin/payments" label="Payments" Icon={DollarSign} />
+          <NavLink href="/dashboard/admin/queue" label="Queue" Icon={Activity} />
           <NavLink href="/dashboard/admin/config" label="Config" Icon={SettingsIcon} />
           <NavLink href="/dashboard/user/languages" label="My Languages" Icon={Languages} />
         </>

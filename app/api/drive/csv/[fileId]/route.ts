@@ -1,7 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { downloadCSVFile } from "@/lib/google-apis"
+import { downloadCSVFile, initializeGoogleAPIs } from "@/lib/google-apis"
 import { requireSession } from "@/lib/server-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
+
+// Lightweight module-level cache (separate from tasks route cache to allow direct endpoint usage)
+const CSV_CACHE_TTL_MS = 30_000
+const localCsvCache = new Map<string, { data: string[][]; ts: number }>()
 
 // Route handler for fetching a CSV file from Google Drive by fileId
 export async function GET(request: NextRequest, context: { params: Promise<{ fileId?: string }> }) {
@@ -12,7 +16,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ fil
     const { response, session } = await requireSession(request)
     if (response) return response
 
-    const maybePromise = context.params as any
+    const { params: maybePromise } = (await context) as any
     const resolvedParams: { fileId?: string } =
       maybePromise && typeof maybePromise.then === "function" ? await maybePromise : maybePromise
     const { fileId } = resolvedParams
@@ -23,31 +27,37 @@ export async function GET(request: NextRequest, context: { params: Promise<{ fil
 
     console.log(`API: Attempting to download CSV file ${fileId}`)
 
-    // Add more specific error handling for the googleapis issue
     let csvData: string[][]
-    try {
-      csvData = await downloadCSVFile(session!.accessToken, fileId)
-    } catch (downloadError) {
-      console.error(`API: Failed to download CSV file ${fileId}:`, downloadError)
-
-      // Check if it's likely a module loading or misconfiguration error (TypeError with undefined in stack/message)
-      if (
-        downloadError instanceof Error &&
-        downloadError.name === "TypeError" &&
-        ((downloadError.stack && downloadError.stack.includes("undefined")) ||
-          (downloadError.message && downloadError.message.includes("undefined")))
-      ) {
-        return NextResponse.json(
-          {
-            error: "Internal server error - Google APIs module loading issue",
-            details: "There's a server configuration issue with the Google APIs. Please restart the server.",
-            suggestion: "Try refreshing the page or contact support if the issue persists.",
-          },
-          { status: 500 },
-        )
+    const cached = localCsvCache.get(fileId)
+    const now = Date.now()
+    if (cached && now - cached.ts < CSV_CACHE_TTL_MS) {
+      csvData = cached.data
+      console.log(`API: CSV cache hit for ${fileId}`)
+    } else {
+      // Prime google client cache explicitly (even though downloadCSVFile will call init again) to log reuse
+      initializeGoogleAPIs(session!.accessToken, { reuse: true, logPerf: info => console.log(JSON.stringify(info)) })
+      try {
+        csvData = await downloadCSVFile(session!.accessToken, fileId)
+        localCsvCache.set(fileId, { data: csvData, ts: now })
+      } catch (downloadError) {
+        console.error(`API: Failed to download CSV file ${fileId}:`, downloadError)
+        if (
+          downloadError instanceof Error &&
+          downloadError.name === "TypeError" &&
+          ((downloadError.stack && downloadError.stack.includes("undefined")) ||
+            (downloadError.message && downloadError.message.includes("undefined")))
+        ) {
+          return NextResponse.json(
+            {
+              error: "Internal server error - Google APIs module loading issue",
+              details: "There's a server configuration issue with the Google APIs. Please restart the server.",
+              suggestion: "Try refreshing the page or contact support if the issue persists.",
+            },
+            { status: 500 },
+          )
+        }
+        throw downloadError
       }
-
-      throw downloadError
     }
 
     if (!csvData || csvData.length === 0) {

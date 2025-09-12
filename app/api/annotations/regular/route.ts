@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { updatePaymentFormulas, initializeGoogleAPIs, type AnnotationRow } from "@/lib/google-apis"
+import {
+  updatePaymentFormulas,
+  initializeGoogleAPIs,
+  type AnnotationRow,
+  setFormulaLastUpdate,
+} from "@/lib/google-apis"
 import {
   logPerf,
   now,
@@ -142,7 +147,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    const { drive, sheets } = initializeGoogleAPIs(session!.accessToken)
+    const { drive, sheets } = initializeGoogleAPIs(session!.accessToken, {
+      reuse: true,
+      logPerf: info => console.log(JSON.stringify(info)),
+    })
     const permPromise = drive.files.get({ fileId: spreadsheetId, fields: "id, capabilities" })
     const idsPromise = fetchRowIds(sheets, spreadsheetId)
     const [file, existingIds] = await Promise.all([permPromise, idsPromise])
@@ -183,6 +191,10 @@ export async function POST(request: NextRequest) {
       const tForm = now()
       try {
         await updatePaymentFormulas(session!.accessToken, spreadsheetId)
+        // Persist timestamp (fire and forget)
+        setFormulaLastUpdate(session!.accessToken, spreadsheetId).catch(err =>
+          console.warn("[regular] failed to persist formula timestamp", err),
+        )
         formulasUpdated = true
         formulaMode = "immediate"
         logPerf("formulas_immediate", tForm)

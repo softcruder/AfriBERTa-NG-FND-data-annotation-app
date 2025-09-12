@@ -108,12 +108,11 @@ function RegularAnnotationFormContent() {
           </SelectTrigger>
           <SelectContent>
             {/* Show only core verdicts if current verdict is not a core verdict */}
-            {canEditVerdict &&
-              CoreVerdictEnum.options.map(v => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))}
+            {CoreVerdictEnum.options.map(v => (
+              <SelectItem key={v} value={v}>
+                {v}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {errors.verdict && <p className="text-sm text-red-600">{errors.verdict.message}</p>}

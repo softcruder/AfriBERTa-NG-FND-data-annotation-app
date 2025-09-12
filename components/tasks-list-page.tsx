@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/custom-hooks"
 import { Badge } from "@/components/ui/badge"
@@ -128,7 +128,7 @@ export function TasksListPage({ basePath }: TasksListPageProps) {
                       <div className="text-[11px] sm:text-xs text-muted-foreground mb-0.5">ID: {idCol || "(none)"}</div>
                       <div className="font-medium flex items-center gap-2 text-sm sm:text-base">
                         <span
-                          className="truncate max-w-[14rem] sm:max-w-[28rem]"
+                          className="max-w-full xs:max-w-[14rem] sm:max-w-[28rem] line-clamp-2 sm:line-clamp-1"
                           title={t.data[1] || t.data[0] || "(empty)"}
                         >
                           {t.data[1] || t.data[0] || "(empty)"}

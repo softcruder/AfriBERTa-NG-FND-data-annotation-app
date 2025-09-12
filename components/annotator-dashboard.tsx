@@ -18,7 +18,13 @@ import {
   ShieldCheck,
   TrendingUp,
 } from "lucide-react"
-import { PaymentDashboard } from "@/components/payment-dashboard"
+import dynamic from "next/dynamic"
+const PaymentDashboard = dynamic(() => import("@/components/payment-dashboard").then(m => m.PaymentDashboard), {
+  ssr: false,
+  loading: () => (
+    <div className="p-6 border rounded-lg animate-pulse text-sm text-muted-foreground">Loading payment panel…</div>
+  ),
+})
 import { getCurrentTask, setCurrentTask } from "@/lib/data-store"
 import type { AnnotationTask } from "@/lib/data-store"
 import { useAuth, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
@@ -153,8 +159,24 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
           </Card>
         </div>
 
+        {/* Mobile summary chip bar (visible on very small screens) */}
+        <div className="mt-4 flex sm:hidden gap-2 overflow-x-auto pb-2 -mx-1 px-1" aria-label="Quick stats summary">
+          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-primary/10 text-primary text-xs font-medium shrink-0">
+            <CheckCircle className="h-3.5 w-3.5" /> {completedToday} done
+          </div>
+          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs font-medium shrink-0">
+            <Clock className="h-3.5 w-3.5" /> {timeWorkedToday}
+          </div>
+          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-medium shrink-0">
+            <FileText className="h-3.5 w-3.5" /> {tasksTotal || 0} tasks
+          </div>
+          <div className="flex items-center gap-1 px-3 py-2 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-medium shrink-0">
+            <DollarSign className="h-3.5 w-3.5" /> pay
+          </div>
+        </div>
+
         <Tabs defaultValue="annotation" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-muted/50">
+          <TabsList className="hidden sm:grid w-full grid-cols-2 h-auto p-1 bg-muted/50">
             <TabsTrigger
               value="annotation"
               className="flex items-center gap-2 px-4 py-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
@@ -171,7 +193,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="annotation" className="space-y-6">
+          <TabsContent value="annotation" className="space-y-6 hidden sm:block">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
                 <CardHeader>
@@ -250,10 +272,73 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
             </div>
           </TabsContent>
 
-          <TabsContent value="payments" className="space-y-6">
+          <TabsContent value="payments" className="space-y-6 hidden sm:block">
             <PaymentDashboard user={user} />
           </TabsContent>
         </Tabs>
+
+        {/* Mobile simplified sections (no tabs) */}
+        <div className="space-y-8 sm:hidden mt-8" aria-label="Mobile dashboard sections">
+          <div className="space-y-6">
+            <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Play className="h-5 w-5 text-primary" /> Start Annotating
+                </CardTitle>
+                <CardDescription>Begin the next available task.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  size="sm"
+                  className="w-full gap-2 bg-primary hover:bg-primary/90"
+                  onClick={() => tasks[0] && startTaskFromRow(tasks[0])}
+                  disabled={isLoading || !tasks[0]}
+                >
+                  {isLoading ? (
+                    <>Loading…</>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" /> {tasks[0] ? "Start Next Task" : "No Tasks"}
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+            <div>
+              <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-blue-600" /> QA Items
+              </h2>
+              <div className="space-y-3">
+                {qaItems.slice(0, 3).map(item => (
+                  <div
+                    key={item.rowId}
+                    className="p-3 border rounded-lg flex items-center justify-between gap-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{item.claimText}</div>
+                      <div className="text-[11px] text-muted-foreground">{item.status}</div>
+                    </div>
+                    <Button size="sm" variant="outline" className="shrink-0 bg-transparent h-7 text-xs px-2">
+                      <Link href={`/dashboard/annotator/verify/${encodeURIComponent(item.rowId)}`}>Verify</Link>
+                    </Button>
+                  </div>
+                ))}
+                {qaItems.length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-3">No verification pending.</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-emerald-600" /> Payments Snapshot
+              </h2>
+              <div className="border rounded-lg p-4 bg-muted/30">
+                <p className="text-xs text-muted-foreground mb-2">Open full payment details on larger screens.</p>
+                <PaymentDashboard user={user} />
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Task list with pagination */}
         <div className="mt-8" id="qa-section">

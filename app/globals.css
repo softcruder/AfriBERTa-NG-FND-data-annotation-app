@@ -274,6 +274,33 @@
   border-radius: var(--radius);
 }
 
+/* Refined focus ring system: only show strong ring for keyboard, subtle for pointer */
+:root[data-input-modality="keyboard"] .focus-ring,
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  outline: none;
+}
+
+:root[data-input-modality="pointer"] .focus-ring:focus-visible {
+  box-shadow: 0 0 0 1px var(--ring);
+  outline: none;
+}
+
+/* High contrast variant if needed */
+@media (forced-colors: active) {
+  :root[data-input-modality="keyboard"] .focus-ring:focus-visible {
+    forced-color-adjust: none;
+    outline: 2px solid Highlight;
+    box-shadow: none;
+  }
+}
+
+/* Utility class for focus-within on groups */
+.focus-ring-group:focus-within {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  border-radius: calc(var(--radius) + 2px);
+}
+
 /* Error state styling */
 .error-state {
   border-color: var(--destructive);
@@ -321,4 +348,49 @@
 /* Utility: safe bottom padding for devices with gesture bars */
 .safe-bottom-padding {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Utility: line clamp (multi-line truncation) */
+@layer utilities {
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    /* standard property */
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-spin,
+  .skeleton,
+  .progress-bar,
+  .loading-dot {
+    animation: none !important;
+  }
 }

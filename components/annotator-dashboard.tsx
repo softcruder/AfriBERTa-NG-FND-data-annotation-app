@@ -27,7 +27,7 @@ const PaymentDashboard = dynamic(() => import("@/components/payment-dashboard").
 })
 import { getCurrentTask, setCurrentTask } from "@/lib/data-store"
 import type { AnnotationTask } from "@/lib/data-store"
-import { useAuth, useTasks, useAnnotations, useAnonymizeSelf } from "@/custom-hooks"
+import { useAuth, useTasks, useAnnotations, useMyAnnotations } from "@/custom-hooks"
 import { useCreateAnnotation } from "@/custom-hooks/useAnnotations"
 import { useVerifyAnnotation } from "@/custom-hooks/useQA"
 import Link from "next/link"
@@ -45,10 +45,8 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   const { toast } = useToast()
   const { spreadsheetId, csvFileId } = useAuth()
   const { data: tasksResp } = useTasks({ page: tasksPage, pageSize, fileId: csvFileId || undefined })
-  const { data: annotations, mutate: mutateAnnotations } = useAnnotations(spreadsheetId)
-  // const { anonymize, loading: anonymizing } = useAnonymizeSelf()
-  // const { create: createAnnotation } = useCreateAnnotation()
-  // const { verify: verifyAnnotation } = useVerifyAnnotation()
+  const { data: annotations, mutate: mutateAnnotations } = useAnnotations(spreadsheetId) // pool for QA
+  const { data: myAnnotations } = useMyAnnotations(spreadsheetId) // personal annotations (all statuses)
 
   useEffect(() => {
     const task = getCurrentTask()
@@ -59,26 +57,25 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
   const tasks = tasksResp?.items ?? []
   const tasksTotal = tasksResp?.total ?? 0
 
-  // Derive QA items from annotations
+  // Derive QA items from shared annotations pool (exclude verified)
   const qaItems = useMemo(() => {
     if (!Array.isArray(annotations)) return []
     const unverified = annotations.filter((a: any) => !a.verifiedBy && a.status !== "verified")
     return unverified.slice(0, 10)
   }, [annotations])
 
-  // Derive stats
-  const { completedToday, timeWorkedToday, pendingTasks } = useMemo(() => {
-    if (!annotations) return { completedToday: 0, timeWorkedToday: "0h 0m", pendingTasks: 0 }
+  // Personal stats sourced from myAnnotations to avoid filtering out own work
+  const { completedToday, timeWorkedToday } = useMemo(() => {
+    if (!myAnnotations) return { completedToday: 0, timeWorkedToday: "0h 0m" }
     const today = new Date().toDateString()
-    const todayAnnotations = annotations.filter(
-      (a: any) =>
-        a.annotatorId === user.id && new Date(a.startTime).toDateString() === today && a.status === "completed",
+    const todayAnnotations = myAnnotations.filter(
+      (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
     )
     const totalMinutesToday = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
     const hours = Math.floor(totalMinutesToday / 60)
     const minutes = totalMinutesToday % 60
-    return { completedToday: todayAnnotations.length, timeWorkedToday: `${hours}h ${minutes}m`, pendingTasks: 0 }
-  }, [annotations, user.id])
+    return { completedToday: todayAnnotations.length, timeWorkedToday: `${hours}h ${minutes}m` }
+  }, [myAnnotations])
 
   const startTaskFromRow = async (row: { index: number; data: string[]; header: string[] }) => {
     setIsLoading(true)
@@ -92,7 +89,6 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
         })
         return
       }
-      // Navigate to dedicated annotate page using CSV ID (first column)
       const idCol = (row.data?.[0] || "").trim()
       if (!idCol) {
         toast({ title: "Missing ID", description: "This row has no ID in column A.", variant: "destructive" })
@@ -245,21 +241,7 @@ export function AnnotatorDashboard({ user }: AnnotatorDashboardProps) {
                           By: {item.annotatorId} · Status: {item.status}
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0 bg-transparent"
-                        // onClick={async () => {
-                        //   try {
-                        //     if (!spreadsheetId) return
-                        //     const res = await verifyAnnotation({ spreadsheetId: spreadsheetId!, rowId: item.rowId })
-                        //     if ((res as any)?.success !== false) {
-                        //       await mutateAnnotations()
-                        //       toast({ title: "Verified", description: "Annotation marked as verified." })
-                        //     }
-                        //   } catch {}
-                        // }}
-                      >
+                      <Button size="sm" variant="outline" className="shrink-0 bg-transparent">
                         <Link href={`/dashboard/annotator/verify/${encodeURIComponent(item.rowId)}`}>Verify</Link>
                       </Button>
                     </div>

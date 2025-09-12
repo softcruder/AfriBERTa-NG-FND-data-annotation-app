@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { DollarSign, Clock, TrendingUp, Award, Target, Zap } from "lucide-react"
 import type { User } from "@/lib/auth"
 import { calculatePayment, calculateEfficiencyMetrics, formatCurrency } from "@/lib/payment-calculator"
-import { useAuth, useAnnotations, usePaymentConfig } from "@/custom-hooks"
+import { useAuth, useMyAnnotations, usePaymentConfig } from "@/custom-hooks"
 
 interface PaymentDashboardProps {
   user: User
@@ -23,24 +23,23 @@ interface AnnotatorStats {
 
 export function PaymentDashboard({ user }: PaymentDashboardProps) {
   const { spreadsheetId } = useAuth()
-  const { data: annotations } = useAnnotations(spreadsheetId)
+  const { data: myAnnotations } = useMyAnnotations(spreadsheetId)
   const { paymentRates } = usePaymentConfig()
 
   const stats: AnnotatorStats = useMemo(() => {
-    const anns = annotations || []
+    const anns = myAnnotations || []
     if (!anns.length) {
       return { totalRows: 0, translations: 0, totalHours: 0, completedToday: 0, hoursToday: 0 }
     }
 
-    const userAnnotations = anns.filter((a: any) => a.annotatorId === user.id)
     const today = new Date().toDateString()
-    const todayAnnotations = userAnnotations.filter(
+    const todayAnnotations = anns.filter(
       (a: any) => new Date(a.startTime).toDateString() === today && a.status === "completed",
     )
 
-    const totalRows = userAnnotations.filter((a: any) => a.status === "completed").length
-    const translations = userAnnotations.filter((a: any) => a.translation && a.translation.trim().length > 0).length
-    const totalMinutes = userAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
+    const totalRows = anns.filter((a: any) => a.status === "completed").length
+    const translations = anns.filter((a: any) => a.translation && a.translation.trim().length > 0).length
+    const totalMinutes = anns.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
     const todayMinutes = todayAnnotations.reduce((sum: number, a: any) => sum + (a.durationMinutes || 0), 0)
 
     return {
@@ -50,7 +49,7 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
       completedToday: todayAnnotations.length,
       hoursToday: todayMinutes / 60,
     }
-  }, [annotations, user.id])
+  }, [myAnnotations])
 
   // Calculate payment with new signature: (annotations, translations, qa, hours, rates, userLanguages)
   const userLanguagesString = user.translationLanguages?.join(",") || ""
@@ -79,14 +78,14 @@ export function PaymentDashboard({ user }: PaymentDashboardProps) {
   }
 
   const getEfficiencyBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       excellent: "bg-emerald-100 text-emerald-800 border-emerald-200",
       good: "bg-blue-100 text-blue-800 border-blue-200",
       average: "bg-amber-100 text-amber-800 border-amber-200",
       "below-average": "bg-red-100 text-red-800 border-red-200",
     }
     return (
-      <Badge variant="outline" className={colors[status as keyof typeof colors]}>
+      <Badge variant="outline" className={colors[status]}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     )

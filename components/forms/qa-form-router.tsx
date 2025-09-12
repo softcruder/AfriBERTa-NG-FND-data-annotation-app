@@ -23,10 +23,10 @@ export function QAFormRouter({
   const isEN = claimLanguage === "en"
   const isDual = isDualTranslator(user.translationLanguages?.join(",") || "")
   const hasTranslationLanguage = Boolean(task.translationLanguage)
-  console.log("QAFormRouter", { task, claimLanguage, isEN, isDual, hasTranslationLanguage })
+  // console.log("QAFormRouter", { task, claimLanguage, isEN, isDual, hasTranslationLanguage })
 
   // 1) YO/HA original: translation_language empty
-  if (!hasTranslationLanguage && !isEN) {
+  if (!isEN) {
     return <QAFormYOHAOriginal task={task} user={user} onComplete={onComplete} onCancel={onCancel} />
   }
   // 2) EN double translation: EN + dual translator

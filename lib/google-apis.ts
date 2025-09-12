@@ -18,7 +18,15 @@ export interface AnnotationRow {
   startTime: string
   endTime?: string
   durationMinutes?: number
-  status: "in-progress" | "completed" | "verified" | "qa-pending" | "qa-approved" | "admin-review" | "invalid"
+  status:
+    | "in-progress"
+    | "completed"
+    | "verified"
+    | "qa-pending"
+    | "qa-approved"
+    | "admin-review"
+    | "invalid"
+    | "needs-revision"
   verifiedBy?: string
   qaComments?: string
   adminComments?: string

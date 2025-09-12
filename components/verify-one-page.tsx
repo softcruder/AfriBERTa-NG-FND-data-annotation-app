@@ -16,6 +16,17 @@ import { useErrorHandler } from "@/hooks/use-error-handler"
 import { ErrorAlert } from "@/components/ui/error-alert"
 import { AnnotationMapper } from "@/lib/annotation-mapper"
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 interface VerifyOnePageProps {
   id: string // rowId
@@ -32,6 +43,10 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  // Admin invalidation modal state
+  const [showInvalidModal, setShowInvalidModal] = useState(false)
+  const [invalidReason, setInvalidReason] = useState("")
+  const [adminComments, setAdminComments] = useState("")
 
   const item: AnnotationRow | undefined = useMemo(
     () => annotations.find((a: AnnotationRow) => a.rowId === id),
@@ -65,6 +80,24 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
     if (!spreadsheetId || !item) return
     setActionError(null)
     try {
+      if (user?.role === "admin") {
+        // Admin direct approve
+        const adminRes = await adminVerify({
+          spreadsheetId,
+          rowId: item.rowId,
+          action: "approve",
+          comments: updates?.qaComments || undefined,
+        })
+        if (adminRes.success) {
+          toast({ title: "Approved", description: "Annotation approved by admin." })
+          await mutate()
+          router.push(backHref)
+          return
+        } else {
+          setActionError(adminRes.message || "Admin approval failed")
+          return
+        }
+      }
       const res = await verify({
         spreadsheetId,
         rowId: item.rowId,
@@ -81,6 +114,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
           setHasUnsavedChanges(false)
           setPendingUpdates({})
         }
+        router.push(backHref)
       } else if ((res as any)?.error) {
         setActionError((res as any).error || "Approval failed")
       }
@@ -93,18 +127,46 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
     if (!spreadsheetId || !item) return
     setActionError(null)
     try {
-      // Escalate to admin by sending isApproved: false so backend sets status=admin-review
+      if (user?.role === "admin") {
+        const adminRes = await adminVerify({ spreadsheetId, rowId: item.rowId, action: "needs-revision" })
+        if (adminRes.success) {
+          toast({ title: "Sent for Revision", description: "Annotation returned to annotator." })
+          await mutate()
+          router.push(backHref)
+          return
+        } else {
+          setActionError(adminRes.message || "Action failed")
+          return
+        }
+      }
+      // Peer reviewer escalation
       const res = await verify({ spreadsheetId, rowId: item.rowId, isApproved: false } as any)
       if ((res as any)?.success) {
         toast({ title: "Escalated", description: "Annotation escalated to admin review." })
         await mutate()
-        router.push(`/dashboard/${user?.role === "admin" ? "admin" : "annotator"}/verify`)
+        router.push(backHref)
       } else if ((res as any)?.error) {
         setActionError((res as any).error || "Escalation failed")
       }
     } catch (err: any) {
       handleError(err, { fallback: "Failed to escalate annotation" })
     }
+  }
+
+  const statusBadge = () => {
+    if (!item) return null
+    const base = "ml-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border"
+    const st = item.status as string // widen for any newly introduced statuses not yet in type
+    if (st === "qa-pending" || st === "needs-revision") {
+      return <span className={`${base} bg-amber-50 border-amber-200 text-amber-700`}>Needs Revision</span>
+    }
+    if (st === "invalid") {
+      return <span className={`${base} bg-red-50 border-red-200 text-red-700`}>Invalid</span>
+    }
+    if (st === "admin-review") {
+      return <span className={`${base} bg-purple-50 border-purple-200 text-purple-700`}>Admin Review</span>
+    }
+    return null
   }
 
   if (isLoading)
@@ -179,7 +241,9 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quality Assurance Review</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+            Quality Assurance Review {statusBadge()}
+          </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Row ID: {item?.rowId}</p>
         </div>
         <Link href={backHref}>
@@ -228,6 +292,21 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
                 <XCircle className="h-4 w-4" />
                 {user?.role === "admin" ? "Send for Revision" : "Escalate to Admin"}
               </Button>
+              {user?.role === "admin" && (
+                <Button
+                  type="button"
+                  disabled={loading}
+                  size="lg"
+                  className="gap-2 bg-red-700 hover:bg-red-800 text-white"
+                  onClick={() => {
+                    setInvalidReason("")
+                    setAdminComments("")
+                    setShowInvalidModal(true)
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4" /> Mark Invalid
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -273,6 +352,78 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
 
       {!isEditing && task && (
         <div className="space-y-6">
+          <Dialog open={showInvalidModal} onOpenChange={setShowInvalidModal}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Mark Annotation as Invalid</DialogTitle>
+                <DialogDescription>
+                  Provide a clear reason for invalidation. Optionally add internal admin comments. This action can
+                  affect contributor metrics.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Invalidation Reason<span className="text-red-600">*</span></label>
+                  <Input
+                    value={invalidReason}
+                    onChange={e => setInvalidReason(e.target.value)}
+                    placeholder="E.g. Not fact-check related, duplicate, spam, etc."
+                    aria-invalid={invalidReason.trim().length === 0 ? true : undefined}
+                  />
+                  {invalidReason.trim().length === 0 && (
+                    <p className="text-xs text-red-600">Reason is required.</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Admin Comments (optional)</label>
+                  <Textarea
+                    value={adminComments}
+                    onChange={e => setAdminComments(e.target.value)}
+                    placeholder="Additional context for internal tracking"
+                    rows={4}
+                  />
+                </div>
+              </div>
+              <DialogFooter className="pt-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  type="button"
+                  disabled={invalidReason.trim().length === 0 || loading}
+                  className="bg-red-700 hover:bg-red-800"
+                  onClick={async () => {
+                    if (!spreadsheetId || !item) return
+                    if (invalidReason.trim().length === 0) return
+                    setActionError(null)
+                    try {
+                      const res = await adminVerify({
+                        spreadsheetId,
+                        rowId: item.rowId,
+                        action: "mark-invalid",
+                        invalidityReason: invalidReason.trim(),
+                        comments: adminComments.trim() || invalidReason.trim(),
+                      })
+                      if (res.success) {
+                        toast({ title: "Marked Invalid", description: "Annotation flagged as invalid." })
+                        setShowInvalidModal(false)
+                        setInvalidReason("")
+                        setAdminComments("")
+                        await mutate()
+                        router.push(backHref)
+                      } else {
+                        setActionError(res.message || "Failed to mark invalid")
+                      }
+                    } catch (e) {
+                      handleError(e, { fallback: "Failed to mark invalid" })
+                    }
+                  }}
+                >
+                  Confirm Invalidate
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Card>
             <CardHeader>
               <CardTitle>Annotation Details</CardTitle>
@@ -407,6 +558,29 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
                     <label className="font-medium text-slate-700 dark:text-slate-300">Status</label>
                     <div className="text-slate-600 dark:text-slate-400">{item.status}</div>
                   </div>
+
+                  {item.invalidityReason && (
+                    <div className="md:col-span-2">
+                      <label className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        Invalid Reason
+                        <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">
+                          Invalid
+                        </span>
+                      </label>
+                      <div className="mt-1 text-slate-700 dark:text-slate-300 bg-red-50 dark:bg-red-900/30 p-2 rounded-md border border-red-200 dark:border-red-800">
+                        {item.invalidityReason}
+                      </div>
+                    </div>
+                  )}
+
+                  {item.adminComments && (
+                    <div className="md:col-span-2">
+                      <label className="font-medium text-slate-700 dark:text-slate-300">Admin Comments</label>
+                      <div className="mt-1 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-2 rounded-md border border-slate-200 dark:border-slate-700">
+                        {item.adminComments}
+                      </div>
+                    </div>
+                  )}
 
                   {item.translationLanguage && (
                     <div>

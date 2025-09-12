@@ -13,13 +13,20 @@ interface AnnotationFormRouterProps {
   user: User
   onComplete: (task: AnnotationTask) => void
   onCancel: () => void
-  mode?: "annotation" | "translation"
+  mode?: "annotation" | "translation" | "qa"
 }
 
 export function AnnotationFormRouter({ task, user, onComplete, onCancel, mode }: AnnotationFormRouterProps) {
   const claimLanguage = (task.csvRow.data[4] || "").trim().toLowerCase()
   const needsTranslation = claimLanguage === "en"
-  // const userIsDualTranslator = isDualTranslator(user.translationLanguages?.join(",") || "")
+
+  if (mode === "qa") {
+    return (
+      <div data-testid="qa-annotation-wrapper">
+        <QAAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} />
+      </div>
+    )
+  }
 
   if (needsTranslation) {
     // For translation tasks, always use TranslationAnnotationForm

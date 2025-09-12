@@ -62,7 +62,7 @@ export function DashboardSidebar() {
   return (
     <aside className="hidden md:flex md:w-64 shrink-0 border-r bg-card/50 backdrop-blur-sm">
       <div className="flex h-[calc(100vh-56px)] flex-col gap-6 p-4 sticky top-14 w-full">
-        <div className="px-2 pb-2 border-b border-border/50">
+        <div className="md:hidden px-2 pb-2 border-b border-border/50">
           <div className="text-sm font-semibold tracking-wide text-foreground">AfriBERTa NG</div>
           <div className="text-xs text-muted-foreground mt-0.5">Data Annotation Platform</div>
         </div>

@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, PropsWithChildren, useMemo, useCallback } from "react"
+import { createContext, useContext, PropsWithChildren, useMemo, useCallback, useEffect } from "react"
+import { httpEvents } from "@/services/httpService"
 import useSWR from "swr"
 import { useRequest } from "@/hooks/useRequest"
 
@@ -90,6 +91,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }),
     [config, expiresAt, isLoading, logout, mutate, user],
   )
+
+  // Auto logout on unauthorized emitted by http layer (single subscription)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    let triggered = false
+    const unsub = httpEvents.onUnauthorized(() => {
+      if (triggered) return
+      triggered = true
+      // Use logout which also redirects
+      logout().catch(() => {
+        // fallback redirect
+        if (typeof window !== "undefined") window.location.href = "/?error=session_expired"
+      })
+    })
+    return () => {
+      unsub()
+    }
+  }, [logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

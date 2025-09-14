@@ -55,7 +55,7 @@ describe("auth guards", () => {
     const { requireSession } = (await import("@/lib/server-auth")) as any
     requireSession.mockResolvedValueOnce({ session: { accessToken: "t", user: { role: "annotator" } } })
     const req = makeReq("http://localhost/api/drive/csv/abc")
-  const res = await driveCsvGET(req, { params: Promise.resolve({ fileId: "abc" }) })
+    const res = await driveCsvGET(req, { params: Promise.resolve({ fileId: "abc" }) })
     expect(res.status).toBe(200)
   })
 

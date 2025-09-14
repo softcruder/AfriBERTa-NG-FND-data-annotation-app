@@ -100,7 +100,10 @@ describe("/api/admin/verify", () => {
     ] as any)
     mockGetAppConfig.mockResolvedValue({ FINAL_DATASET_SPREADSHEET_ID: "final123", CSV_FILE_ID: "csv999" } as any)
     mockFinalDatasetHasId.mockResolvedValue(false)
-    mockDownloadCSVFile.mockResolvedValue([["row1", "some", "csv", "data"], ["rowX", "other"]] as any)
+    mockDownloadCSVFile.mockResolvedValue([
+      ["row1", "some", "csv", "data"],
+      ["rowX", "other"],
+    ] as any)
     mockCreateFinalDatasetEntries.mockResolvedValue()
     mockUpdatePaymentFormulas.mockResolvedValue()
 

@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { useRequest } from "@/hooks/useRequest"
 
 export interface AdminVerifyRequest {
@@ -15,11 +14,11 @@ export interface AdminVerifyResponse {
 }
 
 export function useAdminVerify() {
-  const { request } = useRequest<AdminVerifyResponse>()
+  const { request, loading } = useRequest<AdminVerifyResponse>()
 
   const adminVerify = async (data: AdminVerifyRequest): Promise<AdminVerifyResponse> => {
     return await request.post("/admin/verify", data)
   }
 
-  return { adminVerify }
+  return { adminVerify, loading }
 }

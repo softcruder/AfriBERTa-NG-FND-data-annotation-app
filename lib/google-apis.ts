@@ -663,6 +663,12 @@ export async function logAnnotation(
     if (!rowId) throw new Error("Annotation rowId is required")
     if (!annotatorId) throw new Error("Annotation annotatorId is required")
 
+    // Extended schema (2025-09): Added moderation/meta columns W-Z.
+    // A Row_ID, B Annotator_ID, C Claim_Text, D Source_Links, E Translation, F Start_Time, G End_Time,
+    // H Duration_Minutes, I Status, J Verified_By, K Verdict, L Source_URL, M Claim_Links, N Claim_Text_HA,
+    // O Claim_Text_YO, P Article_Body_HA, Q Article_Body_YO, R Translation_Language, S Requires_Translation,
+    // T Original_Language, U Translator_HA_ID, V Translator_YO_ID, W Invalidity_Reason, X Admin_Comments,
+    // Y QA_Comments, Z Is_Valid
     const values: (string | number)[] = [
       rowId,
       annotatorId,
@@ -686,6 +692,10 @@ export async function logAnnotation(
       (annotation.originalLanguage || "").toLowerCase(),
       annotation.translator_ha_id || "",
       annotation.translator_yo_id || "",
+      annotation.invalidityReason || "",
+      annotation.adminComments || "",
+      annotation.qaComments || "",
+      annotation.isValid === false ? "false" : "true",
     ]
 
     // Always append using just the sheet name so Sheets computes the table range itself
@@ -726,12 +736,16 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     "Original_Language",
     "Translator_HA_ID",
     "Translator_YO_ID",
+    "Invalidity_Reason",
+    "Admin_Comments",
+    "QA_Comments",
+    "Is_Valid",
   ]
 
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A1:V1",
+      range: "Annotations_Log!A1:Z1",
     })
     const headers = res.data.values?.[0] || []
     let needsUpdate = false
@@ -740,7 +754,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     if (needsUpdate) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Annotations_Log!A1:V1",
+        range: "Annotations_Log!A1:Z1",
         valueInputOption: "RAW",
         requestBody: { values: [expected] },
       })
@@ -749,7 +763,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     // If sheet doesn't exist or error reading, attempt to write headers (will create sheet implicitly when possible)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "Annotations_Log!A1:V1",
+      range: "Annotations_Log!A1:Z1",
       valueInputOption: "RAW",
       requestBody: { values: [expected] },
     })
@@ -809,7 +823,7 @@ export async function createFinalDatasetEntries(
         annotation.claim_text_ha,
         annotation.verdict || "",
         "ha", // language
-        annotation.translation || "", // reasoning
+        annotation.article_body_ha || "", // reasoning
         baseData.sources,
         baseData.claim_source,
         baseData.domain,
@@ -823,7 +837,7 @@ export async function createFinalDatasetEntries(
         annotation.claim_text_yo,
         annotation.verdict || "",
         "yo", // language
-        annotation.translation || "", // reasoning
+        annotation.article_body_yo || "", // reasoning
         baseData.sources,
         baseData.claim_source,
         baseData.domain,
@@ -833,17 +847,19 @@ export async function createFinalDatasetEntries(
   } else {
     // For non-English source, create single entry
     entries.push([
-      baseData.id,
+      `${baseData.id}_${sourceLanguage || annotation.originalLanguage || "xx"}`, // Unique ID with language code
       baseData.claim,
       annotation.verdict || "",
       sourceLanguage || "",
-      annotation.translation || "", // reasoning
+      annotation.article_body_ha || annotation.article_body_yo || "", // reasoning
       baseData.sources,
       baseData.claim_source,
       baseData.domain,
       baseData.id_in_source,
     ])
   }
+
+  console.log(`Prepared ${entries.length} final dataset entries for annotation ID ${annotation.rowId}`)
 
   // Append all entries
   if (entries.length > 0) {
@@ -907,7 +923,7 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A2:V",
+      range: "Annotations_Log!A2:Z",
     })
 
     const rows = response.data.values || []
@@ -934,6 +950,10 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
       originalLanguage: row[19] || undefined,
       translator_ha_id: row[20] || undefined,
       translator_yo_id: row[21] || undefined,
+      invalidityReason: row[22] || undefined,
+      adminComments: row[23] || undefined,
+      qaComments: row[24] || undefined,
+      isValid: row[25] ? row[25].toString().toLowerCase() === "true" : true,
     }))
   } catch (error) {
     throw new Error(`Failed to get annotations: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -997,7 +1017,14 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
     const rates = parsePaymentRatesFromConfig(config)
 
     const annotations = await getAnnotations(accessToken, spreadsheetId)
-    const annotatorIds = [...new Set(annotations.map(a => a.annotatorId.trim()).filter(Boolean))]
+
+    // Collect all participant IDs: original annotators + translators (HA / YO) so that pure translators are included
+    const baseAnnotatorIds = annotations.map(a => a.annotatorId?.trim()).filter(Boolean) as string[]
+    const translatorIds = annotations
+      .flatMap(a => [a.translator_ha_id, a.translator_yo_id])
+      .map(id => (id || "").trim())
+      .filter(Boolean)
+    const annotatorIds = [...new Set([...baseAnnotatorIds, ...translatorIds])]
 
     // Get current users to map annotator IDs to emails for QA counting
     const users = await getUsers(accessToken, spreadsheetId)
@@ -1006,20 +1033,29 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
     const paymentRows = annotatorIds.map((annotatorId, index) => {
       const rowNum = index + 2 // Starting from row 2 (after header)
       const userEmail = userIdToEmail.get(annotatorId) || annotatorId // fallback to ID if email not found
+      // Columns reference (Annotations_Log):
+      // B Annotator_ID, H Duration_Minutes, I Status, J Verified_By, S Requires_Translation (TRUE/FALSE)
+      // U Translator_HA_ID, V Translator_YO_ID.
+      // Translations: count rows where this user is translator in U or V AND S is TRUE (translation was required).
+      // Use two COUNTIFS and sum them. (Rare edge: same ID in both U & V would double count; considered negligible.)
+      const translationsFormula = `=COUNTIFS(Annotations_Log!U:U,"${annotatorId}",Annotations_Log!S:S,TRUE)+COUNTIFS(Annotations_Log!V:V,"${annotatorId}",Annotations_Log!S:S,TRUE)`
+      // Approved translations: same but with Status = "verified".
+      const approvedTranslationsFormula = `=COUNTIFS(Annotations_Log!U:U,"${annotatorId}",Annotations_Log!I:I,"verified",Annotations_Log!S:S,TRUE)+COUNTIFS(Annotations_Log!V:V,"${annotatorId}",Annotations_Log!I:I,"verified",Annotations_Log!S:S,TRUE)`
+
       return [
         annotatorId,
-        `=COUNTIF(Annotations_Log!B:B,"${annotatorId}")`, // Total_Rows
-        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>")`, // Translations
-        `=IF(E${rowNum}=0,0,B${rowNum}/E${rowNum})`, // Avg_Rows_Per_Hour
-        `=SUMIFS(Annotations_Log!H:H,Annotations_Log!B:B,"${annotatorId}")/60`, // Total_Hours
-        `=B${rowNum}*${rates.annotation}`, // Payment_Annotations (configurable per annotation)
-        `=C${rowNum}*${rates.translationRegular}`, // Payment_Translations (configurable per translation)
-        `=F${rowNum}+G${rowNum}`, // Total_Payment
-        `=COUNTIF(Annotations_Log!J:J,"${userEmail}")`, // QA_Count (where user performed QA - by checking verifiedBy email)
-        `=I${rowNum}*${rates.qa}`, // QA_Total (QA payment)
-        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!I:I,"qa-approved")`, // Approved_Annotations
-        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>",Annotations_Log!I:I,"qa-approved")`, // Approved_Translations
-        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+J${rowNum}`, // Redeemable_Amount (only approved items + QA total)
+        `=COUNTIF(Annotations_Log!B:B,"${annotatorId}")`, // Total_Rows (authored by user)
+        translationsFormula, // Translations (rows user translated as HA/YO translator when translation required)
+        `=IF(E${rowNum}=0,0,B${rowNum}/E${rowNum})`, // Avg_Rows_Per_Hour (Total_Rows / Total_Hours)
+        `=SUMIFS(Annotations_Log!H:H,Annotations_Log!B:B,"${annotatorId}")/60`, // Total_Hours (from authored rows only)
+        `=B${rowNum}*${rates.annotation}`, // Payment_Annotations (raw, per authored annotation)
+        `=C${rowNum}*${rates.translationRegular}`, // Payment_Translations (raw, per translation completed)
+        `=F${rowNum}+G${rowNum}`, // Total_Payment (raw total before approval filtering)
+        `=COUNTIF(Annotations_Log!J:J,"${userEmail}")`, // QA_Count (rows user verified)
+        `=I${rowNum}*${rates.qa}`, // QA_Total (QA earnings)
+        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!I:I,"verified")`, // Approved_Annotations (authored & verified)
+        approvedTranslationsFormula, // Approved_Translations (translated & qa-approved)
+        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+J${rowNum}`, // Redeemable_Amount (approved work + QA earnings)
       ]
     })
 
@@ -1040,7 +1076,6 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
 
 export async function getPaymentSummaries(accessToken: string, spreadsheetId: string): Promise<PaymentSummary[]> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -1245,39 +1280,35 @@ export async function updateAnnotationStatus(
   >,
 ): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-  // Read annotations to find row
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:R" })
+  // Extended range to Z to cover moderation columns
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:Z" })
   const rows = res.data.values || []
   const idx = rows.findIndex(r => (r[0] || "") === rowId)
   if (idx === -1) throw new Error(`Annotation rowId ${rowId} not found`)
 
   const rowNum = idx + 2
   const row = rows[idx]
-
-  // Column mapping (extending to support new fields):
-  // I=Status(8), J=Verified_By(9), K=QA_Comments(10), L=Admin_Comments(11),
-  // M=Is_Valid(12), N=Invalidity_Reason(13)
+  // New mapping: Status(I), Verified_By(J), moderation fields in W-Z.
   const status = updates.status ?? row[8] ?? "in-progress"
   const verifiedBy = updates.verifiedBy ?? row[9] ?? ""
-  const qaComments = updates.qaComments ?? row[10] ?? ""
-  const adminComments = updates.adminComments ?? row[11] ?? ""
-  const isValid = updates.isValid !== undefined ? (updates.isValid ? "true" : "false") : (row[12] ?? "true")
-  const invalidityReason = updates.invalidityReason ?? row[13] ?? ""
+  const invalidityReason = updates.invalidityReason ?? row[22] ?? ""
+  const adminComments = updates.adminComments ?? row[23] ?? ""
+  const qaComments = updates.qaComments ?? row[24] ?? ""
+  const isValid = updates.isValid !== undefined ? (updates.isValid ? "true" : "false") : (row[25] ?? "true")
 
-  // Update all relevant columns
-  const updateData = []
+  const updateData: { range: string; values: any[][] }[] = []
   if (updates.status !== undefined)
     updateData.push({ range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] })
   if (updates.verifiedBy !== undefined)
     updateData.push({ range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] })
-  if (updates.qaComments !== undefined)
-    updateData.push({ range: `Annotations_Log!K${rowNum}:K${rowNum}`, values: [[qaComments]] })
-  if (updates.adminComments !== undefined)
-    updateData.push({ range: `Annotations_Log!L${rowNum}:L${rowNum}`, values: [[adminComments]] })
-  if (updates.isValid !== undefined)
-    updateData.push({ range: `Annotations_Log!M${rowNum}:M${rowNum}`, values: [[isValid]] })
   if (updates.invalidityReason !== undefined)
-    updateData.push({ range: `Annotations_Log!N${rowNum}:N${rowNum}`, values: [[invalidityReason]] })
+    updateData.push({ range: `Annotations_Log!W${rowNum}:W${rowNum}`, values: [[invalidityReason]] })
+  if (updates.adminComments !== undefined)
+    updateData.push({ range: `Annotations_Log!X${rowNum}:X${rowNum}`, values: [[adminComments]] })
+  if (updates.qaComments !== undefined)
+    updateData.push({ range: `Annotations_Log!Y${rowNum}:Y${rowNum}`, values: [[qaComments]] })
+  if (updates.isValid !== undefined)
+    updateData.push({ range: `Annotations_Log!Z${rowNum}:Z${rowNum}`, values: [[isValid]] })
 
   if (updateData.length > 0) {
     await sheets.spreadsheets.values.batchUpdate({

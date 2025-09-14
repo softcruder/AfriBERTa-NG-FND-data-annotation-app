@@ -223,7 +223,7 @@ export function AnnotationMonitoring({ onStatsUpdate }: AnnotationMonitoringProp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activities.slice(0, 20).map(activity => (
+                {activities.slice(0, 5).map(activity => (
                   <TableRow key={activity.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">

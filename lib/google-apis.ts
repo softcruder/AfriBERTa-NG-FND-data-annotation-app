@@ -810,7 +810,7 @@ export async function createFinalDatasetEntries(
     id_in_source: annotation.rowId,
   }
 
-  console.log("Creating final dataset entries for annotation:", baseData.id, annotation)
+  console.log("Creating final dataset entries for annotation:", baseData.id)
 
   const entries: (string | number)[][] = []
 

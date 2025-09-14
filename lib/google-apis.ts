@@ -1019,7 +1019,14 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
     const rates = parsePaymentRatesFromConfig(config)
 
     const annotations = await getAnnotations(accessToken, spreadsheetId)
-    const annotatorIds = [...new Set(annotations.map(a => a.annotatorId.trim()).filter(Boolean))]
+
+    // Collect all participant IDs: original annotators + translators (HA / YO) so that pure translators are included
+    const baseAnnotatorIds = annotations.map(a => a.annotatorId?.trim()).filter(Boolean) as string[]
+    const translatorIds = annotations
+      .flatMap(a => [a.translator_ha_id, a.translator_yo_id])
+      .map(id => (id || "").trim())
+      .filter(Boolean)
+    const annotatorIds = [...new Set([...baseAnnotatorIds, ...translatorIds])]
 
     // Get current users to map annotator IDs to emails for QA counting
     const users = await getUsers(accessToken, spreadsheetId)
@@ -1028,20 +1035,29 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
     const paymentRows = annotatorIds.map((annotatorId, index) => {
       const rowNum = index + 2 // Starting from row 2 (after header)
       const userEmail = userIdToEmail.get(annotatorId) || annotatorId // fallback to ID if email not found
+      // Columns reference (Annotations_Log):
+      // B Annotator_ID, H Duration_Minutes, I Status, J Verified_By, S Requires_Translation (TRUE/FALSE)
+      // U Translator_HA_ID, V Translator_YO_ID.
+      // Translations: count rows where this user is translator in U or V AND S is TRUE (translation was required).
+      // Use two COUNTIFS and sum them. (Rare edge: same ID in both U & V would double count; considered negligible.)
+      const translationsFormula = `=COUNTIFS(Annotations_Log!U:U,"${annotatorId}",Annotations_Log!S:S,TRUE)+COUNTIFS(Annotations_Log!V:V,"${annotatorId}",Annotations_Log!S:S,TRUE)`
+      // Approved translations: same but with Status = "verified".
+      const approvedTranslationsFormula = `=COUNTIFS(Annotations_Log!U:U,"${annotatorId}",Annotations_Log!I:I,"verified",Annotations_Log!S:S,TRUE)+COUNTIFS(Annotations_Log!V:V,"${annotatorId}",Annotations_Log!I:I,"verified",Annotations_Log!S:S,TRUE)`
+
       return [
         annotatorId,
-        `=COUNTIF(Annotations_Log!B:B,"${annotatorId}")`, // Total_Rows
-        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>")`, // Translations
-        `=IF(E${rowNum}=0,0,B${rowNum}/E${rowNum})`, // Avg_Rows_Per_Hour
-        `=SUMIFS(Annotations_Log!H:H,Annotations_Log!B:B,"${annotatorId}")/60`, // Total_Hours
-        `=B${rowNum}*${rates.annotation}`, // Payment_Annotations (configurable per annotation)
-        `=C${rowNum}*${rates.translationRegular}`, // Payment_Translations (configurable per translation)
-        `=F${rowNum}+G${rowNum}`, // Total_Payment
-        `=COUNTIF(Annotations_Log!J:J,"${userEmail}")`, // QA_Count (where user performed QA - by checking verifiedBy email)
-        `=I${rowNum}*${rates.qa}`, // QA_Total (QA payment)
-        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!I:I,"qa-approved")`, // Approved_Annotations
-        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!E:E,"<>",Annotations_Log!I:I,"qa-approved")`, // Approved_Translations
-        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+J${rowNum}`, // Redeemable_Amount (only approved items + QA total)
+        `=COUNTIF(Annotations_Log!B:B,"${annotatorId}")`, // Total_Rows (authored by user)
+        translationsFormula, // Translations (rows user translated as HA/YO translator when translation required)
+        `=IF(E${rowNum}=0,0,B${rowNum}/E${rowNum})`, // Avg_Rows_Per_Hour (Total_Rows / Total_Hours)
+        `=SUMIFS(Annotations_Log!H:H,Annotations_Log!B:B,"${annotatorId}")/60`, // Total_Hours (from authored rows only)
+        `=B${rowNum}*${rates.annotation}`, // Payment_Annotations (raw, per authored annotation)
+        `=C${rowNum}*${rates.translationRegular}`, // Payment_Translations (raw, per translation completed)
+        `=F${rowNum}+G${rowNum}`, // Total_Payment (raw total before approval filtering)
+        `=COUNTIF(Annotations_Log!J:J,"${userEmail}")`, // QA_Count (rows user verified)
+        `=I${rowNum}*${rates.qa}`, // QA_Total (QA earnings)
+        `=COUNTIFS(Annotations_Log!B:B,"${annotatorId}",Annotations_Log!I:I,"verified")`, // Approved_Annotations (authored & verified)
+        approvedTranslationsFormula, // Approved_Translations (translated & qa-approved)
+        `=(K${rowNum}*${rates.annotation})+(L${rowNum}*${rates.translationRegular})+J${rowNum}`, // Redeemable_Amount (approved work + QA earnings)
       ]
     })
 
@@ -1062,7 +1078,6 @@ export async function updatePaymentFormulas(accessToken: string, spreadsheetId: 
 
 export async function getPaymentSummaries(accessToken: string, spreadsheetId: string): Promise<PaymentSummary[]> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,

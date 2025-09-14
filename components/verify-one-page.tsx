@@ -37,7 +37,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
   const { spreadsheetId, user } = useAuth()
   const { data: annotations, mutate, isLoading } = useAnnotations(spreadsheetId)
   const { verify, loading } = useVerifyAnnotation()
-  const { adminVerify } = useAdminVerify()
+  const { adminVerify, loading: verifying } = useAdminVerify()
   const { toast } = useToast()
   const { handleError } = useErrorHandler()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -272,7 +272,7 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => handlePeerApprove()}
-                disabled={loading}
+                isLoading={verifying || loading}
                 className="gap-2 bg-green-600 hover:bg-green-700 text-white"
                 size="lg"
               >
@@ -282,20 +282,26 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               <Button
                 onClick={() => setIsEditing(true)}
                 variant="outline"
-                disabled={loading}
+                disabled={loading || verifying || isLoading}
                 size="lg"
                 className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
               >
                 Edit & Review
               </Button>
-              <Button onClick={handleReject} disabled={loading} variant="destructive" size="lg" className="gap-2">
+              <Button
+                onClick={handleReject}
+                disabled={loading || verifying || isLoading}
+                variant="destructive"
+                size="lg"
+                className="gap-2"
+              >
                 <XCircle className="h-4 w-4" />
                 {user?.role === "admin" ? "Send for Revision" : "Escalate to Admin"}
               </Button>
               {user?.role === "admin" && (
                 <Button
                   type="button"
-                  disabled={loading}
+                  disabled={loading || verifying || isLoading}
                   size="lg"
                   className="gap-2 bg-red-700 hover:bg-red-800 text-white"
                   onClick={() => {

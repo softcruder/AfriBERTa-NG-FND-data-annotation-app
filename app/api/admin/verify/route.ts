@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import { updateAnnotationStatus } from "@/lib/google-apis"
+import {
+  updateAnnotationStatus,
+  getAnnotations,
+  getAppConfig,
+  finalDatasetHasId,
+  downloadCSVFile,
+  createFinalDatasetEntries,
+  updatePaymentFormulas,
+} from "@/lib/google-apis"
 import { z } from "zod"
 
 const AdminVerifySchema = z.object({
@@ -22,38 +30,73 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { spreadsheetId, rowId, action, comments, invalidityReason } = AdminVerifySchema.parse(body)
 
-    // Determine the new status and updates based on action
-    let status: string
-    let updates: any = {
-      adminComments: comments,
+    let message: string
+    if (action === "approve") {
+      // Admin approval here is treated as final verification and dataset finalization
+      await updateAnnotationStatus(session.accessToken, spreadsheetId, rowId, {
+        status: "verified" as any,
+        adminComments: comments,
+      })
+
+      // Fetch latest annotation row to build dataset entries
+      try {
+        const annotations = await getAnnotations(session.accessToken, spreadsheetId)
+        const annotation = annotations.find(a => a.rowId === rowId)
+        if (annotation) {
+          const cfg = await getAppConfig(session.accessToken).catch(() => ({}) as any)
+          const finalSpreadsheetId = cfg["FINAL_DATASET_SPREADSHEET_ID"]
+          const csvFileId = cfg["CSV_FILE_ID"]
+          if (finalSpreadsheetId) {
+            const already = await finalDatasetHasId(session.accessToken, finalSpreadsheetId, annotation.rowId)
+            if (!already) {
+              let originalCsvData: string[] | undefined
+              if (csvFileId) {
+                try {
+                  const csvData = await downloadCSVFile(session.accessToken, csvFileId)
+                  originalCsvData = csvData.find(r => (r[0] || "").trim() === annotation.rowId)
+                } catch (e) {
+                  console.warn("Admin verify: CSV fetch failed during finalization", e)
+                }
+              }
+              try {
+                await createFinalDatasetEntries(session.accessToken, finalSpreadsheetId, annotation, originalCsvData)
+              } catch (e) {
+                console.warn("Admin verify: failed to append final dataset entries", e)
+              }
+            }
+          }
+        }
+      } catch (finalErr) {
+        console.warn("Admin verify finalization error", finalErr)
+      }
+
+      // Update payment formulas (non-blocking)
+      try {
+        await updatePaymentFormulas(session.accessToken, spreadsheetId)
+      } catch (payErr) {
+        console.warn("Admin verify payment formula update failed", payErr)
+      }
+
+      message = "Annotation approved and finalized"
+    } else if (action === "needs-revision") {
+      await updateAnnotationStatus(session.accessToken, spreadsheetId, rowId, {
+        status: "needs-revision" as any,
+        adminComments: comments,
+      })
+      message = "Annotation sent for revision"
+    } else if (action === "mark-invalid") {
+      await updateAnnotationStatus(session.accessToken, spreadsheetId, rowId, {
+        status: "invalid" as any,
+        adminComments: comments,
+        isValid: false,
+        invalidityReason,
+      })
+      message = "Annotation marked as invalid"
+    } else {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 })
     }
 
-    switch (action) {
-      case "approve":
-        status = "approved"
-        updates.status = status
-        break
-      case "needs-revision":
-        status = "needs-revision"
-        updates.status = status
-        break
-      case "mark-invalid":
-        status = "invalid"
-        updates.status = status
-        updates.isValid = false
-        updates.invalidityReason = invalidityReason
-        break
-      default:
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 })
-    }
-
-    // Update the annotation status
-    await updateAnnotationStatus(session.accessToken, spreadsheetId, rowId, updates)
-
-    return NextResponse.json({
-      success: true,
-      message: `Annotation ${action === "mark-invalid" ? "marked as invalid" : action === "approve" ? "approved" : "sent for revision"}`,
-    })
+    return NextResponse.json({ success: true, message })
   } catch (error) {
     console.error("Admin verify error:", error)
     if (error instanceof z.ZodError) {

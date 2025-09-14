@@ -663,6 +663,12 @@ export async function logAnnotation(
     if (!rowId) throw new Error("Annotation rowId is required")
     if (!annotatorId) throw new Error("Annotation annotatorId is required")
 
+    // Extended schema (2025-09): Added moderation/meta columns W-Z.
+    // A Row_ID, B Annotator_ID, C Claim_Text, D Source_Links, E Translation, F Start_Time, G End_Time,
+    // H Duration_Minutes, I Status, J Verified_By, K Verdict, L Source_URL, M Claim_Links, N Claim_Text_HA,
+    // O Claim_Text_YO, P Article_Body_HA, Q Article_Body_YO, R Translation_Language, S Requires_Translation,
+    // T Original_Language, U Translator_HA_ID, V Translator_YO_ID, W Invalidity_Reason, X Admin_Comments,
+    // Y QA_Comments, Z Is_Valid
     const values: (string | number)[] = [
       rowId,
       annotatorId,
@@ -686,6 +692,10 @@ export async function logAnnotation(
       (annotation.originalLanguage || "").toLowerCase(),
       annotation.translator_ha_id || "",
       annotation.translator_yo_id || "",
+      annotation.invalidityReason || "",
+      annotation.adminComments || "",
+      annotation.qaComments || "",
+      annotation.isValid === false ? "false" : "true",
     ]
 
     // Always append using just the sheet name so Sheets computes the table range itself
@@ -726,12 +736,16 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     "Original_Language",
     "Translator_HA_ID",
     "Translator_YO_ID",
+    "Invalidity_Reason",
+    "Admin_Comments",
+    "QA_Comments",
+    "Is_Valid",
   ]
 
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A1:V1",
+      range: "Annotations_Log!A1:Z1",
     })
     const headers = res.data.values?.[0] || []
     let needsUpdate = false
@@ -740,7 +754,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     if (needsUpdate) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Annotations_Log!A1:V1",
+        range: "Annotations_Log!A1:Z1",
         valueInputOption: "RAW",
         requestBody: { values: [expected] },
       })
@@ -749,7 +763,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     // If sheet doesn't exist or error reading, attempt to write headers (will create sheet implicitly when possible)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "Annotations_Log!A1:V1",
+      range: "Annotations_Log!A1:Z1",
       valueInputOption: "RAW",
       requestBody: { values: [expected] },
     })
@@ -796,6 +810,8 @@ export async function createFinalDatasetEntries(
     id_in_source: annotation.rowId,
   }
 
+  console.log("Creating final dataset entries for annotation:", baseData.id, annotation)
+
   const entries: (string | number)[][] = []
 
   // Determine source language from original CSV data or annotation
@@ -809,7 +825,7 @@ export async function createFinalDatasetEntries(
         annotation.claim_text_ha,
         annotation.verdict || "",
         "ha", // language
-        annotation.translation || "", // reasoning
+        annotation.article_body_ha || "", // reasoning
         baseData.sources,
         baseData.claim_source,
         baseData.domain,
@@ -823,7 +839,7 @@ export async function createFinalDatasetEntries(
         annotation.claim_text_yo,
         annotation.verdict || "",
         "yo", // language
-        annotation.translation || "", // reasoning
+        annotation.article_body_yo || "", // reasoning
         baseData.sources,
         baseData.claim_source,
         baseData.domain,
@@ -833,11 +849,11 @@ export async function createFinalDatasetEntries(
   } else {
     // For non-English source, create single entry
     entries.push([
-      baseData.id,
+      `${baseData.id}_${sourceLanguage || annotation.originalLanguage || "xx"}`, // Unique ID with language code
       baseData.claim,
       annotation.verdict || "",
       sourceLanguage || "",
-      annotation.translation || "", // reasoning
+      annotation.article_body_ha || annotation.article_body_yo || "", // reasoning
       baseData.sources,
       baseData.claim_source,
       baseData.domain,
@@ -907,7 +923,7 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A2:V",
+      range: "Annotations_Log!A2:Z",
     })
 
     const rows = response.data.values || []
@@ -934,6 +950,10 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
       originalLanguage: row[19] || undefined,
       translator_ha_id: row[20] || undefined,
       translator_yo_id: row[21] || undefined,
+      invalidityReason: row[22] || undefined,
+      adminComments: row[23] || undefined,
+      qaComments: row[24] || undefined,
+      isValid: row[25] ? row[25].toString().toLowerCase() === "true" : true,
     }))
   } catch (error) {
     throw new Error(`Failed to get annotations: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -1245,39 +1265,35 @@ export async function updateAnnotationStatus(
   >,
 ): Promise<void> {
   const { sheets } = initializeGoogleAPIs(accessToken)
-  // Read annotations to find row
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:R" })
+  // Extended range to Z to cover moderation columns
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:Z" })
   const rows = res.data.values || []
   const idx = rows.findIndex(r => (r[0] || "") === rowId)
   if (idx === -1) throw new Error(`Annotation rowId ${rowId} not found`)
 
   const rowNum = idx + 2
   const row = rows[idx]
-
-  // Column mapping (extending to support new fields):
-  // I=Status(8), J=Verified_By(9), K=QA_Comments(10), L=Admin_Comments(11),
-  // M=Is_Valid(12), N=Invalidity_Reason(13)
+  // New mapping: Status(I), Verified_By(J), moderation fields in W-Z.
   const status = updates.status ?? row[8] ?? "in-progress"
   const verifiedBy = updates.verifiedBy ?? row[9] ?? ""
-  const qaComments = updates.qaComments ?? row[10] ?? ""
-  const adminComments = updates.adminComments ?? row[11] ?? ""
-  const isValid = updates.isValid !== undefined ? (updates.isValid ? "true" : "false") : (row[12] ?? "true")
-  const invalidityReason = updates.invalidityReason ?? row[13] ?? ""
+  const invalidityReason = updates.invalidityReason ?? row[22] ?? ""
+  const adminComments = updates.adminComments ?? row[23] ?? ""
+  const qaComments = updates.qaComments ?? row[24] ?? ""
+  const isValid = updates.isValid !== undefined ? (updates.isValid ? "true" : "false") : (row[25] ?? "true")
 
-  // Update all relevant columns
-  const updateData = []
+  const updateData: { range: string; values: any[][] }[] = []
   if (updates.status !== undefined)
     updateData.push({ range: `Annotations_Log!I${rowNum}:I${rowNum}`, values: [[status]] })
   if (updates.verifiedBy !== undefined)
     updateData.push({ range: `Annotations_Log!J${rowNum}:J${rowNum}`, values: [[verifiedBy]] })
-  if (updates.qaComments !== undefined)
-    updateData.push({ range: `Annotations_Log!K${rowNum}:K${rowNum}`, values: [[qaComments]] })
-  if (updates.adminComments !== undefined)
-    updateData.push({ range: `Annotations_Log!L${rowNum}:L${rowNum}`, values: [[adminComments]] })
-  if (updates.isValid !== undefined)
-    updateData.push({ range: `Annotations_Log!M${rowNum}:M${rowNum}`, values: [[isValid]] })
   if (updates.invalidityReason !== undefined)
-    updateData.push({ range: `Annotations_Log!N${rowNum}:N${rowNum}`, values: [[invalidityReason]] })
+    updateData.push({ range: `Annotations_Log!W${rowNum}:W${rowNum}`, values: [[invalidityReason]] })
+  if (updates.adminComments !== undefined)
+    updateData.push({ range: `Annotations_Log!X${rowNum}:X${rowNum}`, values: [[adminComments]] })
+  if (updates.qaComments !== undefined)
+    updateData.push({ range: `Annotations_Log!Y${rowNum}:Y${rowNum}`, values: [[qaComments]] })
+  if (updates.isValid !== undefined)
+    updateData.push({ range: `Annotations_Log!Z${rowNum}:Z${rowNum}`, values: [[isValid]] })
 
   if (updateData.length > 0) {
     await sheets.spreadsheets.values.batchUpdate({

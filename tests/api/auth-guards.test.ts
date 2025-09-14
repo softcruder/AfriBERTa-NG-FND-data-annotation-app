@@ -18,6 +18,7 @@ vi.mock("@/lib/google-apis", () => ({
   downloadCSVFile: vi.fn(async () => [["h1"], ["r1"]]),
   createAnnotationSheet: vi.fn(async () => "sheet123"),
   getAppConfig: vi.fn(async () => ({ CSV_FILE_ID: "csv123" })),
+  initializeGoogleAPIs: vi.fn(() => ({ drive: {}, sheets: {}, auth: {} })),
 }))
 
 function makeReq(url: string, cookie?: string, init?: { method?: string; body?: any }) {

@@ -861,8 +861,6 @@ export async function createFinalDatasetEntries(
 
   console.log(`Prepared ${entries.length} final dataset entries for annotation ID ${annotation.rowId}`)
 
-  console.log("Entries:", entries)
-
   // Append all entries
   if (entries.length > 0) {
     await sheets.spreadsheets.values.append({

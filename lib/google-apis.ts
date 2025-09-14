@@ -810,8 +810,6 @@ export async function createFinalDatasetEntries(
     id_in_source: annotation.rowId,
   }
 
-  console.log("Creating final dataset entries for annotation:", baseData.id)
-
   const entries: (string | number)[][] = []
 
   // Determine source language from original CSV data or annotation
@@ -860,6 +858,10 @@ export async function createFinalDatasetEntries(
       baseData.id_in_source,
     ])
   }
+
+  console.log(`Prepared ${entries.length} final dataset entries for annotation ID ${annotation.rowId}`)
+
+  console.log("Entries:", entries)
 
   // Append all entries
   if (entries.length > 0) {

@@ -1,0 +1,48 @@
+%% High-Level Lifecycle Diagram (Mermaid)
+sequenceDiagram
+    autonumber
+    participant Annotator
+    participant NextJSApp
+    participant API
+    participant CSVSource
+    participant GoogleSheets as Annotations_Log
+    participant FinalDatasetSheet
+
+    Annotator->>NextJSApp: Open task list
+    NextJSApp->>API: GET /api/tasks
+    API->>GoogleSheets: getAppConfig() + getAnnotations()
+    API->>CSVSource: downloadCSVFile()
+    API-->>NextJSApp: Filtered tasks JSON
+
+    Annotator->>NextJSApp: Start work (local in-progress)
+    Annotator->>NextJSApp: Submit annotation/translation
+    NextJSApp->>API: POST /api/annotations/(regular|translation)
+    API->>GoogleSheets: logAnnotation()
+    API->>GoogleSheets: updatePaymentFormulas()
+    API-->>NextJSApp: { success }
+    Note over GoogleSheets: status=completed
+
+    PeerQA->>NextJSApp: Load pending annotations
+    NextJSApp->>API: GET /api/annotations?spreadsheetId=...
+    API->>GoogleSheets: getAnnotations()
+    API-->>NextJSApp: Filtered list (excludes own & verified)
+
+    PeerQA->>NextJSApp: Approve or escalate
+    NextJSApp->>API: POST /api/qa/verify { isApproved: true/false }
+    API->>GoogleSheets: updateAnnotationStatus()
+    alt Peer approves
+        API-->>NextJSApp: status=qa-approved
+    else Escalated to admin
+        API-->>NextJSApp: status=admin-review
+    end
+
+    Admin->>NextJSApp: Finalize (adminFinalize=true)
+    NextJSApp->>API: POST /api/qa/verify { adminFinalize:true }
+    API->>GoogleSheets: updateAnnotationStatus(verified)
+    API->>GoogleSheets: getAppConfig()
+    API->>GoogleSheets: getAnnotations() refresh
+    API->>CSVSource: downloadCSVFile() (enrichment)
+    API->>FinalDatasetSheet: createFinalDatasetEntries()
+    API->>GoogleSheets: updatePaymentFormulas()
+    API-->>NextJSApp: { status=verified, finalized:true }
+    Note over FinalDatasetSheet: Row appended uniquely

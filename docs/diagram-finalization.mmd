@@ -1,0 +1,20 @@
+%% Admin Finalization Path (Mermaid)
+sequenceDiagram
+    participant Admin
+    participant NextJSApp
+    participant API
+    participant LogSheet
+    participant Config
+    participant CSVSource
+    participant FinalDataset
+
+    Admin->>NextJSApp: Open verification panel
+    Admin->>NextJSApp: Finalize annotation
+    NextJSApp->>API: POST /api/qa/verify { adminFinalize:true }
+    API->>LogSheet: updateAnnotationStatus(verified)
+    API->>Config: getAppConfig()
+    API->>LogSheet: getAnnotations() (refresh)
+    API->>CSVSource: downloadCSVFile()
+    API->>FinalDataset: createFinalDatasetEntries()
+    API->>LogSheet: updatePaymentFormulas()
+    API-->>NextJSApp: { finalized:true }

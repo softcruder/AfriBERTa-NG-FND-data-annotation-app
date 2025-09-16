@@ -1,0 +1,52 @@
+@startuml
+' High-Level Annotation Lifecycle (PlantUML)
+autonumber
+actor Annotator
+actor PeerQA
+actor Admin
+participant NextJSApp
+participant API
+database "Annotations Log" as LogSheet
+database "Final Dataset Sheet" as FinalSheet
+collections CSVSource
+database "Config Sheet" as Config
+
+Annotator -> NextJSApp: Open task list
+NextJSApp -> API: GET /api/tasks
+API -> Config: getAppConfig()
+API -> LogSheet: getAnnotations()
+API -> CSVSource: downloadCSVFile()
+API --> NextJSApp: Filtered tasks JSON
+
+Annotator -> NextJSApp: Submit annotation/translation
+NextJSApp -> API: POST /api/annotations/(regular|translation)
+API -> LogSheet: logAnnotation()
+API -> LogSheet: updatePaymentFormulas()
+API --> NextJSApp: { success }
+note right of LogSheet: status=completed
+
+PeerQA -> NextJSApp: Load annotations
+NextJSApp -> API: GET /api/annotations
+API -> LogSheet: getAnnotations()
+API --> NextJSApp: Filtered list (no self, no verified)
+
+PeerQA -> NextJSApp: Approve / Escalate
+NextJSApp -> API: POST /api/qa/verify (isApproved?)
+API -> LogSheet: updateAnnotationStatus()
+alt Approved
+  API --> NextJSApp: status=qa-approved
+else Escalated
+  API --> NextJSApp: status=admin-review
+end
+
+Admin -> NextJSApp: Finalize annotation
+NextJSApp -> API: POST /api/qa/verify (adminFinalize=true)
+API -> LogSheet: updateAnnotationStatus(verified)
+API -> Config: getAppConfig()
+API -> LogSheet: getAnnotations() (refresh)
+API -> CSVSource: downloadCSVFile()
+API -> FinalSheet: createFinalDatasetEntries()
+API -> LogSheet: updatePaymentFormulas()
+API --> NextJSApp: { status=verified, finalized:true }
+note right of FinalSheet: Unique row appended
+@enduml

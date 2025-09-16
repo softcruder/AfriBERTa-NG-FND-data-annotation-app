@@ -10,7 +10,12 @@
     "prepare": "husky",
     "start": "next start",
     "test": "vitest run",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "diag:mermaid:png": "mmdc -i docs/diagram-high-level.mmd -o docs/diagram-high-level.png && mmdc -i docs/diagram-translation.mmd -o docs/diagram-translation.png && mmdc -i docs/diagram-finalization.mmd -o docs/diagram-finalization.png",
+    "diag:mermaid:jpg": "mmdc -i docs/diagram-high-level.mmd -o docs/diagram-high-level.jpg && mmdc -i docs/diagram-translation.mmd -o docs/diagram-translation.jpg && mmdc -i docs/diagram-finalization.mmd -o docs/diagram-finalization.jpg",
+    "diag:plantuml:png": "plantuml -tpng docs/annotation-flow.puml",
+    "diag:plantuml:jpg": "plantuml -tjpg docs/annotation-flow.puml",
+    "diag:all": "npm run diag:mermaid:png && npm run diag:plantuml:png"
   },
   "dependencies": {
     "@edge-runtime/vm": "latest",
@@ -90,10 +95,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.0.2",
+  "@mermaid-js/mermaid-cli": "^10.9.0",
     "eslint": "^9.34.0",
     "eslint-config-next": "^15.5.2",
     "husky": "^9.1.7",
     "jsdom": "^26.1.0",
+  "plantuml": "^1.2025.0",
     "postcss": "^8.5",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.9",

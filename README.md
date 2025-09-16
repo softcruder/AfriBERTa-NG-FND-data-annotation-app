@@ -84,3 +84,56 @@ The following enhancements were introduced to improve mobile usability, performa
 - Test coverage: Added mobile truncation test for `TasksListPage`.
 
 These changes aim to streamline annotator workflows on constrained devices while maintaining accessibility and performance.
+
+## Documentation & Architecture Diagrams
+
+Sequence diagrams and lifecycle documentation for the annotation → translation → QA → final dataset pipeline live in the `docs/` directory:
+
+- `docs/annotation-flow.md` – Mermaid diagrams (view directly in VS Code Markdown preview)
+- `docs/annotation-flow.puml` – PlantUML master diagram (render with PlantUML extension)
+- `docs/SEQUENCE_DIAGRAMS.md` – Aggregated index + maintenance procedure
+
+Status transitions covered:
+```
+not-started → in-progress → completed → (qa-approved | admin-review) → verified
+						↘ needs-revision (admin) ↗ resubmit
+						↘ invalid (terminal)
+```
+
+Final dataset insertion only occurs on transition to `verified` (guarded for uniqueness by `rowId`).
+
+When adding a new status or altering QA logic:
+1. Update types in `lib/data-store.ts`.
+2. Adjust filtering in `app/api/tasks/route.ts`.
+3. Update verification logic in `app/api/qa/verify/route.ts` (and `app/api/admin/verify/route.ts` if applicable).
+4. Refresh diagrams in `docs/` and commit with message `docs: update sequence diagrams`.
+
+Rendering tools:
+- Mermaid CLI (optional): `npm i -g @mermaid-js/mermaid-cli`
+- PlantUML VS Code extension: `jebbs.plantuml`
+
+### Diagram Export Automation
+
+Scripts added to `package.json`:
+
+| Script | Output |
+|--------|--------|
+| `npm run diag:mermaid:png` | PNGs for each Mermaid diagram in `docs/` |
+| `npm run diag:mermaid:jpg` | JPEGs for each Mermaid diagram |
+| `npm run diag:plantuml:png` | PNG for `annotation-flow.puml` |
+| `npm run diag:plantuml:jpg` | JPEG for `annotation-flow.puml` |
+| `npm run diag:all` | High-level PNG exports (Mermaid + PlantUML) |
+
+Prerequisites:
+
+1. Install dependencies (includes CLI tools):
+
+```powershell
+npm install
+```
+
+1. For PlantUML advanced rendering you may need Java + Graphviz (`dot`) in PATH. The Node `plantuml` wrapper can still produce basic outputs.
+
+Generated assets will appear alongside source files inside `docs/`.
+
+

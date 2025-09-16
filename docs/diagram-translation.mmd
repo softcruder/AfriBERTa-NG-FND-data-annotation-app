@@ -1,0 +1,12 @@
+%% Translation Path Focus (Mermaid)
+sequenceDiagram
+    participant Translator
+    participant NextJSApp
+    participant API
+    participant Sheets as Annotations_Log
+
+    Translator->>NextJSApp: Select EN source row
+    NextJSApp->>API: POST /api/annotations/translation { rowId, translationLanguage }
+    API->>Sheets: logAnnotation(assign translator_*_id)
+    API-->>NextJSApp: success
+    Note over Sheets: status=completed; language columns updated

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { POST } from "@/app/api/admin/verify/route"
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
@@ -34,6 +34,9 @@ function makeReq(url: string, body?: any): NextRequest {
 }
 
 describe("/api/admin/verify", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
   it("returns 401 when not authenticated", async () => {
     mockRequireSession.mockResolvedValue({ response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) })
 

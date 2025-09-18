@@ -141,6 +141,9 @@ export class AnnotationMapper {
       translationYoruba: item.claim_text_yo || "",
       articleBodyHausa: item.article_body_ha || "",
       articleBodyYoruba: item.article_body_yo || "",
+      isValid: item.isValid,
+      invalidityReason: item.invalidityReason,
+      adminComments: item.adminComments,
     }
   }
 }

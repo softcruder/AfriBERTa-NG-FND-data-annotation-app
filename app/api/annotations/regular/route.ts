@@ -17,11 +17,9 @@ import {
 import { requireSession } from "@/lib/server-auth"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
-// Local helper functions removed in favor of shared utilities.
+// Local helper logic (restored): optimized for regular annotation ingestion (dedup + minimal client reuse)
+// Includes sanitation (line-break removal) and validity handling consistent with global logger.
 
-// (dedup + perf logic centralized)
-
-// Ensure headers & append implemented locally to avoid re-initializing clients in helpers
 async function ensureAnnotationLogHeadersWithClient(sheets: any, spreadsheetId: string) {
   const expected = [
     "Row_ID",
@@ -46,58 +44,82 @@ async function ensureAnnotationLogHeadersWithClient(sheets: any, spreadsheetId: 
     "Original_Language",
     "Translator_HA_ID",
     "Translator_YO_ID",
+    "Invalidity_Reason",
+    "Admin_Comments",
+    "QA_Comments",
+    "Is_Valid",
   ]
   try {
-    const headerResp = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: "Annotations_Log!A1:V1",
-    })
+    const headerResp = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A1:Z1" })
     const existing = headerResp.data.values?.[0]
     const needsUpdate = !existing || expected.some((h, i) => existing[i] !== h)
     if (needsUpdate) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Annotations_Log!A1:V1",
+        range: "Annotations_Log!A1:Z1",
         valueInputOption: "RAW",
         requestBody: { values: [expected] },
       })
     }
   } catch (e) {
-    // If sheet absent, append will create headers later
-    console.warn("[regular] header check failure (continuing)", e)
+    console.warn("[regular] header ensure failed (continuing)", e)
   }
+}
+
+function sanitizeCell(val: any): string {
+  if (val === null || val === undefined) return ""
+  if (typeof val === "number") return String(val)
+  return String(val)
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
 }
 
 async function appendAnnotationWithClient(sheets: any, spreadsheetId: string, annotation: AnnotationRow) {
   await ensureAnnotationLogHeadersWithClient(sheets, spreadsheetId)
-  const rowId = (annotation.rowId || "").trim()
-  const annotatorId = (annotation.annotatorId || "").trim()
+  const rowId = sanitizeCell((annotation.rowId || "").trim())
+  const annotatorId = sanitizeCell((annotation.annotatorId || "").trim())
   if (!rowId) throw new Error("Annotation rowId is required")
   if (!annotatorId) throw new Error("Annotation annotatorId is required")
+
+  const joinedSourceLinks = sanitizeCell((annotation.sourceLinks || []).filter(Boolean).join("; "))
+  const joinedClaimLinks = sanitizeCell((annotation.claimLinks || []).filter(Boolean).join("; "))
+  const invalidityReason = sanitizeCell(annotation.invalidityReason || "")
+  const isInvalid = annotation.isValid === false || !!invalidityReason
+
   const values: (string | number)[] = [
     rowId,
     annotatorId,
-    annotation.claimText || "",
-    (annotation.sourceLinks || []).filter(Boolean).join("; "),
-    annotation.translation || "",
-    annotation.startTime || new Date().toISOString(),
-    annotation.endTime || "",
+    sanitizeCell(annotation.claimText || ""),
+    joinedSourceLinks,
+    sanitizeCell(annotation.translation || ""),
+    sanitizeCell(annotation.startTime || new Date().toISOString()),
+    sanitizeCell(annotation.endTime || ""),
     annotation.durationMinutes ?? "",
-    annotation.status || "completed",
-    annotation.verifiedBy || "",
-    annotation.verdict || "",
-    annotation.sourceUrl || "",
-    (annotation.claimLinks || []).filter(Boolean).join("; "),
-    annotation.claim_text_ha || "",
-    annotation.claim_text_yo || "",
-    annotation.article_body_ha || "",
-    annotation.article_body_yo || "",
-    annotation.translationLanguage || "",
+    sanitizeCell(annotation.status || "completed"),
+    sanitizeCell(annotation.verifiedBy || ""),
+    sanitizeCell(annotation.verdict || ""),
+    sanitizeCell(annotation.sourceUrl || ""),
+    joinedClaimLinks,
+    sanitizeCell(annotation.claim_text_ha || ""),
+    sanitizeCell(annotation.claim_text_yo || ""),
+    sanitizeCell(annotation.article_body_ha || ""),
+    sanitizeCell(annotation.article_body_yo || ""),
+    sanitizeCell(annotation.translationLanguage || ""),
     annotation.requiresTranslation ? "TRUE" : "FALSE",
-    (annotation.originalLanguage || "").toLowerCase(),
-    annotation.translator_ha_id || "",
-    annotation.translator_yo_id || "",
+    sanitizeCell((annotation.originalLanguage || "").toLowerCase()),
+    sanitizeCell(annotation.translator_ha_id || ""),
+    sanitizeCell(annotation.translator_yo_id || ""),
+    invalidityReason,
+    sanitizeCell(annotation.adminComments || ""),
+    sanitizeCell(annotation.qaComments || ""),
+    isInvalid ? "false" : "true",
+    sanitizeCell(annotation.qaOriginalSnapshot || ""),
+    sanitizeCell(annotation.qaEditedSnapshot || ""),
+    sanitizeCell(annotation.qaFieldDiff || ""),
+    sanitizeCell(annotation.adminFinalSnapshot || ""),
   ]
+
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: "Annotations_Log",

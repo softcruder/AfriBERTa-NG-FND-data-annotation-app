@@ -169,6 +169,12 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
     <FormProvider {...form}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="container mx-auto p-6 max-w-6xl">
+          {user.role === "admin" && task.invalidityReason && (
+            <div className="mb-4 p-4 border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/30 rounded-md text-sm text-red-700 dark:text-red-300">
+              <strong>Previously Marked Invalid:</strong> {task.invalidityReason}
+              {task.adminComments && <div className="mt-1 text-xs opacity-90">Admin Notes: {task.adminComments}</div>}
+            </div>
+          )}
           <div className="mb-8 bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="min-w-0 flex-1">
@@ -257,7 +263,7 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
                       variant="outline"
                       size="sm"
                       className="bg-transparent"
-                      onClick={() => setShowOriginalDesktop((v) => !v)}
+                      onClick={() => setShowOriginalDesktop(v => !v)}
                     >
                       {showOriginalDesktop ? "Hide" : "Show"}
                     </Button>
@@ -307,7 +313,7 @@ export function BaseQAForm({ task, user, onComplete, onCancel, children }: BaseQ
                       <Textarea
                         placeholder="Add notes for admin or annotator..."
                         value={values.qaComments || ""}
-                        onChange={(e) => setValue("qaComments", e.target.value)}
+                        onChange={e => setValue("qaComments", e.target.value)}
                         className="min-h-[80px]"
                       />
                     </div>

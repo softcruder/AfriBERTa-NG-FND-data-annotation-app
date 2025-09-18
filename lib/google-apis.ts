@@ -46,6 +46,11 @@ export interface AnnotationRow {
   originalLanguage?: string
   translator_ha_id?: string
   translator_yo_id?: string
+  // QA tracking snapshots (JSON encoded)
+  qaOriginalSnapshot?: string
+  qaEditedSnapshot?: string
+  qaFieldDiff?: string
+  adminFinalSnapshot?: string
 }
 
 export interface PaymentSummary {
@@ -663,39 +668,60 @@ export async function logAnnotation(
     if (!rowId) throw new Error("Annotation rowId is required")
     if (!annotatorId) throw new Error("Annotation annotatorId is required")
 
+    // Helper to sanitize individual cell values (remove line breaks & collapse excess whitespace)
+    const sanitize = (val: any): string => {
+      if (val === null || val === undefined) return ""
+      if (typeof val === "number") return String(val)
+      return String(val)
+        .replace(/[\r\n]+/g, " ") // replace any line breaks with a single space
+        .replace(/\s{2,}/g, " ") // collapse multiple spaces
+        .trim()
+    }
+
+    // Because source/claim links already joined by '; ' ensure we sanitize after join.
+    const joinedSourceLinks = sanitize((annotation.sourceLinks || []).filter(Boolean).join("; "))
+    const joinedClaimLinks = sanitize((annotation.claimLinks || []).filter(Boolean).join("; "))
+
+    const isInvalid = annotation.isValid === false || !!sanitize(annotation.invalidityReason || "")
+
     // Extended schema (2025-09): Added moderation/meta columns W-Z.
+    // Extended again (2025-09 mid) for QA snapshots (AA-AD)
     // A Row_ID, B Annotator_ID, C Claim_Text, D Source_Links, E Translation, F Start_Time, G End_Time,
     // H Duration_Minutes, I Status, J Verified_By, K Verdict, L Source_URL, M Claim_Links, N Claim_Text_HA,
     // O Claim_Text_YO, P Article_Body_HA, Q Article_Body_YO, R Translation_Language, S Requires_Translation,
     // T Original_Language, U Translator_HA_ID, V Translator_YO_ID, W Invalidity_Reason, X Admin_Comments,
-    // Y QA_Comments, Z Is_Valid
+    // Y QA_Comments, Z Is_Valid, AA QA_Original_Snapshot, AB QA_Edited_Snapshot, AC QA_Field_Diff, AD Admin_Final_Snapshot
     const values: (string | number)[] = [
-      rowId,
-      annotatorId,
-      annotation.claimText || "",
-      (annotation.sourceLinks || []).filter(Boolean).join("; "),
-      annotation.translation || "",
-      annotation.startTime || new Date().toISOString(),
-      annotation.endTime || "",
+      sanitize(rowId),
+      sanitize(annotatorId),
+      sanitize(annotation.claimText || ""),
+      joinedSourceLinks,
+      sanitize(annotation.translation || ""),
+      sanitize(annotation.startTime || new Date().toISOString()),
+      sanitize(annotation.endTime || ""),
       annotation.durationMinutes ?? "",
-      annotation.status || "completed",
-      annotation.verifiedBy || "",
-      annotation.verdict || "",
-      annotation.sourceUrl || "",
-      (annotation.claimLinks || []).filter(Boolean).join("; "),
-      annotation.claim_text_ha || "",
-      annotation.claim_text_yo || "",
-      annotation.article_body_ha || "",
-      annotation.article_body_yo || "",
-      annotation.translationLanguage || "",
+      sanitize(annotation.status || "completed"),
+      sanitize(annotation.verifiedBy || ""),
+      sanitize(annotation.verdict || ""),
+      sanitize(annotation.sourceUrl || ""),
+      joinedClaimLinks,
+      sanitize(annotation.claim_text_ha || ""),
+      sanitize(annotation.claim_text_yo || ""),
+      sanitize(annotation.article_body_ha || ""),
+      sanitize(annotation.article_body_yo || ""),
+      sanitize(annotation.translationLanguage || ""),
       annotation.requiresTranslation ? "TRUE" : "FALSE",
-      (annotation.originalLanguage || "").toLowerCase(),
-      annotation.translator_ha_id || "",
-      annotation.translator_yo_id || "",
-      annotation.invalidityReason || "",
-      annotation.adminComments || "",
-      annotation.qaComments || "",
-      annotation.isValid === false ? "false" : "true",
+      sanitize((annotation.originalLanguage || "").toLowerCase()),
+      sanitize(annotation.translator_ha_id || ""),
+      sanitize(annotation.translator_yo_id || ""),
+      sanitize(annotation.invalidityReason || ""),
+      sanitize(annotation.adminComments || ""),
+      sanitize(annotation.qaComments || ""),
+      isInvalid ? "false" : "true",
+      sanitize(annotation.qaOriginalSnapshot || ""),
+      sanitize(annotation.qaEditedSnapshot || ""),
+      sanitize(annotation.qaFieldDiff || ""),
+      sanitize(annotation.adminFinalSnapshot || ""),
     ]
 
     // Always append using just the sheet name so Sheets computes the table range itself
@@ -740,12 +766,16 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     "Admin_Comments",
     "QA_Comments",
     "Is_Valid",
+    "QA_Original_Snapshot",
+    "QA_Edited_Snapshot",
+    "QA_Field_Diff",
+    "Admin_Final_Snapshot",
   ]
 
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A1:Z1",
+      range: "Annotations_Log!A1:AD1",
     })
     const headers = res.data.values?.[0] || []
     let needsUpdate = false
@@ -754,7 +784,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     if (needsUpdate) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: "Annotations_Log!A1:Z1",
+        range: "Annotations_Log!A1:AD1",
         valueInputOption: "RAW",
         requestBody: { values: [expected] },
       })
@@ -763,7 +793,7 @@ export async function ensureAnnotationLogHeaders(accessToken: string, spreadshee
     // If sheet doesn't exist or error reading, attempt to write headers (will create sheet implicitly when possible)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "Annotations_Log!A1:Z1",
+      range: "Annotations_Log!A1:AD1",
       valueInputOption: "RAW",
       requestBody: { values: [expected] },
     })
@@ -923,7 +953,7 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Annotations_Log!A2:Z",
+      range: "Annotations_Log!A2:AD",
     })
 
     const rows = response.data.values || []
@@ -954,6 +984,10 @@ export async function getAnnotations(accessToken: string, spreadsheetId: string)
       adminComments: row[23] || undefined,
       qaComments: row[24] || undefined,
       isValid: row[25] ? row[25].toString().toLowerCase() === "true" : true,
+      qaOriginalSnapshot: row[26] || undefined,
+      qaEditedSnapshot: row[27] || undefined,
+      qaFieldDiff: row[28] || undefined,
+      adminFinalSnapshot: row[29] || undefined,
     }))
   } catch (error) {
     throw new Error(`Failed to get annotations: ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -1350,6 +1384,15 @@ export async function updateAnnotationContent(
   if (idx === -1) throw new Error(`Annotation rowId ${rowId} not found`)
   const rowNum = idx + 2
 
+  const sanitize = (val: any): string => {
+    if (val === null || val === undefined) return ""
+    if (typeof val === "number") return String(val)
+    return String(val)
+      .replace(/[\r\n]+/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+  }
+
   // Build batch updates only for provided fields
   const data: { range: string; values: any[][] }[] = []
   const map: Record<string, string> = {
@@ -1369,54 +1412,57 @@ export async function updateAnnotationContent(
   if (updates.claimText !== undefined)
     data.push({
       range: `Annotations_Log!${map.claimText}${rowNum}:${map.claimText}${rowNum}`,
-      values: [[updates.claimText]],
+      values: [[sanitize(updates.claimText)]],
     })
   if (updates.sourceLinks !== undefined)
     data.push({
       range: `Annotations_Log!${map.sourceLinks}${rowNum}:${map.sourceLinks}${rowNum}`,
-      values: [[(updates.sourceLinks || []).filter(Boolean).join("; ")]],
+      values: [[sanitize((updates.sourceLinks || []).filter(Boolean).join("; "))]],
     })
   if (updates.translation !== undefined)
     data.push({
       range: `Annotations_Log!${map.translation}${rowNum}:${map.translation}${rowNum}`,
-      values: [[updates.translation]],
+      values: [[sanitize(updates.translation)]],
     })
   if (updates.verdict !== undefined)
-    data.push({ range: `Annotations_Log!${map.verdict}${rowNum}:${map.verdict}${rowNum}`, values: [[updates.verdict]] })
+    data.push({
+      range: `Annotations_Log!${map.verdict}${rowNum}:${map.verdict}${rowNum}`,
+      values: [[sanitize(updates.verdict)]],
+    })
   if (updates.sourceUrl !== undefined)
     data.push({
       range: `Annotations_Log!${map.sourceUrl}${rowNum}:${map.sourceUrl}${rowNum}`,
-      values: [[updates.sourceUrl]],
+      values: [[sanitize(updates.sourceUrl)]],
     })
   if (updates.claimLinks !== undefined)
     data.push({
       range: `Annotations_Log!${map.claimLinks}${rowNum}:${map.claimLinks}${rowNum}`,
-      values: [[(updates.claimLinks || []).filter(Boolean).join("; ")]],
+      values: [[sanitize((updates.claimLinks || []).filter(Boolean).join("; "))]],
     })
   if (updates.claim_text_ha !== undefined)
     data.push({
       range: `Annotations_Log!${map.claim_text_ha}${rowNum}:${map.claim_text_ha}${rowNum}`,
-      values: [[updates.claim_text_ha]],
+      values: [[sanitize(updates.claim_text_ha)]],
     })
   if (updates.claim_text_yo !== undefined)
     data.push({
       range: `Annotations_Log!${map.claim_text_yo}${rowNum}:${map.claim_text_yo}${rowNum}`,
-      values: [[updates.claim_text_yo]],
+      values: [[sanitize(updates.claim_text_yo)]],
     })
   if (updates.article_body_ha !== undefined)
     data.push({
       range: `Annotations_Log!${map.article_body_ha}${rowNum}:${map.article_body_ha}${rowNum}`,
-      values: [[updates.article_body_ha]],
+      values: [[sanitize(updates.article_body_ha)]],
     })
   if (updates.article_body_yo !== undefined)
     data.push({
       range: `Annotations_Log!${map.article_body_yo}${rowNum}:${map.article_body_yo}${rowNum}`,
-      values: [[updates.article_body_yo]],
+      values: [[sanitize(updates.article_body_yo)]],
     })
   if (updates.translationLanguage !== undefined)
     data.push({
       range: `Annotations_Log!${map.translationLanguage}${rowNum}:${map.translationLanguage}${rowNum}`,
-      values: [[updates.translationLanguage]],
+      values: [[sanitize(updates.translationLanguage)]],
     })
 
   if (data.length === 0) return

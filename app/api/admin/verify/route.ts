@@ -1,14 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession } from "@/lib/server-auth"
-import {
-  updateAnnotationStatus,
-  getAnnotations,
-  getAppConfig,
-  finalDatasetHasId,
-  downloadCSVFile,
-  createFinalDatasetEntries,
-  updatePaymentFormulas,
-} from "@/lib/google-apis"
 import { z } from "zod"
 
 const AdminVerifySchema = z.object({
@@ -26,6 +17,17 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Dynamic import so that test mocks (vitest) always take effect regardless of import order
+    const {
+      updateAnnotationStatus,
+      getAnnotations,
+      getAppConfig,
+      downloadCSVFile,
+      updatePaymentFormulas,
+      finalDatasetHasId,
+      createFinalDatasetEntries,
+    } = await import("@/lib/google-apis")
 
     const body = await request.json()
     const { spreadsheetId, rowId, action, comments, invalidityReason } = AdminVerifySchema.parse(body)
@@ -48,7 +50,10 @@ export async function POST(request: NextRequest) {
           const csvFileId = cfg["CSV_FILE_ID"]
           if (finalSpreadsheetId) {
             const already = await finalDatasetHasId(session.accessToken, finalSpreadsheetId, annotation.rowId)
-            if (!already) {
+            if (already) {
+              // Skip creating dataset entries if they already exist (id or language variants)
+              console.info("Admin verify: final dataset already contains id, skipping append", annotation.rowId)
+            } else {
               let originalCsvData: string[] | undefined
               if (csvFileId) {
                 try {

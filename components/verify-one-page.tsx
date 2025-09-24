@@ -98,11 +98,55 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
           return
         }
       }
+      // Auto-detect unchanged edits: map to backend keys, compare with current values, only send changed fields
+      let contentUpdates: Record<string, any> | undefined = undefined
+      if (updates && Object.keys(updates).length > 0) {
+        const toBackend = (d: Record<string, any>) => {
+          const m: Record<string, any> = {}
+          if ("claims" in d) m.claimText = Array.isArray(d.claims) ? d.claims.join(" | ") : d.claims || ""
+          if ("verdict" in d) m.verdict = d.verdict
+          if ("claimLinks" in d) m.claimLinks = d.claimLinks
+          if ("translationHausa" in d) m.claim_text_ha = d.translationHausa
+          if ("translationYoruba" in d) m.claim_text_yo = d.translationYoruba
+          if ("articleBodyHausa" in d) m.article_body_ha = d.articleBodyHausa
+          if ("articleBodyYoruba" in d) m.article_body_yo = d.articleBodyYoruba
+          if ("translationLanguage" in d) m.translationLanguage = d.translationLanguage
+          // Intentionally ignore generic articleBody to avoid ambiguous mapping
+          return m
+        }
+        const normalize = (v: any) => {
+          if (v == null) return ""
+          if (Array.isArray(v)) return JSON.stringify(v.map(x => (typeof x === "string" ? x.trim() : x)))
+          if (typeof v === "string") return v.replace(/\s+/g, " ").trim()
+          return JSON.stringify(v)
+        }
+        const backendUpdates = toBackend(updates)
+        const current: Record<string, any> = {
+          claimText: item.claimText ?? "",
+          verdict: item.verdict ?? "",
+          claimLinks: item.claimLinks ?? [],
+          claim_text_ha: item.claim_text_ha ?? "",
+          claim_text_yo: item.claim_text_yo ?? "",
+          article_body_ha: item.article_body_ha ?? "",
+          article_body_yo: item.article_body_yo ?? "",
+          translationLanguage: item.translationLanguage ?? undefined,
+        }
+        const changedOnly: Record<string, any> = {}
+        for (const k of Object.keys(backendUpdates)) {
+          if (normalize(backendUpdates[k]) !== normalize(current[k])) {
+            changedOnly[k] = backendUpdates[k]
+          }
+        }
+        if (Object.keys(changedOnly).length > 0) {
+          contentUpdates = changedOnly
+        }
+      }
+
       const res = await verify({
         spreadsheetId,
         rowId: item.rowId,
         isApproved: true,
-        ...(updates ? { contentUpdates: updates } : {}),
+        ...(contentUpdates ? { contentUpdates } : {}),
         ...(updates?.qaComments ? { qaComments: updates.qaComments } : {}),
       })
       if ((res as any)?.success) {
@@ -350,7 +394,6 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               "translationYoruba",
               "articleBodyHausa",
               "articleBodyYoruba",
-              "articleBody",
               "qaComments",
               "translationLanguage",
             ] as const

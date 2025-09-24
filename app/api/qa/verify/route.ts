@@ -78,18 +78,27 @@ export async function POST(request: NextRequest) {
         translationLanguage: annotation.translationLanguage,
       }
       qaEditedSnapshot = { ...qaOriginalSnapshot, ...contentUpdates }
-      qaFieldDiff = {}
+      const tmpDiff: Record<string, { before: any; after: any }> = {}
       for (const key of Object.keys(contentUpdates)) {
         const beforeVal = (qaOriginalSnapshot as any)[key]
         const afterVal = (qaEditedSnapshot as any)[key]
         if (JSON.stringify(beforeVal) !== JSON.stringify(afterVal)) {
-          qaFieldDiff[key] = { before: beforeVal, after: afterVal }
+          tmpDiff[key] = { before: beforeVal, after: afterVal }
         }
       }
-      try {
-        await updateAnnotationContent(session!.accessToken, spreadsheetId, rowId, contentUpdates)
-      } catch (cuErr) {
-        console.warn("Content update failed:", cuErr)
+      // Only persist updates if we actually have differences
+      if (Object.keys(tmpDiff).length > 0) {
+        qaFieldDiff = tmpDiff
+        try {
+          await updateAnnotationContent(session!.accessToken, spreadsheetId, rowId, contentUpdates)
+        } catch (cuErr) {
+          console.warn("Content update failed:", cuErr)
+        }
+      } else {
+        // No real diffs; clear snapshots
+        qaOriginalSnapshot = null
+        qaEditedSnapshot = null
+        qaFieldDiff = null
       }
     }
 
@@ -114,7 +123,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Persist QA snapshot columns if we captured diffs (AA-AC). Avoid overwriting if already present.
-    if (qaOriginalSnapshot && qaEditedSnapshot && qaFieldDiff) {
+    if (qaOriginalSnapshot && qaEditedSnapshot && qaFieldDiff && Object.keys(qaFieldDiff).length > 0) {
       try {
         const { sheets } = initializeGoogleAPIs(session!.accessToken)
         const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:AD" })

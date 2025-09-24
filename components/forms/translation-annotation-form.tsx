@@ -21,7 +21,7 @@ interface TranslationAnnotationFormProps {
   onCancel: () => void
 }
 
-function TranslationAnnotationFormContent({ user }: { user: User }) {
+function TranslationAnnotationFormContent({ user, task }: { user: User; task: AnnotationTask }) {
   const {
     watch,
     setValue,
@@ -65,6 +65,18 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
           value={watchedValues.claims[0] || ""}
           disabled
           className="min-h-[80px] mt-2 bg-slate-50 dark:bg-slate-800"
+        />
+      </div>
+
+      {/* Original Article Body (Read-only) */}
+      <div>
+        <Label className="text-base font-medium text-slate-900 dark:text-slate-100">
+          Original Article Body (English)
+        </Label>
+        <Textarea
+          value={(task.csvRow.data[9] || "").trim()}
+          disabled
+          className="min-h-[140px] mt-2 bg-slate-50 dark:bg-slate-800 whitespace-pre-wrap"
         />
       </div>
 
@@ -340,7 +352,7 @@ function TranslationAnnotationFormContent({ user }: { user: User }) {
 export function TranslationAnnotationForm({ task, user, onComplete, onCancel }: TranslationAnnotationFormProps) {
   return (
     <BaseAnnotationForm task={task} user={user} onComplete={onComplete} onCancel={onCancel} mode="translation">
-      <TranslationAnnotationFormContent user={user} />
+      <TranslationAnnotationFormContent user={user} task={task} />
     </BaseAnnotationForm>
   )
 }

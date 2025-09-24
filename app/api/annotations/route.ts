@@ -85,6 +85,17 @@ export async function POST(request: NextRequest) {
     try {
       const existing = await getAnnotations(session!.accessToken, spreadsheetId)
       const newRowId = (annotation.rowId || "").trim()
+      const newOriginalLang = (annotation.originalLanguage || "").trim().toLowerCase()
+      // Infer target translation language for this submission (if any)
+      const newLang: "ha" | "yo" | undefined = ((): any => {
+        const tl = (annotation.translationLanguage || "").toString().trim().toLowerCase()
+        if (tl === "ha" || tl === "yo") return tl
+        // Heuristic fallbacks if translationLanguage not explicitly set
+        if (annotation.claim_text_ha || annotation.article_body_ha) return "ha"
+        if (annotation.claim_text_yo || annotation.article_body_yo) return "yo"
+        return undefined
+      })()
+
       // Build a set of normalized links for the new annotation
       const newLinks = new Set<string>()
       ;[annotation.sourceUrl || "", ...(annotation.sourceLinks || []), ...(annotation.claimLinks || [])]
@@ -92,15 +103,46 @@ export async function POST(request: NextRequest) {
         .filter(Boolean)
         .forEach(l => newLinks.add(l))
 
-      // Check for duplicates
+      // Check for duplicates with per-language allowance for EN source tasks
       const dup = existing.find((row: AnnotationRow) => {
-        if (newRowId && (row.rowId || "").trim() === newRowId) return true
+        const rowId = (row.rowId || "").trim()
+        const sameRow = newRowId && rowId === newRowId
+        if (sameRow) {
+          const rowOrig = (row.originalLanguage || "").trim().toLowerCase()
+          const isEnglishTask = (newOriginalLang || rowOrig) === "en" || (newOriginalLang || rowOrig) === "english"
+          if (isEnglishTask) {
+            // Allow multiple entries for the same Row ID as long as they target different languages
+            if (newLang === "ha") {
+              const rowHasHA = Boolean(
+                (row.translator_ha_id && row.translator_ha_id.trim()) ||
+                  row.claim_text_ha ||
+                  row.article_body_ha ||
+                  row.translationLanguage === "ha",
+              )
+              return rowHasHA // duplicate only if HA already recorded for this Row ID
+            }
+            if (newLang === "yo") {
+              const rowHasYO = Boolean(
+                (row.translator_yo_id && row.translator_yo_id.trim()) ||
+                  row.claim_text_yo ||
+                  row.article_body_yo ||
+                  row.translationLanguage === "yo",
+              )
+              return rowHasYO // duplicate only if YO already recorded for this Row ID
+            }
+            // If we can't determine the target language, be conservative and treat as duplicate
+            return true
+          }
+          // Non-EN original tasks: keep strict single entry per Row ID
+          return true
+        }
+
+        // For different Row IDs, treat overlapping links as duplicates (original behavior)
         const rowLinks = new Set<string>()
         ;[row.sourceUrl || "", ...(row.sourceLinks || []), ...(row.claimLinks || [])]
           .map(normalize)
           .filter(Boolean)
           .forEach(l => rowLinks.add(l))
-        // any intersection?
         for (const l of newLinks) if (rowLinks.has(l)) return true
         return false
       })
@@ -110,7 +152,7 @@ export async function POST(request: NextRequest) {
           {
             error: "Duplicate annotation",
             details:
-              "An annotation with the same Row ID or overlapping source links already exists. Please refresh the page before submitting.",
+              "An annotation with the same Row ID or overlapping source links already exists for this language. For English tasks, only one HA and one YO entry are allowed per Row ID.",
           },
           { status: 409 },
         )

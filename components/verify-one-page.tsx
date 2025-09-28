@@ -434,13 +434,19 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
                   let diff: Record<string, { before: any; after: any }> = {}
                   try {
                     original = item.qaOriginalSnapshot ? JSON.parse(item.qaOriginalSnapshot) : {}
-                  } catch {}
+                  } catch (err) {
+                    console.error("Failed to parse qaOriginalSnapshot JSON:", err, item.qaOriginalSnapshot);
+                  }
                   try {
                     edited = item.qaEditedSnapshot ? JSON.parse(item.qaEditedSnapshot) : {}
-                  } catch {}
+                  } catch (err) {
+                    console.error("Failed to parse qaEditedSnapshot JSON:", err, item.qaEditedSnapshot);
+                  }
                   try {
                     diff = item.qaFieldDiff ? JSON.parse(item.qaFieldDiff) : {}
-                  } catch {}
+                  } catch (err) {
+                    console.error("Failed to parse qaFieldDiff JSON:", err, item.qaFieldDiff);
+                  }
                   const changedKeys = Object.keys(diff)
                   if (changedKeys.length === 0) {
                     return <p className="text-sm text-muted-foreground">No captured field differences.</p>

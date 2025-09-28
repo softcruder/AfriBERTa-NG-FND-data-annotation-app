@@ -1,7 +1,7 @@
 import { useState } from "react"
 import useSWR, { type SWRConfiguration, type Key } from "swr"
 import requestService, { ExtendedAxiosRequestConfig, httpEvents } from "@/services/httpService"
-import { AxiosRequestConfig, AxiosResponse } from "axios"
+import { AxiosResponse } from "axios"
 
 export function useRequest<T = any, E = any>() {
   const [loading, setLoading] = useState<boolean>(false)
@@ -74,7 +74,10 @@ async function swrFetcher<T = any>(url: string): Promise<T> {
     } catch {
       // ignore body parse errors
     }
-    const err = new Error(`SWR GET ${fullUrl} failed: ${res.status}`)
+    const summary = typeof (details as any)?.error === "string" ? (details as any).error : undefined
+    const extra = (details as any)?.details || (details as any)?.issues || (details as any)?.message
+    const suffix = summary ? `: ${summary}` : ""
+    const err = new Error(`SWR GET ${fullUrl} failed: ${res.status}${suffix}`)
     ;(err as any).status = res.status
     ;(err as any).details = details
     throw err

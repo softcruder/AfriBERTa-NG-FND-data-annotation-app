@@ -9,6 +9,7 @@ import {
   downloadCSVFile,
   updatePaymentFormulas,
   finalDatasetHasId,
+  initializeGoogleAPIs,
 } from "@/lib/google-apis"
 import { enforceRateLimit } from "@/lib/rate-limit"
 
@@ -55,12 +56,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Diff tracking structures
+    let qaOriginalSnapshot: any = null
+    let qaEditedSnapshot: any = null
+    let qaFieldDiff: Record<string, { before: any; after: any }> | null = null
+
     // Apply content edits if provided (allowed for peer QA only if not self and if status not yet qa-approved)
     if (contentUpdates && Object.keys(contentUpdates).length > 0) {
-      try {
-        await updateAnnotationContent(session!.accessToken, spreadsheetId, rowId, contentUpdates)
-      } catch (cuErr) {
-        console.warn("Content update failed:", cuErr)
+      // Build original snapshot before persisting edits
+      qaOriginalSnapshot = {
+        claimText: annotation.claimText,
+        sourceLinks: annotation.sourceLinks,
+        translation: annotation.translation,
+        verdict: annotation.verdict,
+        sourceUrl: annotation.sourceUrl,
+        claimLinks: annotation.claimLinks,
+        claim_text_ha: annotation.claim_text_ha,
+        claim_text_yo: annotation.claim_text_yo,
+        article_body_ha: annotation.article_body_ha,
+        article_body_yo: annotation.article_body_yo,
+        translationLanguage: annotation.translationLanguage,
+      }
+      qaEditedSnapshot = { ...qaOriginalSnapshot, ...contentUpdates }
+      const tmpDiff: Record<string, { before: any; after: any }> = {}
+      for (const key of Object.keys(contentUpdates)) {
+        const beforeVal = (qaOriginalSnapshot as any)[key]
+        const afterVal = (qaEditedSnapshot as any)[key]
+        if (JSON.stringify(beforeVal) !== JSON.stringify(afterVal)) {
+          tmpDiff[key] = { before: beforeVal, after: afterVal }
+        }
+      }
+      // Only persist updates if we actually have differences
+      if (Object.keys(tmpDiff).length > 0) {
+        qaFieldDiff = tmpDiff
+        try {
+          await updateAnnotationContent(session!.accessToken, spreadsheetId, rowId, contentUpdates)
+        } catch (cuErr) {
+          console.warn("Content update failed:", cuErr)
+        }
+      } else {
+        // No real diffs; clear snapshots
+        qaOriginalSnapshot = null
+        qaEditedSnapshot = null
+        qaFieldDiff = null
       }
     }
 
@@ -83,6 +121,36 @@ export async function POST(request: NextRequest) {
       verifiedBy: session!.user.email,
       qaComments: qaComments || "",
     })
+
+    // Persist QA snapshot columns if we captured diffs (AA-AC). Avoid overwriting if already present.
+    if (qaOriginalSnapshot && qaEditedSnapshot && qaFieldDiff && Object.keys(qaFieldDiff).length > 0) {
+      try {
+        const { sheets } = initializeGoogleAPIs(session!.accessToken)
+        const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Annotations_Log!A2:AD" })
+        const rows = res.data.values || []
+        const idx = rows.findIndex(r => (r[0] || "") === rowId)
+        if (idx !== -1) {
+          const row = rows[idx]
+          // If snapshot columns already filled, skip (avoid double logging on re-approve)
+          if (!row[26] && !row[27] && !row[28]) {
+            const rowNum = idx + 2
+            await sheets.spreadsheets.values.batchUpdate({
+              spreadsheetId,
+              requestBody: {
+                valueInputOption: "RAW",
+                data: [
+                  { range: `Annotations_Log!AA${rowNum}:AA${rowNum}`, values: [[JSON.stringify(qaOriginalSnapshot)]] },
+                  { range: `Annotations_Log!AB${rowNum}:AB${rowNum}`, values: [[JSON.stringify(qaEditedSnapshot)]] },
+                  { range: `Annotations_Log!AC${rowNum}:AC${rowNum}`, values: [[JSON.stringify(qaFieldDiff)]] },
+                ],
+              },
+            })
+          }
+        }
+      } catch (snapshotErr) {
+        console.warn("QA snapshot persistence failed", snapshotErr)
+      }
+    }
 
     // Refresh annotation object if needed for dataset creation
     let freshAnnotation = annotation
@@ -126,7 +194,12 @@ export async function POST(request: NextRequest) {
       console.warn("Failed to update payment formulas after QA:", paymentError)
     }
 
-    return NextResponse.json({ success: true, status: newStatus, finalized })
+    return NextResponse.json({
+      success: true,
+      status: newStatus,
+      finalized,
+      diffCount: qaFieldDiff ? Object.keys(qaFieldDiff).length : 0,
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: "Verification failed", details: message }, { status: 500 })

@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useErrorHandler } from "@/hooks/use-error-handler"
 import { ErrorAlert } from "@/components/ui/error-alert"
 import { AnnotationMapper } from "@/lib/annotation-mapper"
-import { CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { CheckCircle, XCircle, AlertTriangle, GitCompare } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -98,11 +98,57 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
           return
         }
       }
+      // Auto-detect unchanged edits: map to backend keys, compare with current values, only send changed fields
+      let contentUpdates: Record<string, any> | undefined = undefined
+      if (updates && Object.keys(updates).length > 0) {
+        const toBackend = (d: Record<string, any>) => {
+          const m: Record<string, any> = {}
+          if ("claims" in d) m.claimText = Array.isArray(d.claims) ? d.claims.join(" | ") : d.claims || ""
+          if ("verdict" in d) m.verdict = d.verdict
+          if ("claimLinks" in d) m.claimLinks = d.claimLinks
+          if ("translationHausa" in d) m.claim_text_ha = d.translationHausa
+          if ("translationYoruba" in d) m.claim_text_yo = d.translationYoruba
+          if ("articleBodyHausa" in d) m.article_body_ha = d.articleBodyHausa
+          if ("articleBodyYoruba" in d) m.article_body_yo = d.articleBodyYoruba
+          if ("translationLanguage" in d) m.translationLanguage = d.translationLanguage
+          // Intentionally ignore generic articleBody to avoid ambiguous mapping
+          return m
+        }
+        const normalize = (v: any) => {
+          if (v == null) return ""
+          if (Array.isArray(v)) return JSON.stringify(v.map(x => (typeof x === "string" ? x.trim() : x)))
+          if (typeof v === "string") return v.replace(/\s+/g, " ").trim()
+          return JSON.stringify(v)
+        }
+        const backendUpdates = toBackend(updates)
+        const current: Record<string, any> = {
+          claimText: item.claimText ?? "",
+          verdict: item.verdict ?? "",
+          claimLinks: item.claimLinks ?? [],
+          claim_text_ha: item.claim_text_ha ?? "",
+          claim_text_yo: item.claim_text_yo ?? "",
+          article_body_ha: item.article_body_ha ?? "",
+          article_body_yo: item.article_body_yo ?? "",
+          translationLanguage: item.translationLanguage ?? undefined,
+        }
+        const changedOnly: Record<string, any> = {}
+        for (const k of Object.keys(backendUpdates)) {
+          if (normalize(backendUpdates[k]) !== normalize(current[k])) {
+            changedOnly[k] = backendUpdates[k]
+          }
+        }
+        if (Object.keys(changedOnly).length > 0) {
+          contentUpdates = changedOnly
+        }
+      }
+
       const res = await verify({
         spreadsheetId,
         rowId: item.rowId,
-        ...(updates ? { contentUpdates: updates } : {}),
-      } as any)
+        isApproved: true,
+        ...(contentUpdates ? { contentUpdates } : {}),
+        ...(updates?.qaComments ? { qaComments: updates.qaComments } : {}),
+      })
       if ((res as any)?.success) {
         toast({
           title: "Approved",
@@ -243,6 +289,22 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
             Quality Assurance Review {statusBadge()}
+            {user?.role === "admin" &&
+              item.qaFieldDiff &&
+              (() => {
+                try {
+                  const diffObj = JSON.parse(item.qaFieldDiff || "{}")
+                  const count = Object.keys(diffObj || {}).length
+                  if (!count) return null
+                  return (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      {count} change{count !== 1 && "s"}
+                    </span>
+                  )
+                } catch {
+                  return null
+                }
+              })()}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Row ID: {item?.rowId}</p>
         </div>
@@ -332,7 +394,6 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
               "translationYoruba",
               "articleBodyHausa",
               "articleBodyYoruba",
-              "articleBody",
               "qaComments",
               "translationLanguage",
             ] as const
@@ -358,6 +419,96 @@ export function VerifyOnePage({ id }: VerifyOnePageProps) {
 
       {!isEditing && task && (
         <div className="space-y-6">
+          {user?.role === "admin" && (item.qaOriginalSnapshot || item.qaEditedSnapshot || item.qaFieldDiff) && (
+            <Card className="border-purple-300/60 dark:border-purple-800/60">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                  <GitCompare className="h-5 w-5" /> QA Edit Comparison
+                </CardTitle>
+                <CardDescription>Changes introduced during peer QA review before admin decision.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(() => {
+                  let original: any = {}
+                  let edited: any = {}
+                  let diff: Record<string, { before: any; after: any }> = {}
+                  try {
+                    original = item.qaOriginalSnapshot ? JSON.parse(item.qaOriginalSnapshot) : {}
+                  } catch (err) {
+                    console.error("Failed to parse qaOriginalSnapshot JSON:", err, item.qaOriginalSnapshot);
+                  }
+                  try {
+                    edited = item.qaEditedSnapshot ? JSON.parse(item.qaEditedSnapshot) : {}
+                  } catch (err) {
+                    console.error("Failed to parse qaEditedSnapshot JSON:", err, item.qaEditedSnapshot);
+                  }
+                  try {
+                    diff = item.qaFieldDiff ? JSON.parse(item.qaFieldDiff) : {}
+                  } catch (err) {
+                    console.error("Failed to parse qaFieldDiff JSON:", err, item.qaFieldDiff);
+                  }
+                  const changedKeys = Object.keys(diff)
+                  if (changedKeys.length === 0) {
+                    return <p className="text-sm text-muted-foreground">No captured field differences.</p>
+                  }
+                  return (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-md">
+                        <thead className="bg-slate-50 dark:bg-slate-800/50">
+                          <tr>
+                            <th className="text-left p-2 font-medium">Field</th>
+                            <th className="text-left p-2 font-medium">Before</th>
+                            <th className="text-left p-2 font-medium">After (QA)</th>
+                            <th className="text-left p-2 font-medium">Current</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {changedKeys.map(k => {
+                            const before = diff[k]?.before ?? original[k]
+                            const after = diff[k]?.after ?? edited[k]
+                            // Map current item fields naming differences
+                            const currentMap: Record<string, any> = {
+                              claimText: item.claimText,
+                              sourceLinks: (item.sourceLinks || []).join("; "),
+                              translation: item.translation,
+                              verdict: item.verdict,
+                              sourceUrl: item.sourceUrl,
+                              claimLinks: (item.claimLinks || []).join("; "),
+                              claim_text_ha: item.claim_text_ha,
+                              claim_text_yo: item.claim_text_yo,
+                              article_body_ha: item.article_body_ha,
+                              article_body_yo: item.article_body_yo,
+                              translationLanguage: item.translationLanguage,
+                            }
+                            const currentVal = currentMap[k]
+                            return (
+                              <tr key={k} className="border-t border-slate-200 dark:border-slate-700 align-top">
+                                <td className="p-2 font-medium whitespace-nowrap text-slate-700 dark:text-slate-300">
+                                  {k}
+                                </td>
+                                <td className="p-2 text-slate-600 dark:text-slate-400 max-w-xs break-words">
+                                  {String(before ?? "")}
+                                </td>
+                                <td className="p-2 text-slate-600 dark:text-slate-400 max-w-xs break-words bg-amber-50 dark:bg-amber-900/30">
+                                  {String(after ?? "")}
+                                </td>
+                                <td className="p-2 text-slate-600 dark:text-slate-400 max-w-xs break-words bg-blue-50 dark:bg-blue-900/30">
+                                  {String(currentVal ?? "")}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Showing {changedKeys.length} changed field{changedKeys.length !== 1 && "s"} captured at QA.
+                      </p>
+                    </div>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+          )}
           <Dialog open={showInvalidModal} onOpenChange={setShowInvalidModal}>
             <DialogContent>
               <DialogHeader>
